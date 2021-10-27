@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE suppressions PUBLIC
+        "-//Puppy Crawl//DTD Suppressions 1.1//EN"
+        "http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
+
+<suppressions>
+
+    <!-- switch statements on types exceed maximum complexity -->
+    <suppress
+            checks="(CyclomaticComplexity)"
+            files="(JestOpensearchClient|Mapping|JestOpensearchClient).java"
+    />
+
+    <!-- TODO: Undecided if this is too much -->
+    <suppress
+            checks="(ClassDataAbstractionCoupling)"
+            files="(BulkProcessor|JestOpensearchClient).java"
+    />
+
+    <!-- TODO: Pass some parameters in common config object? -->
+    <suppress
+            checks="(ParameterNumber)"
+            files="(OpensearchWriter).java"
+    />
+
+    <suppress
+        checks="(ClassFanOutComplexity)" files="(JestOpensearchClient|JestOpensearchClientTest).java"
+    />
+
+</suppressions>
