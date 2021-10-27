@@ -2,9 +2,9 @@
 
 [![Build Status](https://travis-ci.org/aiven/aiven-kafka-connect-Opensearch.svg?branch=master)](https://travis-ci.org/aiven/aiven-kafka-connect-elasticsearch)
 
-This repository includes a Aiven's [Kafka Connect](http://kafka.apache.org/documentation.html#connect) connector for Opensearch.
+This repository includes Aiven's [Kafka Connect](http://kafka.apache.org/documentation.html#connect) connector for Opensearch.
 
-The project originates from Confluent [kafka-connect-opensearch](https://github.com/confluentinc/kafka-connect-elasticsearch). The code was forked before the change of the project's license. We want to thank the Confluent team for their efforts in developing the connector and aim to continue keeping this fork well-maintained and truly open.
+The project originates from Aiven's [kafka-connect-elasticsearch](https://github.com/aiven/aiven-kafka-connect-elasticsearch). The code was forked and all classes were renamed.
 
 # Documentation
 
