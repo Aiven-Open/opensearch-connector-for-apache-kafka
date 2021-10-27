@@ -4,11 +4,11 @@
 
 This repository includes Aiven's [Kafka Connect](http://kafka.apache.org/documentation.html#connect) connector for Opensearch.
 
-The project originates from Aiven's [kafka-connect-elasticsearch](https://github.com/aiven/aiven-kafka-connect-elasticsearch). The code was forked and all classes were renamed.
+The project originates from Aiven's [aiven-kafka-connect-elasticsearch](https://github.com/aiven/aiven-kafka-connect-elasticsearch). The code was forked and all classes were renamed.
 
 # Documentation
 
-TBD
+[Opensearch Sink Connector Configuration Options](docs/opensearch-sink-connector-config-options.rst)
 
 # Contribute
 
