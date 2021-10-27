@@ -20,18 +20,19 @@ package io.aiven.connect.opensearch;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class OpensearchSinkConnectorConfigTest {
 
     private Map<String, String> props;
 
-    @Before
+    @BeforeEach
     public void setup() {
         props = new HashMap<>();
-        props.put(OpensearchSinkConnectorConfig.TYPE_NAME_CONFIG, OpensearchSinkTestBase.TYPE);
+        props.put(OpensearchSinkConnectorConfig.TYPE_NAME_CONFIG, "some_type");
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "localhost");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true");
     }
@@ -39,11 +40,11 @@ public class OpensearchSinkConnectorConfigTest {
     @Test
     public void testDefaultHttpTimeoutsConfig() {
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        Assert.assertEquals(
+        assertEquals(
             config.getInt(OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG),
             (Integer) 3000
         );
-        Assert.assertEquals(
+        assertEquals(
             config.getInt(OpensearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG),
             (Integer) 1000
         );
@@ -54,11 +55,11 @@ public class OpensearchSinkConnectorConfigTest {
         props.put(OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG, "10000");
         props.put(OpensearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG, "15000");
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        Assert.assertEquals(
+        assertEquals(
             config.getInt(OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG),
             (Integer) 10000
         );
-        Assert.assertEquals(
+        assertEquals(
             config.getInt(OpensearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG),
             (Integer) 15000
         );
