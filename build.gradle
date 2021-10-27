@@ -138,3 +138,19 @@ dependencies {
     testImplementation "org.apache.lucene:lucene-expressions:$luceneVersion"
     testRuntime "org.slf4j:slf4j-log4j12:$slf4jVersion"
 }
+
+task connectorConfigDoc {
+    description = "Generates the connector's configuration documentation."
+    group = "documentation"
+    dependsOn "classes"
+
+    doLast {
+        javaexec {
+            main = "io.aiven.connect.opensearch.OpensearchSinkConnectorConfig"
+            classpath = sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
+            standardOutput = new FileOutputStream("$projectDir/docs/opensearch-sink-connector-config-options.rst")
+        }
+    }
+}
+
+test.onlyIf { false }
