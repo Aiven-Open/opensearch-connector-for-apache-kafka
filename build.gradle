@@ -1,0 +1,140 @@
+/*
+ * Copyright 2019 - 2021 Aiven Oy
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+
+    // https://docs.gradle.org/current/userguide/java_library_plugin.html
+    id "java-library"
+
+    // https://docs.gradle.org/current/userguide/checkstyle_plugin.html
+    id "checkstyle"
+
+    // https://docs.gradle.org/current/userguide/jacoco_plugin.html
+    id "jacoco"
+
+    // https://docs.gradle.org/current/userguide/distribution_plugin.html
+    id "distribution"
+
+    // https://docs.gradle.org/current/userguide/publishing_maven.html
+    id "maven-publish"
+
+}
+
+repositories {
+    jcenter()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+compileJava {
+    options.compilerArgs = ['-Xlint:all', '-Werror']
+}
+
+checkstyle {
+    toolVersion "9.0.1"
+    configDir rootProject.file("checkstyle/")
+}
+
+jacoco {
+    toolVersion = "0.8.7"
+}
+
+distributions {
+    main {
+        contents {
+            from jar
+            from configurations.runtimeClasspath
+
+            into("/") {
+                from projectDir
+                include "version.txt", "README*", "LICENSE*", "NOTICE*", "licenses/"
+                include "config/"
+            }
+        }
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            // Defaults, for clarity
+            groupId = getGroup()
+            artifactId = getName()
+            version = getVersion()
+
+            pom {
+                name = "Aiven's Opensearch Connector for Apache Kafka"
+                description = "Aiven's Opensearch Connector for Apache Kafka"
+                url = "https://aiven.io"
+                organization {
+                    name = "Aiven Oy"
+                    url = "https://aiven.io"
+                }
+                licenses {
+                    license {
+                        name = "Apache License 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.html"
+                        distribution = "repo"
+
+                    }
+                }
+                scm {
+                    connection = "scm:git:git://github.com/aiven/aiven-kafka-connect-opensearch.git"
+                    developerConnection = "scm:git:git@github.com:aiven/aiven-kafka-connect-opensearch.git"
+                    url = "https://github.com/aiven/aiven-kafka-connect-opensearch.git"
+                    tag = "HEAD"
+                }
+            }
+        }
+    }
+}
+
+ext {
+    kafkaVersion = "2.2.0"
+    slf4jVersion = "1.7.32"
+    openSearchVersion = "1.0.0"
+    luceneVersion = "8.8.2"  // this is the version in OS
+}
+
+processResources {
+    filesMatching('aiven-kafka-connect-opensearch-version.properties') {
+        expand(version: version)
+    }
+}
+
+dependencies {
+    compileOnly "org.apache.kafka:connect-api:$kafkaVersion"
+    compileOnly "org.apache.kafka:connect-json:$kafkaVersion"
+
+    implementation "org.slf4j:slf4j-api:$slf4jVersion"
+    implementation "com.google.code.gson:gson:2.8.8"
+    implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
+
+    testCompileOnly "org.mockito:mockito-core:3.12.4"
+
+    testImplementation "org.apache.kafka:connect-api:$kafkaVersion"
+    testImplementation "org.apache.kafka:connect-json:$kafkaVersion"
+    testImplementation "com.fasterxml.jackson.core:jackson-core:2.11.4"
+    testImplementation "com.fasterxml.jackson.core:jackson-databind:2.11.4"
+    testImplementation "com.fasterxml.jackson.core:jackson-annotations:2.11.4"
+    testImplementation "org.opensearch:opensearch:$openSearchVersion"
+    testImplementation "org.opensearch.test:framework:$openSearchVersion"
+    testImplementation "org.apache.lucene:lucene-expressions:$luceneVersion"
+    testRuntime "org.slf4j:slf4j-log4j12:$slf4jVersion"
+}
