@@ -18,12 +18,10 @@
 package io.aiven.kafka.connect.opensearch;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
@@ -39,7 +37,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class DataConverterTest {
 
@@ -118,7 +116,7 @@ public class DataConverterTest {
             converter.preProcessSchema(Decimal.builder(2).optional().build())
         );
 
-        // defval
+        // default
         assertEquals(
             SchemaBuilder.float64().defaultValue(0.00).build(),
             converter.preProcessSchema(Decimal.builder(2).defaultValue(new BigDecimal("0.00")).build())
@@ -132,11 +130,9 @@ public class DataConverterTest {
         assertEquals(SchemaBuilder.array(Schema.FLOAT64_SCHEMA).build(), preProcessedSchema);
 
         assertEquals(
-            Arrays.asList(0.02, 0.42),
+            List.of(0.02, 0.42),
             converter.preProcessValue(
-                Arrays.asList(
-                    new BigDecimal("0.02"), new BigDecimal("0.42")
-                ),
+                List.of(new BigDecimal("0.02"), new BigDecimal("0.42")),
                 origSchema,
                 preProcessedSchema
             )
@@ -148,7 +144,7 @@ public class DataConverterTest {
             converter.preProcessSchema(SchemaBuilder.array(Decimal.schema(2)).optional().build())
         );
 
-        // defval
+        // default value
         assertEquals(
             SchemaBuilder.array(preProcessedSchema.valueSchema()).defaultValue(Collections.emptyList()).build(),
             converter.preProcessSchema(
@@ -165,27 +161,23 @@ public class DataConverterTest {
         assertEquals(
             SchemaBuilder.array(
                 SchemaBuilder.struct().name(Schema.INT32_SCHEMA.type().name() + "-" + Decimal.LOGICAL_NAME)
-                    .field(OpensearchSinkConnectorConstants.MAP_KEY, Schema.INT32_SCHEMA)
-                    .field(OpensearchSinkConnectorConstants.MAP_VALUE, Schema.FLOAT64_SCHEMA)
+                    .field(Mapping.KEY_FIELD, Schema.INT32_SCHEMA)
+                    .field(Mapping.VALUE_FIELD, Schema.FLOAT64_SCHEMA)
                     .build()
             ).build(),
             preProcessedSchema
         );
 
-        final Map<Object, Object> origValue = new HashMap<>();
-        origValue.put(1, new BigDecimal("0.02"));
-        origValue.put(2, new BigDecimal("0.42"));
+        final Map<Object, Object> origValue = Map.of(1, new BigDecimal("0.02"), 2, new BigDecimal("0.42"));
         assertEquals(
-            new HashSet<>(Arrays.asList(
-                new Struct(preProcessedSchema.valueSchema())
-                    .put(OpensearchSinkConnectorConstants.MAP_KEY, 1)
-                    .put(OpensearchSinkConnectorConstants.MAP_VALUE, 0.02),
-                new Struct(preProcessedSchema.valueSchema())
-                    .put(OpensearchSinkConnectorConstants.MAP_KEY, 2)
-                    .put(OpensearchSinkConnectorConstants.MAP_VALUE, 0.42)
-            )),
-            new HashSet<>((List<?>) converter.preProcessValue(origValue, origSchema, preProcessedSchema))
-        );
+            Set.of(
+                    new Struct(preProcessedSchema.valueSchema())
+                            .put(Mapping.KEY_FIELD, 1)
+                            .put(Mapping.VALUE_FIELD, 0.02),
+                    new Struct(preProcessedSchema.valueSchema())
+                            .put(Mapping.KEY_FIELD, 2)
+                            .put(Mapping.VALUE_FIELD, 0.42)),
+            Set.copyOf((List<?>) converter.preProcessValue(origValue, origSchema, preProcessedSchema)));
 
         // optional
         assertEquals(
@@ -193,7 +185,7 @@ public class DataConverterTest {
             converter.preProcessSchema(SchemaBuilder.map(Schema.INT32_SCHEMA, Decimal.schema(2)).optional().build())
         );
 
-        // defval
+        // default value
         assertEquals(
             SchemaBuilder.array(
                 preProcessedSchema.valueSchema())
@@ -211,9 +203,7 @@ public class DataConverterTest {
     public void stringKeyedMapNonCompactFormat() {
         final Schema origSchema = SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build();
 
-        final Map<Object, Object> origValue = new HashMap<>();
-        origValue.put("field1", 1);
-        origValue.put("field2", 2);
+        final Map<Object, Object> origValue = Map.of("field1", 1, "field2", 2);
 
         // Use the older non-compact format for map entries with string keys
         converter = new DataConverter(false, DataConverter.BehaviorOnNullValues.DEFAULT);
@@ -225,22 +215,22 @@ public class DataConverterTest {
                     Schema.STRING_SCHEMA.type().name()
                         + "-"
                         + Schema.INT32_SCHEMA.type().name()
-                ).field(OpensearchSinkConnectorConstants.MAP_KEY, Schema.STRING_SCHEMA)
-                 .field(OpensearchSinkConnectorConstants.MAP_VALUE, Schema.INT32_SCHEMA)
+                ).field(Mapping.KEY_FIELD, Schema.STRING_SCHEMA)
+                 .field(Mapping.VALUE_FIELD, Schema.INT32_SCHEMA)
                  .build()
             ).build(),
             preProcessedSchema
         );
         assertEquals(
-            new HashSet<>(Arrays.asList(
+            Set.of(
                 new Struct(preProcessedSchema.valueSchema())
-                    .put(OpensearchSinkConnectorConstants.MAP_KEY, "field1")
-                    .put(OpensearchSinkConnectorConstants.MAP_VALUE, 1),
+                    .put(Mapping.KEY_FIELD, "field1")
+                    .put(Mapping.VALUE_FIELD, 1),
                 new Struct(preProcessedSchema.valueSchema())
-                    .put(OpensearchSinkConnectorConstants.MAP_KEY, "field2")
-                    .put(OpensearchSinkConnectorConstants.MAP_VALUE, 2)
-            )),
-            new HashSet<>((List<?>) converter.preProcessValue(origValue, origSchema, preProcessedSchema))
+                    .put(Mapping.KEY_FIELD, "field2")
+                    .put(Mapping.VALUE_FIELD, 2)
+            ),
+            Set.copyOf((List<?>) converter.preProcessValue(origValue, origSchema, preProcessedSchema))
         );
     }
 
@@ -248,9 +238,7 @@ public class DataConverterTest {
     public void stringKeyedMapCompactFormat() {
         final Schema origSchema = SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build();
 
-        final Map<Object, Object> origValue = new HashMap<>();
-        origValue.put("field1", 1);
-        origValue.put("field2", 2);
+        final Map<Object, Object> origValue = Map.of("field1", 1, "field2", 2);
 
         // Use the newer compact format for map entries with string keys
         converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DEFAULT);
@@ -259,7 +247,7 @@ public class DataConverterTest {
             SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build(),
             preProcessedSchema
         );
-        final HashMap<?, ?> newValue = (HashMap<?, ?>)
+        final Map<?, ?> newValue = (Map<?, ?>)
             converter.preProcessValue(origValue, origSchema, preProcessedSchema);
         assertEquals(origValue, newValue);
     }
@@ -357,13 +345,9 @@ public class DataConverterTest {
         converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.FAIL);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
-        //FIXME asdsadasd
-        try {
-            converter.convertRecord(sinkRecord, index, type, false, false);
-            fail("should fail on null-valued record with behaviorOnNullValues = FAIL");
-        } catch (final DataException e) {
-            // expected
-        }
+        assertThrows(
+                DataException.class,
+                () -> converter.convertRecord(sinkRecord, index, type, false, false));
     }
 
     public SinkRecord createSinkRecordWithValue(final Object value) {

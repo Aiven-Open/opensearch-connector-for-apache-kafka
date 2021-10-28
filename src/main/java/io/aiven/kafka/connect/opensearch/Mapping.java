@@ -18,216 +18,218 @@
 package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.util.Objects;
 
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
-import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Time;
 import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.gson.JsonObject;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
 
 public class Mapping {
 
-    /**
-     * Create an explicit mapping.
-     *
-     * @param client The client to connect to Elasticsearch.
-     * @param index  The index to write to Elasticsearch.
-     * @param type   The type to create mapping for.
-     * @param schema The schema used to infer mapping.
-     * @throws IOException from underlying JestClient
-     */
-    public static void createMapping(
-        final OpensearchClient client,
-        final String index,
-        final String type,
-        final Schema schema
-    ) throws IOException {
-        client.createMapping(index, type, schema);
+    public static final String BOOLEAN_TYPE = "boolean";
+
+    public static final String BYTE_TYPE = "byte";
+
+    public static final String BINARY_TYPE = "binary";
+
+    public static final String SHORT_TYPE = "short";
+
+    public static final String INTEGER_TYPE = "integer";
+
+    public static final String LONG_TYPE = "long";
+
+    public static final String FLOAT_TYPE = "float";
+
+    public static final String DOUBLE_TYPE = "double";
+
+    public static final String STRING_TYPE = "string";
+
+    public static final String TEXT_TYPE = "text";
+
+    public static final String KEYWORD_TYPE = "keyword";
+
+    public static final String DATE_TYPE = "date";
+
+    private static final String DEFAULT_VALUE_FIELD = "null_value";
+
+    private static final String FIELDS_FIELD = "fields";
+
+    private static final String IGNORE_ABOVE_FIELD = "ignore_above";
+
+    public static final String KEY_FIELD = "key";
+
+    private static final String KEYWORD_FIELD = "keyword";
+
+    private static final String PROPERTIES_FIELD = "properties";
+
+    private static final String TYPE_FIELD = "type";
+
+    public static final String VALUE_FIELD = "value";
+
+    public static XContentBuilder buildMappingFor(final Schema schema) {
+        if (Objects.isNull(schema)) {
+            throw new DataException("Cannot convert schema to mapping without schema");
+        }
+        try {
+            final var builder = XContentFactory.jsonBuilder();
+            builder.startObject();
+            buildMapping(schema, builder);
+            builder.endObject();
+            return builder;
+        } catch (final IOException e) {
+            throw new ConnectException("Failed to convert schema to mapping. Schema is " + schema, e);
+        }
     }
 
-    /**
-     * Get the JSON mapping for given index and type. Returns {@code null} if it does not exist.
-     */
-    public static JsonObject getMapping(final OpensearchClient client, final String index, final String type)
-        throws IOException {
-        return client.getMapping(index, type);
-    }
-
-    /**
-     * Infer mapping from the provided schema.
-     *
-     * @param schema The schema used to infer mapping.
-     */
-    public static JsonNode inferMapping(final OpensearchClient client, final Schema schema) {
-        if (schema == null) {
-            throw new DataException("Cannot infer mapping without schema.");
+    private static XContentBuilder buildMapping(
+            final Schema schema,
+            final XContentBuilder builder) throws IOException {
+        final var logicalConversion = logicalMapping(schema, builder);
+        if (Objects.nonNull(logicalConversion)) {
+            return builder;
         }
 
-        // Handle logical types
-        final JsonNode logicalConversion = inferLogicalMapping(schema);
-        if (logicalConversion != null) {
-            return logicalConversion;
-        }
-
-        final Schema.Type schemaType = schema.type();
-        final ObjectNode properties = JsonNodeFactory.instance.objectNode();
-        final ObjectNode fields = JsonNodeFactory.instance.objectNode();
-        switch (schemaType) {
+        switch (schema.type()) {
             case ARRAY:
-                return inferMapping(client, schema.valueSchema());
+                return buildMapping(schema.valueSchema(), builder);
             case MAP:
-                properties.set("properties", fields);
-                fields.set(OpensearchSinkConnectorConstants.MAP_KEY, inferMapping(client, schema.keySchema()));
-                fields.set(OpensearchSinkConnectorConstants.MAP_VALUE, inferMapping(client, schema.valueSchema()));
-                return properties;
+                return buildMap(schema, builder);
             case STRUCT:
-                properties.set("properties", fields);
-                for (final Field field : schema.fields()) {
-                    fields.set(field.name(), inferMapping(client, field.schema()));
-                }
-                return properties;
+                return buildStruct(schema, builder);
             default:
-                final String esType = getOpensearchType(client, schemaType);
-                return inferPrimitive(esType, schema.defaultValue());
+                return buildPrimitive(builder, schemaTypeToOsType(schema.type()), schema.defaultValue());
         }
     }
 
-    // visible for testing
-    protected static String getOpensearchType(final OpensearchClient client,
-                                              final Schema.Type schemaType) {
-        switch (schemaType) {
-            case BOOLEAN:
-                return OpensearchSinkConnectorConstants.BOOLEAN_TYPE;
-            case INT8:
-                return OpensearchSinkConnectorConstants.BYTE_TYPE;
-            case INT16:
-                return OpensearchSinkConnectorConstants.SHORT_TYPE;
-            case INT32:
-                return OpensearchSinkConnectorConstants.INTEGER_TYPE;
-            case INT64:
-                return OpensearchSinkConnectorConstants.LONG_TYPE;
-            case FLOAT32:
-                return OpensearchSinkConnectorConstants.FLOAT_TYPE;
-            case FLOAT64:
-                return OpensearchSinkConnectorConstants.DOUBLE_TYPE;
-            case STRING:
-                switch (client.getVersion()) {
-                    case OS_V1:
-                    default:
-                        return OpensearchSinkConnectorConstants.TEXT_TYPE;
-                }
-            case BYTES:
-                return OpensearchSinkConnectorConstants.BINARY_TYPE;
-            default:
-                return null;
-        }
-    }
-
-    private static JsonNode inferLogicalMapping(final Schema schema) {
-        final String schemaName = schema.name();
-        final Object defaultValue = schema.defaultValue();
-        if (schemaName == null) {
+    private static XContentBuilder logicalMapping(
+            final Schema schema,
+            final XContentBuilder builder) throws IOException {
+        if (Objects.isNull(schema.name())) {
             return null;
         }
-
-        switch (schemaName) {
+        switch (schema.name()) {
             case Date.LOGICAL_NAME:
             case Time.LOGICAL_NAME:
             case Timestamp.LOGICAL_NAME:
-                return inferPrimitive(OpensearchSinkConnectorConstants.DATE_TYPE, defaultValue);
+                return buildPrimitive(builder, DATE_TYPE, schema.defaultValue());
             case Decimal.LOGICAL_NAME:
-                return inferPrimitive(OpensearchSinkConnectorConstants.DOUBLE_TYPE, defaultValue);
+                return buildPrimitive(builder, DOUBLE_TYPE, schema.defaultValue());
             default:
                 // User-defined type or unknown built-in
                 return null;
         }
     }
 
-    private static JsonNode inferPrimitive(final String type, final Object defaultValue) {
+    private static XContentBuilder buildMap(final Schema schema, final XContentBuilder builder) throws IOException {
+        builder.startObject(PROPERTIES_FIELD);
+
+        builder.startObject(KEY_FIELD);
+        buildMapping(schema.keySchema(), builder);
+        builder.endObject();
+
+        builder.startObject(VALUE_FIELD);
+        buildMapping(schema.valueSchema(), builder);
+        builder.endObject();
+
+        return builder.endObject();
+    }
+
+    private static XContentBuilder buildStruct(
+            final Schema schema, final XContentBuilder builder) throws IOException {
+        builder.startObject(PROPERTIES_FIELD);
+        for (final var field : schema.fields()) {
+            builder.startObject(field.name());
+            buildMapping(field.schema(), builder);
+            builder.endObject();
+        }
+        return builder.endObject();
+    }
+
+    // visible for testing
+    protected static String schemaTypeToOsType(final Schema.Type schemaType) {
+        switch (schemaType) {
+            case BOOLEAN:
+                return BOOLEAN_TYPE;
+            case INT8:
+                return BYTE_TYPE;
+            case INT16:
+                return SHORT_TYPE;
+            case INT32:
+                return INTEGER_TYPE;
+            case INT64:
+                return LONG_TYPE;
+            case FLOAT32:
+                return FLOAT_TYPE;
+            case FLOAT64:
+                return DOUBLE_TYPE;
+            case STRING:
+                return TEXT_TYPE;
+            case BYTES:
+                return BINARY_TYPE;
+            default:
+                return null;
+        }
+    }
+
+    private static XContentBuilder buildPrimitive(
+            final XContentBuilder builder,
+            final String type,
+            final Object defaultValue) throws IOException {
         if (type == null) {
-            throw new ConnectException("Invalid primitive type.");
+            throw new DataException("Invalid primitive type");
+        }
+        builder.field(TYPE_FIELD, type);
+
+        if (type.equals(TEXT_TYPE)) {
+            addTextMapping(builder);
         }
 
-        final ObjectNode obj = JsonNodeFactory.instance.objectNode();
-        obj.set("type", JsonNodeFactory.instance.textNode(type));
-        if (type.equals(OpensearchSinkConnectorConstants.TEXT_TYPE)) {
-            addTextMapping(obj);
+        if (Objects.isNull(defaultValue)) {
+            return builder;
         }
-        JsonNode defaultValueNode = null;
-        if (defaultValue != null) {
-            switch (type) {
-                case OpensearchSinkConnectorConstants.BYTE_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.numberNode((byte) defaultValue);
-                    break;
-                case OpensearchSinkConnectorConstants.SHORT_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.numberNode((short) defaultValue);
-                    break;
-                case OpensearchSinkConnectorConstants.INTEGER_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.numberNode((int) defaultValue);
-                    break;
-                case OpensearchSinkConnectorConstants.LONG_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.numberNode((long) defaultValue);
-                    break;
-                case OpensearchSinkConnectorConstants.FLOAT_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.numberNode((float) defaultValue);
-                    break;
-                case OpensearchSinkConnectorConstants.DOUBLE_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.numberNode((double) defaultValue);
-                    break;
-                case OpensearchSinkConnectorConstants.STRING_TYPE:
-                case OpensearchSinkConnectorConstants.TEXT_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.textNode((String) defaultValue);
-                    break;
-                case OpensearchSinkConnectorConstants.BINARY_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.binaryNode(bytes(defaultValue));
-                    break;
-                case OpensearchSinkConnectorConstants.BOOLEAN_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.booleanNode((boolean) defaultValue);
-                    break;
-                case OpensearchSinkConnectorConstants.DATE_TYPE:
-                    defaultValueNode = JsonNodeFactory.instance.numberNode((long) defaultValue);
-                    break;
-                default:
-                    throw new DataException("Invalid primitive type.");
-            }
+
+        switch (type) {
+            case BYTE_TYPE:
+                return builder.field(DEFAULT_VALUE_FIELD, (byte) defaultValue);
+            case SHORT_TYPE:
+                return builder.field(DEFAULT_VALUE_FIELD, (short) defaultValue);
+            case INTEGER_TYPE:
+                return builder.field(DEFAULT_VALUE_FIELD, (int) defaultValue);
+            case LONG_TYPE:
+                return builder.field(DEFAULT_VALUE_FIELD, (long) defaultValue);
+            case FLOAT_TYPE:
+                return builder.field(DEFAULT_VALUE_FIELD, (float) defaultValue);
+            case DOUBLE_TYPE:
+                return builder.field(DEFAULT_VALUE_FIELD, (double) defaultValue);
+            case BOOLEAN_TYPE:
+                return builder.field(DEFAULT_VALUE_FIELD, (boolean) defaultValue);
+            case DATE_TYPE:
+                return builder.field(DEFAULT_VALUE_FIELD, ((java.util.Date) defaultValue).getTime());
+            case STRING_TYPE:
+            case TEXT_TYPE:
+            case BINARY_TYPE:
+                // IGNORE default values for text and binary types as this is not supported by OS side.
+                return builder;
+            default:
+                throw new DataException("Invalid primitive type " + type);
         }
-        if (defaultValueNode != null) {
-            obj.set("null_value", defaultValueNode);
-        }
-        return obj;
     }
 
-    private static void addTextMapping(final ObjectNode obj) {
+    private static void addTextMapping(final XContentBuilder builder) throws IOException {
         // Add additional mapping for indexing, per https://www.elastic.co/blog/strings-are-dead-long-live-strings
-        final ObjectNode keyword = JsonNodeFactory.instance.objectNode();
-        keyword.set("type", JsonNodeFactory.instance.textNode(OpensearchSinkConnectorConstants.KEYWORD_TYPE));
-        keyword.set("ignore_above", JsonNodeFactory.instance.numberNode(256));
-        final ObjectNode fields = JsonNodeFactory.instance.objectNode();
-        fields.set("keyword", keyword);
-        obj.set("fields", fields);
-    }
-
-    private static byte[] bytes(final Object value) {
-        final byte[] bytes;
-        if (value instanceof ByteBuffer) {
-            final ByteBuffer buffer = ((ByteBuffer) value).slice();
-            bytes = new byte[buffer.remaining()];
-            buffer.get(bytes);
-        } else if (value instanceof byte[]) {
-            bytes = (byte[]) value;
-        } else {
-            throw new RuntimeException(String.format("Unsupported type: %s", value.getClass()));
-        }
-        return bytes;
+        builder.startObject(FIELDS_FIELD);
+        builder.startObject(KEYWORD_FIELD);
+        builder.field(TYPE_FIELD, KEYWORD_TYPE);
+        builder.field(IGNORE_ABOVE_FIELD, 256);
+        builder.endObject();
+        builder.endObject();
     }
 
 }

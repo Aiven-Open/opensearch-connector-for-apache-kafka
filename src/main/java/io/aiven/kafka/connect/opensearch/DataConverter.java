@@ -235,8 +235,8 @@ public class DataConverter {
             return copySchemaBasics(schema, result).build();
         }
         final Schema elementSchema = SchemaBuilder.struct().name(keyName + "-" + valueName)
-            .field(OpensearchSinkConnectorConstants.MAP_KEY, preprocessedKeySchema)
-            .field(OpensearchSinkConnectorConstants.MAP_VALUE, preprocessedValueSchema)
+            .field(Mapping.KEY_FIELD, preprocessedKeySchema)
+            .field(Mapping.VALUE_FIELD, preprocessedValueSchema)
             .build();
         return copySchemaBasics(schema, SchemaBuilder.array(elementSchema)).build();
     }
@@ -345,13 +345,13 @@ public class DataConverter {
         final List<Struct> mapStructs = new ArrayList<>();
         for (final Map.Entry<?, ?> entry : map.entrySet()) {
             final Struct mapStruct = new Struct(newValueSchema);
-            final Schema mapKeySchema = newValueSchema.field(OpensearchSinkConnectorConstants.MAP_KEY).schema();
-            final Schema mapValueSchema = newValueSchema.field(OpensearchSinkConnectorConstants.MAP_VALUE).schema();
+            final Schema mapKeySchema = newValueSchema.field(Mapping.KEY_FIELD).schema();
+            final Schema mapValueSchema = newValueSchema.field(Mapping.VALUE_FIELD).schema();
             mapStruct.put(
-                OpensearchSinkConnectorConstants.MAP_KEY,
+                    Mapping.KEY_FIELD,
                 preProcessValue(entry.getKey(), keySchema, mapKeySchema));
             mapStruct.put(
-                OpensearchSinkConnectorConstants.MAP_VALUE,
+                    Mapping.VALUE_FIELD,
                 preProcessValue(entry.getValue(), valueSchema, mapValueSchema));
             mapStructs.add(mapStruct);
         }
