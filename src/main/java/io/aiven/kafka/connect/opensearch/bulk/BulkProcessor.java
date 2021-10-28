@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.aiven.connect.opensearch.bulk;
+package io.aiven.kafka.connect.opensearch.bulk;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -36,8 +36,8 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.errors.ConnectException;
 
-import io.aiven.connect.opensearch.OpensearchSinkConnectorConfig;
-import io.aiven.connect.opensearch.RetryUtil;
+import io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig;
+import io.aiven.kafka.connect.opensearch.RetryUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

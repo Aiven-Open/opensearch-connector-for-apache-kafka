@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.aiven.connect.opensearch.bulk;
+package io.aiven.kafka.connect.opensearch.bulk;
 
 public class BulkResponse {
 
