@@ -31,6 +31,8 @@ plugins {
     // https://docs.gradle.org/current/userguide/publishing_maven.html
     id "maven-publish"
 
+    // https://docs.gradle.org/current/userguide/idea_plugin.html
+    id 'idea'
 }
 
 repositories {
@@ -110,6 +112,30 @@ ext {
     slf4jVersion = "1.7.32"
     openSearchVersion = "1.0.0"
     luceneVersion = "8.8.2"  // this is the version in OS
+
+    testcontainersVersion = "1.16.2"
+    confluentPlatformVersion = "4.1.4"
+}
+
+sourceSets {
+    integrationTest {
+        java.srcDir file('src/integration-test/java')
+        resources.srcDir file('src/integration-test/resources')
+        compileClasspath += sourceSets.main.output + configurations.testRuntime
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+idea {
+    module {
+        testSourceDirs += project.sourceSets.integrationTest.java.srcDirs
+        testSourceDirs += project.sourceSets.integrationTest.resources.srcDirs
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntime.extendsFrom testRuntime
 }
 
 processResources {
@@ -136,6 +162,33 @@ dependencies {
     testImplementation "com.fasterxml.jackson.core:jackson-databind:2.11.4"
     testImplementation "com.fasterxml.jackson.core:jackson-annotations:2.11.4"
     testRuntime "org.slf4j:slf4j-log4j12:$slf4jVersion"
+
+    integrationTestImplementation "org.testcontainers:junit-jupiter:$testcontainersVersion"
+    integrationTestImplementation "org.testcontainers:kafka:$testcontainersVersion" // this is not Kafka version
+
+}
+
+test {
+    useJUnitPlatform {
+        includeEngines 'junit-jupiter'
+    }
+}
+
+task integrationTest(type: Test) {
+    description = 'Runs the integration tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    dependsOn test, distTar
+
+    useJUnitPlatform()
+
+    // Run always.
+    outputs.upToDateWhen { false }
+
+    // Pass the distribution file path to the tests.
+    systemProperty("integration-test.distribution.file.path", distTar.archiveFile.get().asFile.path)
 }
 
 task connectorConfigDoc {
@@ -149,11 +202,5 @@ task connectorConfigDoc {
             classpath = sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
             standardOutput = new FileOutputStream("$projectDir/docs/opensearch-sink-connector-config-options.rst")
         }
-    }
-}
-
-test {
-    useJUnitPlatform {
-        includeEngines 'junit-jupiter'
     }
 }
