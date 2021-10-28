@@ -34,12 +34,12 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class DataConverterTest {
 
@@ -52,7 +52,7 @@ public class DataConverterTest {
     private String type;
     private Schema schema;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DEFAULT);
         key = "key";
