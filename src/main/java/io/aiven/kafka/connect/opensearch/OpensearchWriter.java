@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.aiven.connect.opensearch;
+package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -31,7 +31,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 
 import org.opensearch.common.util.set.Sets;
 
-import io.aiven.connect.opensearch.bulk.BulkProcessor;
+import io.aiven.kafka.connect.opensearch.bulk.BulkProcessor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

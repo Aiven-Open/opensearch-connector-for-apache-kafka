@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.aiven.connect.opensearch;
+package io.aiven.kafka.connect.opensearch;
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,7 +29,7 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
 
-import io.aiven.connect.opensearch.bulk.BulkProcessor;
+import io.aiven.kafka.connect.opensearch.bulk.BulkProcessor;
 
 public class OpensearchSinkConnectorConfig extends AbstractConfig {
 

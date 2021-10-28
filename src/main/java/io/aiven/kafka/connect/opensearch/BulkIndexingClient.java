@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package io.aiven.connect.opensearch;
+package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
 import java.util.List;
 
-import io.aiven.connect.opensearch.bulk.BulkClient;
-import io.aiven.connect.opensearch.bulk.BulkRequest;
-import io.aiven.connect.opensearch.bulk.BulkResponse;
+import io.aiven.kafka.connect.opensearch.bulk.BulkClient;
+import io.aiven.kafka.connect.opensearch.bulk.BulkRequest;
+import io.aiven.kafka.connect.opensearch.bulk.BulkResponse;
 
 public class BulkIndexingClient implements BulkClient<IndexableRecord, BulkRequest> {
 

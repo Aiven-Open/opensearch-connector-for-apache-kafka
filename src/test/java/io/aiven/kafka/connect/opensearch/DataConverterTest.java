@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.aiven.connect.opensearch;
+package io.aiven.kafka.connect.opensearch;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
