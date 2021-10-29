@@ -17,7 +17,6 @@
 
 package io.aiven.kafka.connect.opensearch;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -256,15 +255,16 @@ public class OpensearchWriter {
                 ignoreSchemaTopics.contains(sinkRecord.topic()) || this.ignoreSchema;
 
             if (!ignoreSchema && !existingMappings.contains(index)) {
-                try {
-                    if (Mapping.getMapping(client, index, type) == null) {
-                        Mapping.createMapping(client, index, type, sinkRecord.valueSchema());
-                    }
-                } catch (final IOException e) {
-                    // FIXME: concurrent tasks could attempt to create the mapping and one of the requests may
-                    // fail
-                    throw new ConnectException("Failed to initialize mapping for index: " + index, e);
-                }
+                //FIXME restore code here
+//                try {
+//                    if (Mapping.getMapping(client, index, type) == null) {
+//                        Mapping.createMapping(client, index, type, sinkRecord.valueSchema());
+//                    }
+//                } catch (final IOException e) {
+//                    // FIXME: concurrent tasks could attempt to create the mapping and one of the requests may
+//                    // fail
+//                    throw new ConnectException("Failed to initialize mapping for index: " + index, e);
+//                }
                 existingMappings.add(index);
             }
 
