@@ -20,6 +20,7 @@ package io.aiven.kafka.connect.opensearch;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -28,6 +29,7 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
+import org.apache.kafka.common.config.types.Password;
 
 import io.aiven.kafka.connect.opensearch.bulk.BulkProcessor;
 
@@ -396,14 +398,34 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         super(CONFIG, props);
     }
 
+    public String typeName() {
+        return getString(TYPE_NAME_CONFIG);
+    }
+
     public List<String> connectionUrls() {
         return getList(CONNECTION_URL_CONFIG).stream()
                 .map(u -> u.endsWith("/") ? u.substring(0, u.length() - 1) : u)
                 .collect(Collectors.toList());
     }
 
-    public String typeName() {
-        return getString(OpensearchSinkConnectorConfig.TYPE_NAME_CONFIG);
+    public int connectionTimeoutMs() {
+        return getInt(CONNECTION_TIMEOUT_MS_CONFIG);
+    }
+
+    public int readTimeoutMs() {
+        return getInt(READ_TIMEOUT_MS_CONFIG);
+    }
+
+    public String connectionUsername() {
+        return getString(CONNECTION_USERNAME_CONFIG);
+    }
+
+    public Password connectionPassword() {
+        return getPassword(CONNECTION_PASSWORD_CONFIG);
+    }
+
+    public boolean isAuthenticatedConnection() {
+        return Objects.nonNull(connectionUsername()) && Objects.nonNull(connectionPassword());
     }
 
     public boolean ignoreKey() {

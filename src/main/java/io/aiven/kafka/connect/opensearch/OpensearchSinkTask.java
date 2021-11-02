@@ -19,9 +19,7 @@ package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -50,8 +48,6 @@ public class OpensearchSinkTask extends SinkTask {
         start(props, null);
     }
 
-    @SuppressWarnings("deprecation")
-    // public for testing
     public void start(final Map<String, String> props, final OpensearchClient client) {
         try {
             log.info("Starting OpensearchSinkTask.");
@@ -99,16 +95,6 @@ public class OpensearchSinkTask extends SinkTask {
                 e
             );
         }
-    }
-
-    @Override
-    public void open(final Collection<TopicPartition> partitions) {
-        log.debug("Opening the task for topic partitions: {}", partitions);
-        final Set<String> topics = new HashSet<>();
-        for (final TopicPartition tp : partitions) {
-            topics.add(tp.topic());
-        }
-        writer.createIndicesForTopics(topics);
     }
 
     @Override

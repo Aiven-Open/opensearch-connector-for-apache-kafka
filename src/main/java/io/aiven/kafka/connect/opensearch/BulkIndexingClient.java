@@ -34,12 +34,12 @@ public class BulkIndexingClient implements BulkClient<IndexableRecord, BulkReque
 
     @Override
     public BulkRequest bulkRequest(final List<IndexableRecord> batch) {
-        return client.createBulkRequest(batch);
+        return null;
     }
 
     @Override
     public BulkResponse execute(final BulkRequest bulk) throws IOException {
-        return client.executeBulk(bulk);
+        return null;
     }
 
 }
