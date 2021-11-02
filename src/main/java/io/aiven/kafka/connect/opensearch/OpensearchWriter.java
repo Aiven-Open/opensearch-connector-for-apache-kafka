@@ -338,11 +338,6 @@ public class OpensearchWriter {
         bulkProcessor.awaitStop(flushTimeoutMs);
     }
 
-    public void createIndicesForTopics(final Set<String> assignedTopics) {
-        Objects.requireNonNull(assignedTopics);
-        client.createIndices(indicesForTopics(assignedTopics));
-    }
-
     private Set<String> indicesForTopics(final Set<String> assignedTopics) {
         final Set<String> indices = Sets.newHashSet();
         for (final String topic : assignedTopics) {

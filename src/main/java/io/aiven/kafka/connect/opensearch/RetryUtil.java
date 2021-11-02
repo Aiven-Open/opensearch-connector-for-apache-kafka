@@ -17,8 +17,15 @@
 
 package io.aiven.kafka.connect.opensearch;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.kafka.common.utils.Time;
+import org.apache.kafka.connect.errors.ConnectException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility to compute the retry times for a given attempt, using exponential backoff.
@@ -32,6 +39,8 @@ import java.util.concurrent.TimeUnit;
  * for details.
  */
 public class RetryUtil {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RetryUtil.class);
 
     /**
      * An arbitrary absolute maximum practical retry time.
@@ -88,5 +97,33 @@ public class RetryUtil {
         return result < 0L ? MAX_RETRY_TIME_MS : Math.min(MAX_RETRY_TIME_MS, result);
     }
 
+    public static <T> T callWithRetry(final String callName,
+                                      final Callable<T> callable,
+                                      final int maxRetries,
+                                      final long retryBackoffMs) {
+        final var time = Time.SYSTEM;
+        final int maxAttempts = maxRetries + 1;
+        for (int attempts = 1, retryAttempts = 0; true; ++attempts, ++retryAttempts) {
+            try {
+                LOGGER.trace("Try {} with attempt {}/{}", callName, attempts, maxAttempts);
+                return callable.call();
+            } catch (final Exception e) {
+                if (attempts < maxAttempts) {
+                    final long sleepTimeMs = computeRandomRetryWaitTimeInMillis(retryAttempts, retryBackoffMs);
+                    LOGGER.warn("Failed to {} with attempt {}/{}, will attempt retry after {} ms. Failure reason: {}",
+                            callName, attempts, maxAttempts, sleepTimeMs, e);
+                    time.sleep(sleepTimeMs);
+                } else {
+                    final var msg = String.format(
+                            "Failed to %s of %s records after total of {} attempt(s)",
+                            callName,
+                            attempts
+                    );
+                    LOGGER.error(msg, e);
+                    throw new ConnectException(msg, e);
+                }
+            }
+        }
+    }
 
 }
