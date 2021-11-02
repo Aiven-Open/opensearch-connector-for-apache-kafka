@@ -20,19 +20,20 @@ package io.aiven.kafka.connect.opensearch;
 import java.time.Duration;
 
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
+import org.testcontainers.containers.output.OutputFrame;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.utility.Base58;
 import org.testcontainers.utility.DockerImageName;
-
-import static java.net.HttpURLConnection.HTTP_OK;
 
 public class OpensearchContainer extends GenericContainer<OpensearchContainer> {
 
     private static final int DEFAULT_HTTP_PORT = 9200;
 
-    private static final int DEFAULT_TCP_PORT = 9300;
+    private static final int DEFAULT_TCP_PORT = 9600;
 
-    private static final String DEFAULT_VERSION = "1.0.0";
+    private static final String DEFAULT_VERSION = "1.1.0";
+
+    private static final long ONE_GIGABYTES = 1024 * 1024 * 1024;
 
     private static final DockerImageName DEFAULT_IMAGE_NAME =
             DockerImageName.parse("opensearchproject/opensearch").withTag(DEFAULT_VERSION);
@@ -47,17 +48,41 @@ public class OpensearchContainer extends GenericContainer<OpensearchContainer> {
         logger().info("Starting an Opensearch container using [{}]", dockerImageName);
         withNetworkAliases(String.format("opensearch-%s", Base58.randomString(6)));
         withEnv("discovery.type", "single-node");
+        withLogConsumer(this::opensearchLog);
+        withSharedMemorySize(ONE_GIGABYTES);
         addExposedPorts(DEFAULT_HTTP_PORT, DEFAULT_TCP_PORT);
         setWaitStrategy(
-                new HttpWaitStrategy()
-                        .forPort(DEFAULT_HTTP_PORT)
-                        .forStatusCodeMatching(response -> response == HTTP_OK)
+                new LogMessageWaitStrategy()
+                        .withRegEx(".*(Node '\\w+' initialized).*")
+                        .withTimes(1)
                         .withStartupTimeout(Duration.ofMinutes(2))
         );
     }
 
+    protected void opensearchLog(final OutputFrame logMessage) {
+        switch (logMessage.getType()) {
+            case STDOUT:
+                // Normal output in yellow
+                System.out.print((char) 27 + "[33m" + logMessage.getUtf8String());
+                System.out.print((char) 27 + "[0m"); // reset
+                break;
+            case STDERR:
+                // Error output in red
+                System.err.print((char) 27 + "[31m" + logMessage.getUtf8String());
+                System.out.print((char) 27 + "[0m"); // reset
+                break;
+            case END:
+                // End output in green
+                System.err.print((char) 27 + "[32m" + logMessage.getUtf8String());
+                System.out.print((char) 27 + "[0m"); // reset
+                break;
+            default:
+                break;
+        }
+    }
+
     public String getHttpHostAddress() {
-        return String.format("%s:%s", getHost(), getMappedPort(DEFAULT_HTTP_PORT));
+        return String.format("https://%s:%s", getHost(), getMappedPort(DEFAULT_HTTP_PORT));
     }
 
 }
