@@ -1,6 +1,7 @@
 # Aiven's Opensearch Connector for Apache Kafka
 
-[![Build Status](https://travis-ci.org/aiven/aiven-kafka-connect-Opensearch.svg?branch=master)](https://travis-ci.org/aiven/aiven-kafka-connect-elasticsearch)
+[![Build Status](https://github.com/aiven/opensearch-connector-for-apache-kafka/actions/workflows/master_push_workflow.yml/badge.svg)](https://github.com/aiven/opensearch-connector-for-apache-kafka/actions)
+
 
 This repository includes Aiven's Opensearch [connector](http://kafka.apache.org/documentation.html#connect) for Apache Kafka.
 
