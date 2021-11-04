@@ -39,9 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class DataConverterTest {
+public class RecordConverterTest {
 
-    private DataConverter converter;
+    private RecordConverter converter;
     private String key;
     private String topic;
     private int partition;
@@ -52,7 +52,7 @@ public class DataConverterTest {
 
     @BeforeEach
     public void setUp() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DEFAULT);
+        converter = createDataConverter(true);
         key = "key";
         topic = "topic";
         partition = 0;
@@ -64,6 +64,21 @@ public class DataConverterTest {
             .name("struct")
             .field("string", Schema.STRING_SCHEMA)
             .build();
+    }
+
+    private RecordConverter createDataConverter(final boolean useCompactMapEntries) {
+        return createDataConverter(useCompactMapEntries, RecordConverter.BehaviorOnNullValues.DEFAULT);
+    }
+
+    private RecordConverter createDataConverter(final boolean useCompactMapEntries,
+                                                final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
+        final var props = Map.of(
+                OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+                behaviorOnNullValues.toString(),
+                OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, Boolean.toString(useCompactMapEntries)
+        );
+        return new RecordConverter(new OpensearchSinkConnectorConfig(props));
     }
 
     @Test
@@ -206,7 +221,7 @@ public class DataConverterTest {
         final Map<Object, Object> origValue = Map.of("field1", 1, "field2", 2);
 
         // Use the older non-compact format for map entries with string keys
-        converter = new DataConverter(false, DataConverter.BehaviorOnNullValues.DEFAULT);
+        converter = createDataConverter(false);
 
         final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
         assertEquals(
@@ -241,7 +256,7 @@ public class DataConverterTest {
         final Map<Object, Object> origValue = Map.of("field1", 1, "field2", 2);
 
         // Use the newer compact format for map entries with string keys
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DEFAULT);
+        converter = createDataConverter(true);
         final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
         assertEquals(
             SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build(),
@@ -295,7 +310,7 @@ public class DataConverterTest {
         testOptionalFieldWithoutDefault(SchemaBuilder.struct().field("innerField", Schema.BOOLEAN_SCHEMA));
         testOptionalFieldWithoutDefault(SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.BOOLEAN_SCHEMA));
         // Have to test maps with useCompactMapEntries set to true and set to false
-        converter = new DataConverter(false, DataConverter.BehaviorOnNullValues.DEFAULT);
+        converter = createDataConverter(false);
         testOptionalFieldWithoutDefault(SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.BOOLEAN_SCHEMA));
     }
 
@@ -314,40 +329,40 @@ public class DataConverterTest {
 
     @Test
     public void ignoreOnNullValue() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.IGNORE);
+        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.IGNORE);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
-        assertNull(converter.convertRecord(sinkRecord, index, type, false, false));
+        assertNull(converter.convert(sinkRecord, index));
     }
 
     @Test
     public void deleteOnNullValue() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DELETE);
+        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.DELETE);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
         final IndexableRecord expectedRecord = createIndexableRecordWithPayload(null);
-        final IndexableRecord actualRecord = converter.convertRecord(sinkRecord, index, type, false, false);
+        final IndexableRecord actualRecord = converter.convert(sinkRecord, index);
 
         assertEquals(expectedRecord, actualRecord);
     }
 
     @Test
     public void ignoreDeleteOnNullValueWithNullKey() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DELETE);
+        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.DELETE);
         key = null;
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
-        assertNull(converter.convertRecord(sinkRecord, index, type, false, false));
+        assertNull(converter.convert(sinkRecord, index));
     }
 
     @Test
     public void failOnNullValue() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.FAIL);
+        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.FAIL);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
         assertThrows(
                 DataException.class,
-                () -> converter.convertRecord(sinkRecord, index, type, false, false));
+                () -> converter.convert(sinkRecord, index));
     }
 
     public SinkRecord createSinkRecordWithValue(final Object value) {
@@ -355,7 +370,7 @@ public class DataConverterTest {
     }
 
     public IndexableRecord createIndexableRecordWithPayload(final String payload) {
-        return new IndexableRecord(new Key(index, type, key), payload, offset);
+        return new IndexableRecord(new Key(index, key), payload, offset);
     }
 
 }

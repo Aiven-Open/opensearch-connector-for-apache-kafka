@@ -18,6 +18,7 @@
 package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
@@ -173,7 +174,13 @@ public class MappingTest {
             }
         }
 
-        final DataConverter converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.IGNORE);
+        final var props = Map.of(
+                OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+                RecordConverter.BehaviorOnNullValues.IGNORE.toString(),
+                OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, "true"
+        );
+        final RecordConverter converter = new RecordConverter(new OpensearchSinkConnectorConfig(props));
         final Schema.Type schemaType = schema.type();
         switch (schemaType) {
             case ARRAY:

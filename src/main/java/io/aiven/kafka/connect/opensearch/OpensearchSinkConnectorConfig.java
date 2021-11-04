@@ -359,8 +359,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         ).define(
             BEHAVIOR_ON_NULL_VALUES_CONFIG,
             Type.STRING,
-            DataConverter.BehaviorOnNullValues.DEFAULT.toString(),
-            DataConverter.BehaviorOnNullValues.VALIDATOR,
+            RecordConverter.BehaviorOnNullValues.DEFAULT.toString(),
+            RecordConverter.BehaviorOnNullValues.VALIDATOR,
             Importance.LOW,
             BEHAVIOR_ON_NULL_VALUES_DOC,
             group,
@@ -476,8 +476,16 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
     }
 
-    public DataConverter.BehaviorOnNullValues behaviorOnNullValues() {
-        return DataConverter.BehaviorOnNullValues.forValue(
+    public boolean ignoreKeyFor(final String topic) {
+        return ignoreKey() || topicIgnoreKey().contains(topic);
+    }
+
+    public boolean ignoreSchemaFor(final String topic) {
+        return ignoreSchema() || topicIgnoreSchema().contains(topic);
+    }
+
+    public RecordConverter.BehaviorOnNullValues behaviorOnNullValues() {
+        return RecordConverter.BehaviorOnNullValues.forValue(
                 getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)
         );
     }

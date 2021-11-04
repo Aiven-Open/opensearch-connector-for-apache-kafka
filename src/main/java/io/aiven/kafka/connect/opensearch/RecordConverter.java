@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.data.ConnectSchema;
@@ -44,7 +43,7 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.Converter;
 
-public class DataConverter {
+public class RecordConverter {
 
     private static final Converter JSON_CONVERTER;
 
@@ -53,24 +52,15 @@ public class DataConverter {
         JSON_CONVERTER.configure(Collections.singletonMap("schemas.enable", "false"), false);
     }
 
-    private final boolean useCompactMapEntries;
-    private final BehaviorOnNullValues behaviorOnNullValues;
+    private final OpensearchSinkConnectorConfig config;
 
-    /**
-     * Create a DataConverter, specifying how map entries with string keys within record
-     * values should be written to JSON. Compact map entries are written as
-     * <code>"entryKey": "entryValue"</code>, while the non-compact form are written as a nested
-     * document such as <code>{"key": "entryKey", "value": "entryValue"}</code>. All map entries
-     * with non-string keys are always written as nested documents.
-     *
-     * @param useCompactMapEntries true for compact map entries with string keys, or false for
-     *                             the nested document form.
-     * @param behaviorOnNullValues behavior for handling records with null values; may not be null
-     */
-    public DataConverter(final boolean useCompactMapEntries, final BehaviorOnNullValues behaviorOnNullValues) {
-        this.useCompactMapEntries = useCompactMapEntries;
-        this.behaviorOnNullValues =
-            Objects.requireNonNull(behaviorOnNullValues, "behaviorOnNullValues cannot be null.");
+    public RecordConverter(final Boolean useCompactMapEntries,
+                           final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
+        this(null);
+    }
+
+    public RecordConverter(final OpensearchSinkConnectorConfig config) {
+        this.config = config;
     }
 
     private String convertKey(final Schema keySchema, final Object key) {
@@ -83,7 +73,7 @@ public class DataConverter {
             schemaType = ConnectSchema.schemaType(key.getClass());
             if (schemaType == null) {
                 throw new DataException(
-                    String.format("Java class %s does not have corresponding schema type.", key.getClass())
+                        String.format("Java class %s does not have corresponding schema type.", key.getClass())
                 );
             }
         } else {
@@ -102,15 +92,9 @@ public class DataConverter {
         }
     }
 
-    public IndexableRecord convertRecord(
-        final SinkRecord record,
-        final String index,
-        final String type,
-        final boolean ignoreKey,
-        final boolean ignoreSchema
-    ) {
+    public IndexableRecord convert(final SinkRecord record, final String index) {
         if (record.value() == null) {
-            switch (behaviorOnNullValues) {
+            switch (config.behaviorOnNullValues()) {
                 case IGNORE:
                     return null;
                 case DELETE:
@@ -128,52 +112,47 @@ public class DataConverter {
                     break;
                 case FAIL:
                     throw new DataException(String.format(
-                        "Sink record with key of %s and null value encountered for topic/partition/offset "
-                            + "%s/%s/%s (to ignore future records like this change the configuration property "
-                            + "'%s' from '%s' to '%s')",
-                        record.key(),
-                        record.topic(),
-                        record.kafkaPartition(),
-                        record.kafkaOffset(),
-                        OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
-                        BehaviorOnNullValues.FAIL,
-                        BehaviorOnNullValues.IGNORE
+                            "Sink record with key of %s and null value encountered for topic/partition/offset "
+                                    + "%s/%s/%s (to ignore future records like this change the configuration property "
+                                    + "'%s' from '%s' to '%s')",
+                            record.key(),
+                            record.topic(),
+                            record.kafkaPartition(),
+                            record.kafkaOffset(),
+                            OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+                            BehaviorOnNullValues.FAIL,
+                            BehaviorOnNullValues.IGNORE
                     ));
                 default:
                     throw new RuntimeException(String.format(
-                        "Unknown value for %s enum: %s",
-                        BehaviorOnNullValues.class.getSimpleName(),
-                        behaviorOnNullValues
+                            "Unknown value for %s enum: %s",
+                            BehaviorOnNullValues.class.getSimpleName(),
+                            config.behaviorOnNullValues()
                     ));
             }
         }
 
-        final String id;
-        if (ignoreKey) {
-            id = record.topic()
-                + "+" + record.kafkaPartition()
-                + "+" + record.kafkaOffset();
-        } else {
-            id = convertKey(record.keySchema(), record.key());
-        }
+        final var id = (config.ignoreKeyFor(record.topic()))
+                ? record.topic() + "+" + record.kafkaPartition() + "+" + record.kafkaOffset()
+                : convertKey(record.keySchema(), record.key());
 
-        final String payload = getPayload(record, ignoreSchema);
-        final Long version = ignoreKey ? null : record.kafkaOffset();
-        return new IndexableRecord(new Key(index, type, id), payload, version);
+        final String payload = getPayload(record);
+        final Long version = config.ignoreKeyFor(record.topic()) ? null : record.kafkaOffset();
+        return new IndexableRecord(new Key(index, id), payload, version);
     }
 
-    private String getPayload(final SinkRecord record, final boolean ignoreSchema) {
+    private String getPayload(final SinkRecord record) {
         if (record.value() == null) {
             return null;
         }
 
-        final Schema schema = ignoreSchema
-            ? record.valueSchema()
-            : preProcessSchema(record.valueSchema());
+        final Schema schema = config.ignoreSchemaFor(record.topic())
+                ? record.valueSchema()
+                : preProcessSchema(record.valueSchema());
 
-        final Object value = ignoreSchema
-            ? record.value()
-            : preProcessValue(record.value(), record.valueSchema(), schema);
+        final Object value = config.ignoreSchemaFor(record.topic())
+                ? record.value()
+                : preProcessValue(record.value(), record.valueSchema(), schema);
 
         final byte[] rawJsonPayload = JSON_CONVERTER.fromConnectData(record.topic(), schema, value);
         return new String(rawJsonPayload, StandardCharsets.UTF_8);
@@ -230,14 +209,14 @@ public class DataConverter {
         final String valueName = valueSchema.name() == null ? valueSchema.type().name() : valueSchema.name();
         final Schema preprocessedKeySchema = preProcessSchema(keySchema);
         final Schema preprocessedValueSchema = preProcessSchema(valueSchema);
-        if (useCompactMapEntries && keySchema.type() == Schema.Type.STRING) {
+        if (config.useCompactMapEntries() && keySchema.type() == Schema.Type.STRING) {
             final SchemaBuilder result = SchemaBuilder.map(preprocessedKeySchema, preprocessedValueSchema);
             return copySchemaBasics(schema, result).build();
         }
         final Schema elementSchema = SchemaBuilder.struct().name(keyName + "-" + valueName)
-            .field(Mapping.KEY_FIELD, preprocessedKeySchema)
-            .field(Mapping.VALUE_FIELD, preprocessedValueSchema)
-            .build();
+                .field(Mapping.KEY_FIELD, preprocessedKeySchema)
+                .field(Mapping.VALUE_FIELD, preprocessedValueSchema)
+                .build();
         return copySchemaBasics(schema, SchemaBuilder.array(elementSchema)).build();
     }
 
@@ -332,12 +311,12 @@ public class DataConverter {
         final Schema valueSchema = schema.valueSchema();
         final Schema newValueSchema = newSchema.valueSchema();
         final Map<?, ?> map = (Map<?, ?>) value;
-        if (useCompactMapEntries && keySchema.type() == Schema.Type.STRING) {
+        if (config.useCompactMapEntries() && keySchema.type() == Schema.Type.STRING) {
             final Map<Object, Object> processedMap = new HashMap<>();
             for (final Map.Entry<?, ?> entry : map.entrySet()) {
                 processedMap.put(
-                    preProcessValue(entry.getKey(), keySchema, newSchema.keySchema()),
-                    preProcessValue(entry.getValue(), valueSchema, newValueSchema)
+                        preProcessValue(entry.getKey(), keySchema, newSchema.keySchema()),
+                        preProcessValue(entry.getValue(), valueSchema, newValueSchema)
                 );
             }
             return processedMap;
@@ -349,10 +328,10 @@ public class DataConverter {
             final Schema mapValueSchema = newValueSchema.field(Mapping.VALUE_FIELD).schema();
             mapStruct.put(
                     Mapping.KEY_FIELD,
-                preProcessValue(entry.getKey(), keySchema, mapKeySchema));
+                    preProcessValue(entry.getKey(), keySchema, mapKeySchema));
             mapStruct.put(
                     Mapping.VALUE_FIELD,
-                preProcessValue(entry.getValue(), valueSchema, mapValueSchema));
+                    preProcessValue(entry.getValue(), valueSchema, mapValueSchema));
             mapStructs.add(mapStruct);
         }
         return mapStructs;

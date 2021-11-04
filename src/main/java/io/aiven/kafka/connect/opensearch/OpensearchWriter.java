@@ -49,8 +49,8 @@ public class OpensearchWriter {
     private final long flushTimeoutMs;
     private final BulkProcessor<IndexableRecord, ?> bulkProcessor;
     private final boolean dropInvalidMessage;
-    private final DataConverter.BehaviorOnNullValues behaviorOnNullValues;
-    private final DataConverter converter;
+    private final RecordConverter.BehaviorOnNullValues behaviorOnNullValues;
+    private final RecordConverter converter;
 
     private final Set<String> existingMappings;
     private final BulkProcessor.BehaviorOnMalformedDoc behaviorOnMalformedDoc;
@@ -72,7 +72,7 @@ public class OpensearchWriter {
         final int maxRetries,
         final long retryBackoffMs,
         final boolean dropInvalidMessage,
-        final DataConverter.BehaviorOnNullValues behaviorOnNullValues,
+        final RecordConverter.BehaviorOnNullValues behaviorOnNullValues,
         final BulkProcessor.BehaviorOnMalformedDoc behaviorOnMalformedDoc
     ) {
         this.client = client;
@@ -85,7 +85,7 @@ public class OpensearchWriter {
         this.flushTimeoutMs = flushTimeoutMs;
         this.dropInvalidMessage = dropInvalidMessage;
         this.behaviorOnNullValues = behaviorOnNullValues;
-        this.converter = new DataConverter(useCompactMapEntries, behaviorOnNullValues);
+        this.converter = new RecordConverter(useCompactMapEntries, behaviorOnNullValues);
         this.behaviorOnMalformedDoc = behaviorOnMalformedDoc;
 
         bulkProcessor = new BulkProcessor<>(
@@ -120,7 +120,8 @@ public class OpensearchWriter {
         private int maxRetry;
         private long retryBackoffMs;
         private boolean dropInvalidMessage;
-        private DataConverter.BehaviorOnNullValues behaviorOnNullValues = DataConverter.BehaviorOnNullValues.DEFAULT;
+        private RecordConverter.BehaviorOnNullValues behaviorOnNullValues =
+                RecordConverter.BehaviorOnNullValues.DEFAULT;
         private BulkProcessor.BehaviorOnMalformedDoc behaviorOnMalformedDoc;
 
         public Builder(final OpensearchClient client) {
@@ -198,10 +199,10 @@ public class OpensearchWriter {
          * Change the behavior that the resulting {@link OpensearchWriter} will have when it
          * encounters records with null values.
          *
-         * @param behaviorOnNullValues Cannot be null. If in doubt, {@link DataConverter.BehaviorOnNullValues#DEFAULT}
+         * @param behaviorOnNullValues Cannot be null. If in doubt, {@link RecordConverter.BehaviorOnNullValues#DEFAULT}
          *                             can be used.
          */
-        public Builder setBehaviorOnNullValues(final DataConverter.BehaviorOnNullValues behaviorOnNullValues) {
+        public Builder setBehaviorOnNullValues(final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
             this.behaviorOnNullValues =
                 Objects.requireNonNull(behaviorOnNullValues, "behaviorOnNullValues cannot be null");
             return this;
@@ -273,7 +274,7 @@ public class OpensearchWriter {
     }
 
     private boolean ignoreRecord(final SinkRecord record) {
-        return record.value() == null && behaviorOnNullValues == DataConverter.BehaviorOnNullValues.IGNORE;
+        return record.value() == null && behaviorOnNullValues == RecordConverter.BehaviorOnNullValues.IGNORE;
     }
 
     private void tryWriteRecord(
@@ -283,12 +284,7 @@ public class OpensearchWriter {
         final boolean ignoreSchema) {
 
         try {
-            final IndexableRecord record = converter.convertRecord(
-                sinkRecord,
-                index,
-                type,
-                ignoreKey,
-                ignoreSchema);
+            final IndexableRecord record = converter.convert(sinkRecord, index);
             if (record != null) {
                 bulkProcessor.add(record, flushTimeoutMs);
             }

@@ -22,12 +22,10 @@ import java.util.Objects;
 public class Key {
 
     public final String index;
-    public final String type;
     public final String id;
 
-    public Key(final String index, final String type, final String id) {
+    public Key(final String index, final String id) {
         this.index = index;
-        this.type = type;
         this.id = id;
     }
 
@@ -41,18 +39,17 @@ public class Key {
         }
         final Key that = (Key) o;
         return Objects.equals(index, that.index)
-            && Objects.equals(type, that.type)
             && Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(index, type, id);
+        return Objects.hash(index, id);
     }
 
     @Override
     public String toString() {
-        return String.format("Key{%s/%s/%s}", index, type, id);
+        return String.format("Key{%s/%s}", index, id);
     }
 
 }
