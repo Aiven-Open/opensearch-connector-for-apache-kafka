@@ -44,7 +44,7 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.Converter;
 
-public class DataConverter {
+public class RecordConverter {
 
     private static final Converter JSON_CONVERTER;
 
@@ -67,7 +67,7 @@ public class DataConverter {
      *                             the nested document form.
      * @param behaviorOnNullValues behavior for handling records with null values; may not be null
      */
-    public DataConverter(final boolean useCompactMapEntries, final BehaviorOnNullValues behaviorOnNullValues) {
+    public RecordConverter(final boolean useCompactMapEntries, final BehaviorOnNullValues behaviorOnNullValues) {
         this.useCompactMapEntries = useCompactMapEntries;
         this.behaviorOnNullValues =
             Objects.requireNonNull(behaviorOnNullValues, "behaviorOnNullValues cannot be null.");

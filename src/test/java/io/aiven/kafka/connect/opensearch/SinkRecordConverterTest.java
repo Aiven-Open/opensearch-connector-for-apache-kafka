@@ -39,9 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class DataConverterTest {
+public class SinkRecordConverterTest {
 
-    private DataConverter converter;
+    private SinkRecordConverter converter;
     private String key;
     private String topic;
     private int partition;
@@ -52,7 +52,7 @@ public class DataConverterTest {
 
     @BeforeEach
     public void setUp() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DEFAULT);
+        converter = new SinkRecordConverter(true, SinkRecordConverter.BehaviorOnNullValues.DEFAULT);
         key = "key";
         topic = "topic";
         partition = 0;
@@ -206,7 +206,7 @@ public class DataConverterTest {
         final Map<Object, Object> origValue = Map.of("field1", 1, "field2", 2);
 
         // Use the older non-compact format for map entries with string keys
-        converter = new DataConverter(false, DataConverter.BehaviorOnNullValues.DEFAULT);
+        converter = new SinkRecordConverter(false, SinkRecordConverter.BehaviorOnNullValues.DEFAULT);
 
         final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
         assertEquals(
@@ -241,7 +241,7 @@ public class DataConverterTest {
         final Map<Object, Object> origValue = Map.of("field1", 1, "field2", 2);
 
         // Use the newer compact format for map entries with string keys
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DEFAULT);
+        converter = new SinkRecordConverter(true, SinkRecordConverter.BehaviorOnNullValues.DEFAULT);
         final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
         assertEquals(
             SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build(),
@@ -295,7 +295,7 @@ public class DataConverterTest {
         testOptionalFieldWithoutDefault(SchemaBuilder.struct().field("innerField", Schema.BOOLEAN_SCHEMA));
         testOptionalFieldWithoutDefault(SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.BOOLEAN_SCHEMA));
         // Have to test maps with useCompactMapEntries set to true and set to false
-        converter = new DataConverter(false, DataConverter.BehaviorOnNullValues.DEFAULT);
+        converter = new SinkRecordConverter(false, SinkRecordConverter.BehaviorOnNullValues.DEFAULT);
         testOptionalFieldWithoutDefault(SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.BOOLEAN_SCHEMA));
     }
 
@@ -314,7 +314,7 @@ public class DataConverterTest {
 
     @Test
     public void ignoreOnNullValue() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.IGNORE);
+        converter = new SinkRecordConverter(true, SinkRecordConverter.BehaviorOnNullValues.IGNORE);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
         assertNull(converter.convertRecord(sinkRecord, index, type, false, false));
@@ -322,7 +322,7 @@ public class DataConverterTest {
 
     @Test
     public void deleteOnNullValue() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DELETE);
+        converter = new SinkRecordConverter(true, SinkRecordConverter.BehaviorOnNullValues.DELETE);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
         final IndexableRecord expectedRecord = createIndexableRecordWithPayload(null);
@@ -333,7 +333,7 @@ public class DataConverterTest {
 
     @Test
     public void ignoreDeleteOnNullValueWithNullKey() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.DELETE);
+        converter = new SinkRecordConverter(true, SinkRecordConverter.BehaviorOnNullValues.DELETE);
         key = null;
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
@@ -342,7 +342,7 @@ public class DataConverterTest {
 
     @Test
     public void failOnNullValue() {
-        converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.FAIL);
+        converter = new SinkRecordConverter(true, SinkRecordConverter.BehaviorOnNullValues.FAIL);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
         assertThrows(

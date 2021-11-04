@@ -173,7 +173,7 @@ public class MappingTest {
             }
         }
 
-        final DataConverter converter = new DataConverter(true, DataConverter.BehaviorOnNullValues.IGNORE);
+        final SinkRecordConverter converter = new SinkRecordConverter(true, SinkRecordConverter.BehaviorOnNullValues.IGNORE);
         final Schema.Type schemaType = schema.type();
         switch (schemaType) {
             case ARRAY:
