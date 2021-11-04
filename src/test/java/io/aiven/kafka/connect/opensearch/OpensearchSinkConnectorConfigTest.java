@@ -33,7 +33,6 @@ public class OpensearchSinkConnectorConfigTest {
     @BeforeEach
     public void setup() {
         props = new HashMap<>();
-        props.put(OpensearchSinkConnectorConfig.TYPE_NAME_CONFIG, "type");
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "localhost");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true");
     }
