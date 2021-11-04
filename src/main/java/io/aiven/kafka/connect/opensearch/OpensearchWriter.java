@@ -120,7 +120,8 @@ public class OpensearchWriter {
         private int maxRetry;
         private long retryBackoffMs;
         private boolean dropInvalidMessage;
-        private RecordConverter.BehaviorOnNullValues behaviorOnNullValues = RecordConverter.BehaviorOnNullValues.DEFAULT;
+        private RecordConverter.BehaviorOnNullValues behaviorOnNullValues =
+                RecordConverter.BehaviorOnNullValues.DEFAULT;
         private BulkProcessor.BehaviorOnMalformedDoc behaviorOnMalformedDoc;
 
         public Builder(final OpensearchClient client) {
@@ -283,12 +284,7 @@ public class OpensearchWriter {
         final boolean ignoreSchema) {
 
         try {
-            final IndexableRecord record = converter.convertRecord(
-                sinkRecord,
-                index,
-                type,
-                ignoreKey,
-                ignoreSchema);
+            final IndexableRecord record = converter.convert(sinkRecord, index);
             if (record != null) {
                 bulkProcessor.add(record, flushTimeoutMs);
             }

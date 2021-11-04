@@ -476,6 +476,14 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
     }
 
+    public boolean ignoreKeyFor(final String topic) {
+        return ignoreKey() || topicIgnoreKey().contains(topic);
+    }
+
+    public boolean ignoreSchemaFor(final String topic) {
+        return ignoreSchema() || topicIgnoreSchema().contains(topic);
+    }
+
     public RecordConverter.BehaviorOnNullValues behaviorOnNullValues() {
         return RecordConverter.BehaviorOnNullValues.forValue(
                 getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)
