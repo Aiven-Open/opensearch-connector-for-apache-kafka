@@ -37,8 +37,7 @@ public abstract class AbstractIT {
     @BeforeEach
     void setupTest() throws Exception {
         final var props =
-                Map.of(OpensearchSinkConnectorConfig.TYPE_NAME_CONFIG, "some_type",
-                       OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, opensearchContainer.getHttpHostAddress(),
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, opensearchContainer.getHttpHostAddress(),
                        OpensearchSinkConnectorConfig.CONNECTION_USERNAME_CONFIG, "admin",
                        OpensearchSinkConnectorConfig.CONNECTION_PASSWORD_CONFIG, "admin");
         final var config = new OpensearchSinkConnectorConfig(props);

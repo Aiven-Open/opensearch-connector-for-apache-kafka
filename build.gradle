@@ -198,7 +198,7 @@ task connectorConfigDoc {
 
     doLast {
         javaexec {
-            main = "io.aiven.connect.opensearch.OpensearchSinkConnectorConfig"
+            main = "io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig"
             classpath = sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
             standardOutput = new FileOutputStream("$projectDir/docs/opensearch-sink-connector-config-options.rst")
         }

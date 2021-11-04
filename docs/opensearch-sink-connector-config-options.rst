@@ -93,12 +93,6 @@ Connector
 Data Conversion
 ^^^^^^^^^^^^^^^
 
-``type.name``
-  The Opensearch type name to use when indexing.
-
-  * Type: string
-  * Importance: high
-
 ``key.ignore``
   Whether to ignore the record key for the purpose of forming the Opensearch document ID. When this is set to ``true``, document IDs will be generated as the record's ``topic+partition+offset``.
 

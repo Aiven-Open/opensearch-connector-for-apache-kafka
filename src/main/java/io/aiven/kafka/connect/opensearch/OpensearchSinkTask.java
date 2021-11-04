@@ -71,7 +71,6 @@ public class OpensearchSinkTask extends SinkTask {
             }
 
             final OpensearchWriter.Builder builder = new OpensearchWriter.Builder(this.client)
-                .setType(config.typeName())
                 .setIgnoreKey(config.ignoreKey(), config.topicIgnoreKey())
                 .setIgnoreSchema(config.ignoreSchema(), config.topicIgnoreSchema())
                 .setCompactMapEntries(config.useCompactMapEntries())

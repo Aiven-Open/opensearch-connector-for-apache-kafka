@@ -87,9 +87,6 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             + "wait, up to the maximum number of retries. "
             + "This avoids retrying in a tight loop under failure scenarios.";
 
-    public static final String TYPE_NAME_CONFIG = "type.name";
-    private static final String TYPE_NAME_DOC = "The Opensearch type name to use when indexing.";
-
     @Deprecated
     public static final String TOPIC_INDEX_MAP_CONFIG = "topic.index.map";
     private static final String TOPIC_INDEX_MAP_DOC =
@@ -290,15 +287,6 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         final String group = "Data Conversion";
         int order = 0;
         configDef.define(
-            TYPE_NAME_CONFIG,
-            Type.STRING,
-            Importance.HIGH,
-            TYPE_NAME_DOC,
-            group,
-            ++order,
-            Width.SHORT,
-            "Type Name"
-        ).define(
             KEY_IGNORE_CONFIG,
             Type.BOOLEAN,
             false,
@@ -396,10 +384,6 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public OpensearchSinkConnectorConfig(final Map<String, String> props) {
         super(CONFIG, props);
-    }
-
-    public String typeName() {
-        return getString(TYPE_NAME_CONFIG);
     }
 
     public List<String> connectionUrls() {
