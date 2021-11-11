@@ -29,6 +29,7 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 
@@ -115,9 +116,11 @@ public class OpensearchSinkTask extends SinkTask {
         ensureIndexExists(index);
         checkMappingFor(index, record);
         try {
-            final IndexableRecord indexableRecord = recordConverter.convert(record, index);
-            //FIXME add bulk processor here using client
-        } catch (final ConnectException e) {
+            final var indexRecord = recordConverter.convert(record, index);
+            if (Objects.nonNull(indexRecord)) {
+                //FIXME add bulk processor here using client
+            }
+        } catch (final DataException e) {
             if (config.dropInvalidMessage()) {
                 LOGGER.error(
                         "Can't convert record from topic {} with partition {} and offset {}. Reason: ",

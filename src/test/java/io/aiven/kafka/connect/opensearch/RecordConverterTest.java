@@ -32,12 +32,15 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
+import org.opensearch.action.delete.DeleteRequest;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RecordConverterTest {
 
@@ -47,7 +50,6 @@ public class RecordConverterTest {
     private int partition;
     private long offset;
     private String index;
-    private String type;
     private Schema schema;
 
     @BeforeEach
@@ -58,7 +60,6 @@ public class RecordConverterTest {
         partition = 0;
         offset = 0;
         index = "index";
-        type = "type";
         schema = SchemaBuilder
             .struct()
             .name("struct")
@@ -340,10 +341,11 @@ public class RecordConverterTest {
         converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.DELETE);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
-        final IndexableRecord expectedRecord = createIndexableRecordWithPayload(null);
-        final IndexableRecord actualRecord = converter.convert(sinkRecord, index);
+        final var deleteRecord = converter.convert(sinkRecord, index);
 
-        assertEquals(expectedRecord, actualRecord);
+        assertTrue(deleteRecord instanceof DeleteRequest);
+        assertEquals(key, deleteRecord.id());
+        assertEquals(index, deleteRecord.index());
     }
 
     @Test
@@ -367,10 +369,6 @@ public class RecordConverterTest {
 
     public SinkRecord createSinkRecordWithValue(final Object value) {
         return new SinkRecord(topic, partition, Schema.STRING_SCHEMA, key, schema, value, offset);
-    }
-
-    public IndexableRecord createIndexableRecordWithPayload(final String payload) {
-        return new IndexableRecord(new Key(index, key), payload, offset);
     }
 
 }
