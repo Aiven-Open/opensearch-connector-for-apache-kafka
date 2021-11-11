@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.data.ConnectSchema;
@@ -37,11 +38,16 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Time;
 import org.apache.kafka.connect.data.Timestamp;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.Converter;
+
+import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.VersionType;
 
 public class RecordConverter {
 
@@ -65,7 +71,7 @@ public class RecordConverter {
 
     private String convertKey(final Schema keySchema, final Object key) {
         if (key == null) {
-            throw new ConnectException("Key is used as document id and can not be null.");
+            throw new DataException("Key is used as document id and can not be null.");
         }
 
         final Schema.Type schemaType;
@@ -92,7 +98,7 @@ public class RecordConverter {
         }
     }
 
-    public IndexableRecord convert(final SinkRecord record, final String index) {
+    public DocWriteRequest<?> convert(final SinkRecord record, final String index) {
         if (record.value() == null) {
             switch (config.behaviorOnNullValues()) {
                 case IGNORE:
@@ -111,6 +117,7 @@ public class RecordConverter {
                     // Will proceed as normal, ultimately creating an IndexableRecord with a null payload
                     break;
                 case FAIL:
+                default:
                     throw new DataException(String.format(
                             "Sink record with key of %s and null value encountered for topic/partition/offset "
                                     + "%s/%s/%s (to ignore future records like this change the configuration property "
@@ -123,12 +130,6 @@ public class RecordConverter {
                             BehaviorOnNullValues.FAIL,
                             BehaviorOnNullValues.IGNORE
                     ));
-                default:
-                    throw new RuntimeException(String.format(
-                            "Unknown value for %s enum: %s",
-                            BehaviorOnNullValues.class.getSimpleName(),
-                            config.behaviorOnNullValues()
-                    ));
             }
         }
 
@@ -136,9 +137,23 @@ public class RecordConverter {
                 ? record.topic() + "+" + record.kafkaPartition() + "+" + record.kafkaOffset()
                 : convertKey(record.keySchema(), record.key());
 
+        if (Objects.isNull(record.value())) {
+            return addExternalVersionIfNeeded(new DeleteRequest(index).id(id), record);
+        }
+
         final String payload = getPayload(record);
-        final Long version = config.ignoreKeyFor(record.topic()) ? null : record.kafkaOffset();
-        return new IndexableRecord(new Key(index, id), payload, version);
+        return addExternalVersionIfNeeded(new IndexRequest(index)
+                .id(id)
+                .source(payload, XContentType.JSON)
+                .opType(DocWriteRequest.OpType.INDEX), record);
+    }
+
+    private DocWriteRequest<?> addExternalVersionIfNeeded(final DocWriteRequest<?> request, final SinkRecord record) {
+        if (!config.ignoreKeyFor(record.topic())) {
+            request.versionType(VersionType.EXTERNAL);
+            request.version(record.kafkaOffset());
+        }
+        return request;
     }
 
     private String getPayload(final SinkRecord record) {
