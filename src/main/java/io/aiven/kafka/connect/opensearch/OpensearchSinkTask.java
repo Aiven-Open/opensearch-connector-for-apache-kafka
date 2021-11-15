@@ -57,10 +57,6 @@ public class OpensearchSinkTask extends SinkTask {
 
     @Override
     public void start(final Map<String, String> props) {
-        start(props, null);
-    }
-
-    public void start(final Map<String, String> props, final OpensearchClient client) {
         try {
             LOGGER.info("Starting OpensearchSinkTask.");
 
@@ -68,24 +64,22 @@ public class OpensearchSinkTask extends SinkTask {
 
             // Calculate the maximum possible backoff time ...
             final long maxRetryBackoffMs =
-                RetryUtil.computeRetryWaitTimeInMillis(config.maxRetry(), config.retryBackoffMs());
+                    RetryUtil.computeRetryWaitTimeInMillis(config.maxRetry(), config.retryBackoffMs());
             if (maxRetryBackoffMs > RetryUtil.MAX_RETRY_TIME_MS) {
                 LOGGER.warn("This connector uses exponential backoff with jitter for retries, "
-                        + "and using '{}={}' and '{}={}' results in an impractical but possible maximum "
-                        + "backoff time greater than {} hours.",
-                    OpensearchSinkConnectorConfig.MAX_RETRIES_CONFIG, config.maxRetry(),
-                    OpensearchSinkConnectorConfig.RETRY_BACKOFF_MS_CONFIG, config.retryBackoffMs(),
-                    TimeUnit.MILLISECONDS.toHours(maxRetryBackoffMs));
+                                + "and using '{}={}' and '{}={}' results in an impractical but possible maximum "
+                                + "backoff time greater than {} hours.",
+                        OpensearchSinkConnectorConfig.MAX_RETRIES_CONFIG, config.maxRetry(),
+                        OpensearchSinkConnectorConfig.RETRY_BACKOFF_MS_CONFIG, config.retryBackoffMs(),
+                        TimeUnit.MILLISECONDS.toHours(maxRetryBackoffMs));
             }
 
-            if (client != null) {
-                this.client = client;
-            }
+            this.client = new OpensearchClient(config);
             this.recordConverter = new RecordConverter(config);
         } catch (final ConfigException e) {
             throw new ConnectException(
-                "Couldn't start OpensearchSinkTask due to configuration error:",
-                e
+                    "Couldn't start OpensearchSinkTask due to configuration error:",
+                    e
             );
         }
     }
@@ -118,7 +112,7 @@ public class OpensearchSinkTask extends SinkTask {
         try {
             final var indexRecord = recordConverter.convert(record, index);
             if (Objects.nonNull(indexRecord)) {
-                //FIXME add bulk processor here using client
+                client.index(indexRecord);
             }
         } catch (final DataException e) {
             if (config.dropInvalidMessage()) {
@@ -170,7 +164,7 @@ public class OpensearchSinkTask extends SinkTask {
     }
 
     private void checkMappingFor(final String index, final SinkRecord record) {
-        if (config.ignoreSchemaFor(record.topic()) && !indexMappingsCache.contains(index)) {
+        if (!config.ignoreSchemaFor(record.topic()) && !indexMappingsCache.contains(index)) {
             if (!client.hasMapping(index)) {
                 LOGGER.info("Create mapping for index {} and schema {}", index, record.valueSchema());
                 client.createMapping(index, record.valueSchema());
@@ -182,7 +176,7 @@ public class OpensearchSinkTask extends SinkTask {
     @Override
     public void flush(final Map<TopicPartition, OffsetAndMetadata> offsets) {
         LOGGER.trace("Flushing data to Opensearch with the following offsets: {}", offsets);
-        //FIXME bulk process here using client
+        client.flush();
     }
 
     @Override

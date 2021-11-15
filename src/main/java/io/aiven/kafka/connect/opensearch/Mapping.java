@@ -75,7 +75,7 @@ public class Mapping {
 
     public static XContentBuilder buildMappingFor(final Schema schema) {
         if (Objects.isNull(schema)) {
-            throw new DataException("Cannot convert schema to mapping without schema");
+            throw new DataException("Cannot convert schema to mapping without schema    ");
         }
         try {
             final var builder = XContentFactory.jsonBuilder();

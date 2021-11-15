@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package io.aiven.kafka.connect.opensearch.bulk;
+package io.aiven.kafka.connect.opensearch;
 
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -36,24 +37,26 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.errors.ConnectException;
 
-import io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig;
-import io.aiven.kafka.connect.opensearch.RetryUtil;
+import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.bulk.BulkItemResponse;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * @param <R> record type
- * @param <B> bulk request type
- */
-public class BulkProcessor<R, B> {
+import static io.aiven.kafka.connect.opensearch.RetryUtil.callWithRetry;
 
-    private static final Logger log = LoggerFactory.getLogger(BulkProcessor.class);
+public class BulkProcessor {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BulkProcessor.class);
 
     private static final AtomicLong BATCH_ID_GEN = new AtomicLong();
 
     private final Time time;
-    private final BulkClient<R, B> bulkClient;
+    private final RestHighLevelClient client;
     private final int maxBufferedRecords;
     private final int batchSize;
     private final long lingerMs;
@@ -72,41 +75,34 @@ public class BulkProcessor<R, B> {
 
     // shared state, synchronized on (this), may be part of wait() conditions so need notifyAll() on
     // changes
-    private final Deque<R> unsentRecords;
+    private final Deque<DocWriteRequest<?>> unsentRecords;
     private int inFlightRecords = 0;
 
-    public BulkProcessor(
-        final Time time,
-        final BulkClient<R, B> bulkClient,
-        final int maxBufferedRecords,
-        final int maxInFlightRequests,
-        final int batchSize,
-        final long lingerMs,
-        final int maxRetries,
-        final long retryBackoffMs,
-        final BehaviorOnMalformedDoc behaviorOnMalformedDoc
-    ) {
+    public BulkProcessor(final Time time,
+                         final RestHighLevelClient client,
+                         final OpensearchSinkConnectorConfig config) {
         this.time = time;
-        this.bulkClient = bulkClient;
-        this.maxBufferedRecords = maxBufferedRecords;
-        this.batchSize = batchSize;
-        this.lingerMs = lingerMs;
-        this.maxRetries = maxRetries;
-        this.retryBackoffMs = retryBackoffMs;
-        this.behaviorOnMalformedDoc = behaviorOnMalformedDoc;
+        this.client = client;
+
+        this.maxBufferedRecords = config.maxBufferedRecords();
+        this.batchSize = config.batchSize();
+        this.lingerMs = config.lingerMs();
+        this.maxRetries = config.maxRetry();
+        this.retryBackoffMs = config.retryBackoffMs();
+        this.behaviorOnMalformedDoc = config.behaviorOnMalformedDoc();
 
         unsentRecords = new ArrayDeque<>(maxBufferedRecords);
 
         final ThreadFactory threadFactory = makeThreadFactory();
         farmer = threadFactory.newThread(farmerTask());
-        executor = Executors.newFixedThreadPool(maxInFlightRequests, threadFactory);
+        executor = Executors.newFixedThreadPool(config.maxInFlightRequests(), threadFactory);
     }
 
     private ThreadFactory makeThreadFactory() {
         final AtomicInteger threadCounter = new AtomicInteger();
         final Thread.UncaughtExceptionHandler uncaughtExceptionHandler =
             (t, e) -> {
-                log.error("Uncaught exception in BulkProcessor thread {}", t, e);
+                LOGGER.error("Uncaught exception in BulkProcessor thread {}", t, e);
                 failAndStop(e);
             };
         return new ThreadFactory() {
@@ -124,7 +120,7 @@ public class BulkProcessor<R, B> {
 
     private Runnable farmerTask() {
         return () -> {
-            log.debug("Starting farmer task");
+            LOGGER.debug("Starting farmer task");
             try {
                 while (!stopRequested) {
                     submitBatchWhenReady();
@@ -132,7 +128,7 @@ public class BulkProcessor<R, B> {
             } catch (final InterruptedException e) {
                 throw new ConnectException(e);
             }
-            log.debug("Finished farmer task");
+            LOGGER.debug("Finished farmer task");
         };
     }
 
@@ -152,12 +148,12 @@ public class BulkProcessor<R, B> {
     private synchronized Future<BulkResponse> submitBatch() {
         assert !unsentRecords.isEmpty();
         final int batchableSize = Math.min(batchSize, unsentRecords.size());
-        final List<R> batch = new ArrayList<>(batchableSize);
+        final var batch = new ArrayList<DocWriteRequest<?>>(batchableSize);
         for (int i = 0; i < batchableSize; i++) {
             batch.add(unsentRecords.removeFirst());
         }
         inFlightRecords += batchableSize;
-        return executor.submit(new BulkTask(batch));
+        return executor.submit(new BulkTask(batch, maxRetries, retryBackoffMs));
     }
 
     /**
@@ -187,7 +183,7 @@ public class BulkProcessor<R, B> {
      * this method if this is desirable.
      */
     public void stop() {
-        log.trace("stop");
+        LOGGER.trace("stop");
         stopRequested = true;
         synchronized (this) {
             // shutdown the pool under synchronization to avoid rejected submissions
@@ -202,7 +198,7 @@ public class BulkProcessor<R, B> {
      * <p>This should only be called after a previous {@link #stop()} invocation.
      */
     public void awaitStop(final long timeoutMs) {
-        log.trace("awaitStop {}", timeoutMs);
+        LOGGER.trace("awaitStop {}", timeoutMs);
         assert stopRequested;
         try {
             if (!executor.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS)) {
@@ -269,7 +265,7 @@ public class BulkProcessor<R, B> {
      * <p>If any task has failed prior to or while blocked in the add, or if the timeout expires
      * while blocked, {@link ConnectException} will be thrown.
      */
-    public synchronized void add(final R record, final long timeoutMs) {
+    public synchronized void add(final DocWriteRequest<?> request, final long timeoutMs) {
         throwIfTerminal();
 
         if (bufferedRecords() >= maxBufferedRecords) {
@@ -289,7 +285,7 @@ public class BulkProcessor<R, B> {
             }
         }
 
-        unsentRecords.addLast(record);
+        unsentRecords.addLast(request);
         notifyAll();
     }
 
@@ -300,7 +296,7 @@ public class BulkProcessor<R, B> {
      * thrown with that error.
      */
     public void flush(final long timeoutMs) {
-        log.trace("flush {}", timeoutMs);
+        LOGGER.trace("flush {}", timeoutMs);
         final long flushStartTimeMs = time.milliseconds();
         try {
             flushRequested = true;
@@ -328,116 +324,97 @@ public class BulkProcessor<R, B> {
 
         final long batchId = BATCH_ID_GEN.incrementAndGet();
 
-        final List<R> batch;
+        final List<DocWriteRequest<?>> batch;
 
-        BulkTask(final List<R> batch) {
+        final int maxRetries;
+
+        final long retryBackoffMs;
+
+        BulkTask(final List<DocWriteRequest<?>> batch, final int maxRetries, final long retryBackoffMs) {
             this.batch = batch;
+            this.maxRetries = maxRetries;
+            this.retryBackoffMs = retryBackoffMs;
         }
 
         @Override
         public BulkResponse call() throws Exception {
-            final BulkResponse rsp;
             try {
-                rsp = execute();
+                final var rsp = execute();
+                LOGGER.debug("Successfully executed batch {} of {} records", batchId, batch.size());
+                onBatchCompletion(batch.size());
+                return rsp;
             } catch (final Exception e) {
                 failAndStop(e);
                 throw e;
             }
-            log.debug("Successfully executed batch {} of {} records", batchId, batch.size());
-            onBatchCompletion(batch.size());
-            return rsp;
         }
 
         private BulkResponse execute() throws Exception {
-            final B bulkReq;
-            try {
-                bulkReq = bulkClient.bulkRequest(batch);
-            } catch (final Exception e) {
-                log.error(
-                    "Failed to create bulk request from batch {} of {} records",
-                    batchId,
-                    batch.size(),
-                    e
-                );
-                throw e;
-            }
-            final int maxAttempts = maxRetries + 1;
-            for (int attempts = 1, retryAttempts = 0; true; ++attempts, ++retryAttempts) {
-                boolean retriable = true;
+            return callWithRetry("bulk processing", () -> {
                 try {
-                    log.trace("Executing batch {} of {} records with attempt {}/{}",
-                        batchId, batch.size(), attempts, maxAttempts);
-                    final BulkResponse bulkRsp = bulkClient.execute(bulkReq);
-                    if (bulkRsp.isSucceeded()) {
-                        if (attempts > 1) {
-                            // We only logged failures, so log the success immediately after a failure ...
-                            log.debug("Completed batch {} of {} records with attempt {}/{}",
-                                batchId, batch.size(), attempts, maxAttempts);
+                    final var response =
+                            client.bulk(new BulkRequest().add(batch), RequestOptions.DEFAULT);
+                    if (!response.hasFailures()) {
+                        // We only logged failures, so log the success immediately after a failure ...
+                        LOGGER.debug("Completed batch {} of {} records", batchId, batch.size());
+                        return response;
+                    }
+                    for (final var itemResponse : response.getItems()) {
+                        if (!itemResponse.getFailure().isAborted()) {
+                            if (responseContainsMalformedDocError(itemResponse)) {
+                                handleMalformedDoc(itemResponse);
+                            }
+                            throw new RuntimeException(
+                                    "One of the item in the bulk response failed. Reason: "
+                                            + itemResponse.getFailureMessage());
+                        } else {
+                            throw new ConnectException(
+                                    "One of the item in the bulk response aborted. Reason: "
+                                            + itemResponse.getFailureMessage());
                         }
-                        return bulkRsp;
-                    } else if (responseContainsMalformedDocError(bulkRsp)) {
-                        retriable = bulkRsp.isRetriable();
-                        handleMalformedDoc(bulkRsp);
-                        return bulkRsp;
-                    } else {
-                        // for all other errors, throw the error up
-                        retriable = bulkRsp.isRetriable();
-                        throw new ConnectException("Bulk request failed: " + bulkRsp.getErrorInfo());
                     }
-                } catch (final Exception e) {
-                    if (retriable && attempts < maxAttempts) {
-                        final long sleepTimeMs = RetryUtil.computeRandomRetryWaitTimeInMillis(retryAttempts,
-                            retryBackoffMs);
-                        log.warn("Failed to execute batch {} of {} records with attempt {}/{}, "
-                                + "will attempt retry after {} ms. Failure reason: {}",
-                            batchId, batch.size(), attempts, maxAttempts, sleepTimeMs, e.getMessage());
-                        time.sleep(sleepTimeMs);
-                    } else {
-                        log.error("Failed to execute batch {} of {} records after total of {} attempt(s)",
-                            batchId, batch.size(), attempts, e);
-                        throw e;
-                    }
+                    return response;
+                } catch (final IOException e) {
+                    LOGGER.error(
+                            "Failed to send bulk request from batch {} of {} records", batchId, batch.size(), e);
+                    throw new ConnectException(e);
                 }
-            }
+            }, maxRetries, retryBackoffMs, RuntimeException.class);
         }
 
-        private void handleMalformedDoc(final BulkResponse bulkRsp) {
+        private void handleMalformedDoc(final BulkItemResponse bulkItemResponse) {
             // if the elasticsearch request failed because of a malformed document,
             // the behavior is configurable.
             switch (behaviorOnMalformedDoc) {
                 case IGNORE:
-                    log.debug("Encountered an illegal document error when executing batch {} of {}"
+                    LOGGER.debug("Encountered an illegal document error when executing batch {} of {}"
                             + " records. Ignoring and will not index record. Error was {}",
-                        batchId, batch.size(), bulkRsp.getErrorInfo());
+                        batchId, batch.size(), bulkItemResponse.getFailureMessage());
                     return;
                 case WARN:
-                    log.warn("Encountered an illegal document error when executing batch {} of {}"
+                    LOGGER.warn("Encountered an illegal document error when executing batch {} of {}"
                             + " records. Ignoring and will not index record. Error was {}",
-                        batchId, batch.size(), bulkRsp.getErrorInfo());
+                        batchId, batch.size(), bulkItemResponse.getFailureMessage());
                     return;
                 case FAIL:
-                    log.error("Encountered an illegal document error when executing batch {} of {}"
+                default:
+                    LOGGER.error("Encountered an illegal document error when executing batch {} of {}"
                             + " records. Error was {} (to ignore future records like this"
-                            + " change the configuration property '%s' from '%s' to '%s').",
-                        batchId, batch.size(), bulkRsp.getErrorInfo(),
+                            + " change the configuration property '{}' from '{}' to '{}').",
+                        batchId, batch.size(), bulkItemResponse.getFailureMessage(),
                         OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG,
                         BehaviorOnMalformedDoc.FAIL,
                         BehaviorOnMalformedDoc.IGNORE);
-                    throw new ConnectException("Bulk request failed: " + bulkRsp.getErrorInfo());
-                default:
-                    throw new RuntimeException(String.format(
-                        "Unknown value for %s enum: %s",
-                        BehaviorOnMalformedDoc.class.getSimpleName(),
-                        behaviorOnMalformedDoc
-                    ));
+                    throw new ConnectException("Bulk request failed: " + bulkItemResponse.getFailureMessage());
             }
         }
     }
 
-    private boolean responseContainsMalformedDocError(final BulkResponse bulkRsp) {
-        return bulkRsp.getErrorInfo().contains("mapper_parsing_exception")
-            || bulkRsp.getErrorInfo().contains("strict_dynamic_mapping_exception")
-            || bulkRsp.getErrorInfo().contains("illegal_argument_exception");
+    private boolean responseContainsMalformedDocError(final BulkItemResponse bulkItemResponse) {
+        return bulkItemResponse.getFailureMessage().contains("strict_dynamic_mapping_exception")
+                || bulkItemResponse.getFailureMessage().contains("mapper_parsing_exception")
+                || bulkItemResponse.getFailureMessage().contains("illegal_argument_exception")
+                || bulkItemResponse.getFailureMessage().contains("action_request_validation_exception");
     }
 
     private synchronized void onBatchCompletion(final int batchSize) {

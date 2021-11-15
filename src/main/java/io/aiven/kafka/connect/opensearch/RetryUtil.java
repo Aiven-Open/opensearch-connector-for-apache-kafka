@@ -97,10 +97,20 @@ public class RetryUtil {
         return result < 0L ? MAX_RETRY_TIME_MS : Math.min(MAX_RETRY_TIME_MS, result);
     }
 
-    public static <T> T callWithRetry(final String callName,
-                                      final Callable<T> callable,
-                                      final int maxRetries,
-                                      final long retryBackoffMs) {
+    public static <T> T callWithRetry(
+            final String callName,
+            final Callable<T> callable,
+            final int maxRetries,
+            final long retryBackoffMs) {
+        return callWithRetry(callName, callable, maxRetries, retryBackoffMs, Exception.class);
+    }
+
+    public static <T, E extends Exception> T callWithRetry(
+            final String callName,
+            final Callable<T> callable,
+            final int maxRetries,
+            final long retryBackoffMs,
+            final Class<E> repeatableException) {
         final var time = Time.SYSTEM;
         final int maxAttempts = maxRetries + 1;
         for (int attempts = 1, retryAttempts = 0; true; ++attempts, ++retryAttempts) {
@@ -108,14 +118,18 @@ public class RetryUtil {
                 LOGGER.trace("Try {} with attempt {}/{}", callName, attempts, maxAttempts);
                 return callable.call();
             } catch (final Exception e) {
-                if (attempts < maxAttempts) {
+                if (attempts < maxAttempts && e.getClass().equals(repeatableException)) {
                     final long sleepTimeMs = computeRandomRetryWaitTimeInMillis(retryAttempts, retryBackoffMs);
-                    LOGGER.warn("Failed to {} with attempt {}/{}, will attempt retry after {} ms. Failure reason: {}",
-                            callName, attempts, maxAttempts, sleepTimeMs, e);
+                    final var msg =
+                            String.format(
+                                    "Failed to %s with attempt %s/%s, will attempt retry after %s ms. ",
+                                    callName, attempts, maxAttempts, sleepTimeMs
+                            );
+                    LOGGER.warn(msg + "Failure reason: {}", e);
                     time.sleep(sleepTimeMs);
                 } else {
                     final var msg = String.format(
-                            "Failed to %s of %s records after total of {} attempt(s)",
+                            "Failed to %s after total of %s attempt(s)",
                             callName,
                             attempts
                     );

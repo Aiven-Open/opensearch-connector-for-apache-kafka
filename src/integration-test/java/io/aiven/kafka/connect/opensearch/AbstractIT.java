@@ -18,16 +18,33 @@
 package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.kafka.test.TestCondition;
+import org.apache.kafka.test.TestUtils;
+
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.core.CountRequest;
+import org.opensearch.search.SearchHits;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_PASSWORD_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_USERNAME_CONFIG;
+
 @Testcontainers
 public abstract class AbstractIT {
+
+    static final String TOPIC_NAME = "super_topic";
+
 
     @Container
     static OpensearchContainer opensearchContainer = new OpensearchContainer();
@@ -35,20 +52,48 @@ public abstract class AbstractIT {
     OpensearchClient opensearchClient;
 
     @BeforeEach
-    void setupTest() throws Exception {
-        final var props =
-                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, opensearchContainer.getHttpHostAddress(),
-                       OpensearchSinkConnectorConfig.CONNECTION_USERNAME_CONFIG, "admin",
-                       OpensearchSinkConnectorConfig.CONNECTION_PASSWORD_CONFIG, "admin");
-        final var config = new OpensearchSinkConnectorConfig(props);
+    void setup() throws Exception {
+        final var config = new OpensearchSinkConnectorConfig(getDefaultProperties());
         opensearchClient = new OpensearchClient(config);
     }
 
+    protected Map<String, String> getDefaultProperties() {
+        return Map.of(
+                CONNECTION_URL_CONFIG, opensearchContainer.getHttpHostAddress(),
+                CONNECTION_USERNAME_CONFIG, "admin",
+                CONNECTION_PASSWORD_CONFIG, "admin"
+        );
+    }
+
     @AfterEach
-    void tearDown() throws IOException {
+    void tearDown() throws Exception {
         if (Objects.nonNull(opensearchClient)) {
             opensearchClient.close();
         }
     }
+
+    protected SearchHits search() throws IOException {
+        return opensearchClient.client
+                .search(new SearchRequest(TOPIC_NAME), RequestOptions.DEFAULT).getHits();
+    }
+
+    protected void waitForRecords(final int expectedRecords) throws InterruptedException {
+        TestUtils.waitForCondition(
+                new TestCondition() {
+                    @Override
+                    public boolean conditionMet() {
+                        try {
+                            return expectedRecords == opensearchClient.client
+                                    .count(new CountRequest(TOPIC_NAME), RequestOptions.DEFAULT).getCount();
+                        } catch (final IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    }
+                },
+                TimeUnit.MINUTES.toMillis(1),
+                String.format("Could not find expected documents (%d) in time.", expectedRecords)
+        );
+    }
+
 
 }
