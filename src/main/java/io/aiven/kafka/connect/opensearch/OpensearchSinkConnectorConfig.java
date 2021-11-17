@@ -31,8 +31,6 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
 import org.apache.kafka.common.config.types.Password;
 
-import io.aiven.kafka.connect.opensearch.bulk.BulkProcessor;
-
 public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public static final String CONNECTION_URL_CONFIG = "connection.url";

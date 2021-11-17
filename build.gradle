@@ -36,7 +36,7 @@ plugins {
 }
 
 repositories {
-    jcenter()
+    mavenCentral()
 }
 
 java {
@@ -108,7 +108,7 @@ publishing {
 }
 
 ext {
-    kafkaVersion = "2.2.0"
+    kafkaVersion = "2.8.1"
     slf4jVersion = "1.7.32"
     openSearchVersion = "1.0.0"
     luceneVersion = "8.8.2"  // this is the version in OS
@@ -154,6 +154,7 @@ dependencies {
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.8.1"
     testImplementation "org.mockito:mockito-core:3.12.4"
+    testImplementation "org.mockito:mockito-inline:3.12.4"
     testImplementation "org.mockito:mockito-junit-jupiter:3.12.4"
 
     testImplementation "org.apache.kafka:connect-api:$kafkaVersion"
@@ -165,7 +166,11 @@ dependencies {
 
     integrationTestImplementation "org.testcontainers:junit-jupiter:$testcontainersVersion"
     integrationTestImplementation "org.testcontainers:kafka:$testcontainersVersion" // this is not Kafka version
-
+    integrationTestImplementation "org.apache.kafka:kafka-clients:$kafkaVersion:test"
+    integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}"
+    integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}:test"
+    integrationTestImplementation "org.apache.kafka:kafka_2.13:${kafkaVersion}"
+    integrationTestImplementation "org.apache.kafka:kafka_2.13:${kafkaVersion}:test"
 }
 
 test {

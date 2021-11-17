@@ -114,7 +114,7 @@ public class RecordConverter {
                         // index present in ES to delete anyways.
                         return null;
                     }
-                    // Will proceed as normal, ultimately creating an IndexableRecord with a null payload
+                    // Will proceed as normal, ultimately creating an with a null payload
                     break;
                 case FAIL:
                 default:

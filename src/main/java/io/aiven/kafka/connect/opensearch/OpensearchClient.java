@@ -24,10 +24,12 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 
+import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
@@ -65,9 +67,9 @@ public class OpensearchClient implements AutoCloseable {
 
     private static final String DEFAULT_OS_VERSION = "1.0.0";
 
-    private final int maxRetries;
+    private final OpensearchSinkConnectorConfig config;
 
-    private final long retryBackoffMs;
+    private final BulkProcessor bulkProcessor;
 
     /* visible for testing */
     protected final RestHighLevelClient client;
@@ -81,15 +83,15 @@ public class OpensearchClient implements AutoCloseable {
                                         .map(HttpHost::create).toArray(HttpHost[]::new)
                         ).setHttpClientConfigCallback(new HttpClientConfigCallback(config))
                 ),
-                config.maxRetry(),
-                config.retryBackoffMs()
+                config
         );
     }
 
-    protected OpensearchClient(final RestHighLevelClient client, final int maxRetries, final long retryBackoffMs) {
+    protected OpensearchClient(final RestHighLevelClient client, final OpensearchSinkConnectorConfig config) {
         this.client = client;
-        this.maxRetries = maxRetries;
-        this.retryBackoffMs = maxRetries;
+        this.config = config;
+        this.bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
+        this.bulkProcessor.start();
     }
 
     public String getVersion() {
@@ -149,7 +151,22 @@ public class OpensearchClient implements AutoCloseable {
                 && !mappings.sourceAsMap().isEmpty();
     }
 
+    public void index(final DocWriteRequest<?> indexRequest) {
+        bulkProcessor.add(indexRequest, config.flushTimeoutMs());
+    }
+
+    public void flush() {
+        bulkProcessor.flush(config.flushTimeoutMs());
+    }
+
     public void close() throws IOException {
+        try {
+            bulkProcessor.flush(config.flushTimeoutMs());
+        } catch (final Exception e) {
+            LOGGER.warn("Failed to flush during stop", e);
+        }
+        bulkProcessor.stop();
+        bulkProcessor.awaitStop(config.flushTimeoutMs());
         if (Objects.nonNull(client)) {
             client.close();
         }
@@ -224,7 +241,7 @@ public class OpensearchClient implements AutoCloseable {
     }
 
     public <T> T withRetry(final String callName, final Callable<T> callable) {
-        return RetryUtil.callWithRetry(callName, callable, maxRetries, retryBackoffMs);
+        return RetryUtil.callWithRetry(callName, callable, config.maxRetry(), config.retryBackoffMs());
     }
 
 
