@@ -110,7 +110,7 @@ public class OpensearchClient implements AutoCloseable {
 
     public boolean indexExists(final String index) {
         return withRetry(
-                String.format("check index %s exists",  index),
+                String.format("check index %s exists", index),
                 () -> client.indices().exists(new GetIndexRequest(index), RequestOptions.DEFAULT)
         );
     }
