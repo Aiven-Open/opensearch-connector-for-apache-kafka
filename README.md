@@ -2,10 +2,12 @@
 
 [![Build Status](https://github.com/aiven/opensearch-connector-for-apache-kafka/actions/workflows/master_push_workflow.yml/badge.svg)](https://github.com/aiven/opensearch-connector-for-apache-kafka/actions)
 
+This repository includes Aiven's Opensearch [connector](http://kafka.apache.org/documentation.html#connect) for Apache
+Kafka.
 
-This repository includes Aiven's Opensearch [connector](http://kafka.apache.org/documentation.html#connect) for Apache Kafka.
-
-The project originates from Aiven's [elasticsearch-connector-for-apache-kafka](https://github.com/aiven/elasticsearch-connector-for-apache-kafka). The code was forked and all classes were renamed.
+The project originates from
+Aiven's [elasticsearch-connector-for-apache-kafka](https://github.com/aiven/elasticsearch-connector-for-apache-kafka).
+The code was forked and all classes were renamed.
 
 # Documentation
 
@@ -19,4 +21,5 @@ The project originates from Aiven's [elasticsearch-connector-for-apache-kafka](h
 
 # License
 
-The project is licensed under the [Apache 2 license](https://www.apache.org/licenses/LICENSE-2.0). See [LICENSE](LICENSE).
+The project is licensed under the [Apache 2 license](https://www.apache.org/licenses/LICENSE-2.0).
+See [LICENSE](LICENSE).

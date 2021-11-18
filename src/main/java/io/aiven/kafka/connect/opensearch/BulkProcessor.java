@@ -101,10 +101,10 @@ public class BulkProcessor {
     private ThreadFactory makeThreadFactory() {
         final AtomicInteger threadCounter = new AtomicInteger();
         final Thread.UncaughtExceptionHandler uncaughtExceptionHandler =
-            (t, e) -> {
-                LOGGER.error("Uncaught exception in BulkProcessor thread {}", t, e);
-                failAndStop(e);
-            };
+                (t, e) -> {
+                    LOGGER.error("Uncaught exception in BulkProcessor thread {}", t, e);
+                    failAndStop(e);
+                };
         return new ThreadFactory() {
             @Override
             public Thread newThread(final Runnable r) {
@@ -166,7 +166,7 @@ public class BulkProcessor {
      */
     private synchronized boolean canSubmit(final long elapsedMs) {
         return !unsentRecords.isEmpty()
-            && (flushRequested || elapsedMs >= lingerMs || unsentRecords.size() >= batchSize);
+                && (flushRequested || elapsedMs >= lingerMs || unsentRecords.size() >= batchSize);
     }
 
     /**
@@ -310,7 +310,7 @@ public class BulkProcessor {
                 throwIfTerminal();
                 if (bufferedRecords() > 0) {
                     throw new ConnectException("Flush timeout expired with unflushed records: "
-                        + bufferedRecords());
+                            + bufferedRecords());
                 }
             }
         } catch (final InterruptedException e) {
@@ -388,23 +388,23 @@ public class BulkProcessor {
             switch (behaviorOnMalformedDoc) {
                 case IGNORE:
                     LOGGER.debug("Encountered an illegal document error when executing batch {} of {}"
-                            + " records. Ignoring and will not index record. Error was {}",
-                        batchId, batch.size(), bulkItemResponse.getFailureMessage());
+                                    + " records. Ignoring and will not index record. Error was {}",
+                            batchId, batch.size(), bulkItemResponse.getFailureMessage());
                     return;
                 case WARN:
                     LOGGER.warn("Encountered an illegal document error when executing batch {} of {}"
-                            + " records. Ignoring and will not index record. Error was {}",
-                        batchId, batch.size(), bulkItemResponse.getFailureMessage());
+                                    + " records. Ignoring and will not index record. Error was {}",
+                            batchId, batch.size(), bulkItemResponse.getFailureMessage());
                     return;
                 case FAIL:
                 default:
                     LOGGER.error("Encountered an illegal document error when executing batch {} of {}"
-                            + " records. Error was {} (to ignore future records like this"
-                            + " change the configuration property '{}' from '{}' to '{}').",
-                        batchId, batch.size(), bulkItemResponse.getFailureMessage(),
-                        OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG,
-                        BehaviorOnMalformedDoc.FAIL,
-                        BehaviorOnMalformedDoc.IGNORE);
+                                    + " records. Error was {} (to ignore future records like this"
+                                    + " change the configuration property '{}' from '{}' to '{}').",
+                            batchId, batch.size(), bulkItemResponse.getFailureMessage(),
+                            OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG,
+                            BehaviorOnMalformedDoc.FAIL,
+                            BehaviorOnMalformedDoc.IGNORE);
                     throw new ConnectException("Bulk request failed: " + bulkItemResponse.getFailureMessage());
             }
         }

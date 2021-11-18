@@ -86,18 +86,15 @@ public class OpensearchClientIT extends AbstractIT {
 
         assertTrue(response.containsKey("properties"));
 
-        @SuppressWarnings("unchecked")
-        final var properties = (Map<String, Object>) response.get("properties");
+        @SuppressWarnings("unchecked") final var properties = (Map<String, Object>) response.get("properties");
         assertTrue(properties.containsKey("name"));
         assertTrue(properties.containsKey("value"));
 
-        @SuppressWarnings("unchecked")
-        final var nameProperty = (Map<String, Object>) properties.get("name");
+        @SuppressWarnings("unchecked") final var nameProperty = (Map<String, Object>) properties.get("name");
         assertEquals("text", nameProperty.get("type"));
         assertNull(nameProperty.get("null_value"));
 
-        @SuppressWarnings("unchecked")
-        final var valueProperty = (Map<String, Object>) properties.get("value");
+        @SuppressWarnings("unchecked") final var valueProperty = (Map<String, Object>) properties.get("value");
         assertEquals("integer", valueProperty.get("type"));
         assertEquals(0, valueProperty.get("null_value"));
     }
