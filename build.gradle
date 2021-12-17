@@ -81,8 +81,8 @@ publishing {
             version = getVersion()
 
             pom {
-                name = "Aiven's Opensearch Connector for Apache Kafka"
-                description = "Aiven's Opensearch Connector for Apache Kafka"
+                name = "Aiven's OpenSearch Connector for Apache Kafka"
+                description = "Aiven's OpenSearch Connector for Apache Kafka"
                 url = "https://aiven.io"
                 organization {
                     name = "Aiven Oy"
