@@ -1,8 +1,8 @@
-# Aiven's OpenSearch Connector for Apache Kafka
+# Aiven's OpenSearch Connector for Apache Kafka®
 
 [![Build Status](https://github.com/aiven/opensearch-connector-for-apache-kafka/actions/workflows/master_push_workflow.yml/badge.svg)](https://github.com/aiven/opensearch-connector-for-apache-kafka/actions)
 
-This repository includes Aiven's OpenSearch [connector](http://kafka.apache.org/documentation.html#connect) for Apache
+This repository includes Aiven's OpenSearch [Apache Kafka Connector](http://kafka.apache.org/documentation.html#connect) for Apache
 Kafka.
 
 The project originates from
@@ -23,3 +23,7 @@ The code was forked and all classes were renamed.
 
 The project is licensed under the [Apache 2 license](https://www.apache.org/licenses/LICENSE-2.0).
 See [LICENSE](LICENSE).
+
+# Trademark
+
+Apache Kafka, Apache Kafka Connect are either registered trademarks or trademarks of the Apache Software Foundation in the United States and/or other countries.
