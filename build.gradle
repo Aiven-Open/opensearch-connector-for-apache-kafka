@@ -35,6 +35,10 @@ plugins {
     id 'idea'
 }
 
+wrapper {
+   distributionType = Wrapper.DistributionType.ALL
+}
+
 repositories {
     mavenCentral()
 }
@@ -50,7 +54,7 @@ compileJava {
 
 checkstyle {
     toolVersion "9.0.1"
-    configDir rootProject.file("checkstyle/")
+    configDirectory.set(rootProject.file("checkstyle/"))
 }
 
 jacoco {
@@ -121,7 +125,7 @@ sourceSets {
     integrationTest {
         java.srcDir file('src/integration-test/java')
         resources.srcDir file('src/integration-test/resources')
-        compileClasspath += sourceSets.main.output + configurations.testRuntime
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
         runtimeClasspath += output + compileClasspath
     }
 }
@@ -162,7 +166,7 @@ dependencies {
     testImplementation "com.fasterxml.jackson.core:jackson-core:2.11.4"
     testImplementation "com.fasterxml.jackson.core:jackson-databind:2.11.4"
     testImplementation "com.fasterxml.jackson.core:jackson-annotations:2.11.4"
-    testRuntime "org.slf4j:slf4j-log4j12:$slf4jVersion"
+    testRuntimeOnly "org.slf4j:slf4j-log4j12:$slf4jVersion"
 
     integrationTestImplementation "org.testcontainers:junit-jupiter:$testcontainersVersion"
     integrationTestImplementation "org.testcontainers:kafka:$testcontainersVersion" // this is not Kafka version
