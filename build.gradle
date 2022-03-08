@@ -117,7 +117,7 @@ ext {
     openSearchVersion = "1.2.3"
     luceneVersion = "8.8.2"  // this is the version in OS
 
-    testcontainersVersion = "1.16.2"
+    testcontainersVersion = "1.16.3"
     confluentPlatformVersion = "4.1.4"
 }
 
@@ -153,7 +153,7 @@ dependencies {
     compileOnly "org.apache.kafka:connect-json:$kafkaVersion"
 
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
-    implementation "com.google.code.gson:gson:2.8.8"
+    implementation "com.google.code.gson:gson:2.9.0"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.8.2"
