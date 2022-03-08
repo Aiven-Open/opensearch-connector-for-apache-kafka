@@ -117,7 +117,7 @@ ext {
     openSearchVersion = "1.2.3"
     luceneVersion = "8.8.2"  // this is the version in OS
 
-    testcontainersVersion = "1.16.2"
+    testcontainersVersion = "1.16.3"
     confluentPlatformVersion = "4.1.4"
 }
 
