@@ -113,7 +113,7 @@ publishing {
 
 ext {
     kafkaVersion = "2.8.1"
-    slf4jVersion = "1.7.32"
+    slf4jVersion = "1.7.36"
     openSearchVersion = "1.2.3"
     luceneVersion = "8.8.2"  // this is the version in OS
 
