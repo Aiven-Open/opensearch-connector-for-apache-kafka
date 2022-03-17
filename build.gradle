@@ -153,7 +153,7 @@ dependencies {
     compileOnly "org.apache.kafka:connect-json:$kafkaVersion"
 
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
-    implementation "com.google.code.gson:gson:2.8.8"
+    implementation "com.google.code.gson:gson:2.9.0"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.8.2"
