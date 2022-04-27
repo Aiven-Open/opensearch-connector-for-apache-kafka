@@ -36,7 +36,13 @@ plugins {
 }
 
 wrapper {
-   distributionType = Wrapper.DistributionType.ALL
+    distributionType = 'ALL'
+    doLast {
+        final URI sha256Uri = new URI(wrapper.getDistributionUrl() + ".sha256")
+        final String sha256Sum = new String(sha256Uri.toURL().bytes)
+        wrapper.getPropertiesFile() << "distributionSha256Sum=${sha256Sum}\n"
+        println "Added checksum to wrapper properties"
+    }
 }
 
 repositories {
