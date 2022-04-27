@@ -20,10 +20,13 @@ package io.aiven.kafka.connect.opensearch;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.kafka.common.config.ConfigException;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 public class OpensearchSinkConnectorConfigTest {
@@ -33,12 +36,12 @@ public class OpensearchSinkConnectorConfigTest {
     @BeforeEach
     public void setup() {
         props = new HashMap<>();
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "localhost");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true");
     }
 
     @Test
     public void testDefaultHttpTimeoutsConfig() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
         assertEquals(config.getInt(OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG), 3000);
         assertEquals(config.getInt(OpensearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG), 1000);
@@ -46,10 +49,17 @@ public class OpensearchSinkConnectorConfigTest {
 
     @Test
     public void testSetHttpTimeoutsConfig() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put(OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG, "10000");
         props.put(OpensearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG, "15000");
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
         assertEquals(config.getInt(OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG), 10000);
         assertEquals(config.getInt(OpensearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG), 15000);
+    }
+
+    @Test
+    public void testThrowsConfigExceptionForWrongUrls() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "ttp://asdsad");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
     }
 }
