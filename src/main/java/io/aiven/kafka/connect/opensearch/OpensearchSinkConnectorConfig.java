@@ -17,6 +17,8 @@
 
 package io.aiven.kafka.connect.opensearch;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +31,10 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.types.Password;
+
+import org.apache.http.HttpHost;
 
 public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
@@ -163,6 +168,18 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         configDef.define(
                 CONNECTION_URL_CONFIG,
                 Type.LIST,
+                ConfigDef.NO_DEFAULT_VALUE,
+                (name, value) -> {
+                    @SuppressWarnings("unchecked")
+                    final var urls = (List<String>) value;
+                    for (final var url : urls) {
+                        try {
+                            new URL(url);
+                        } catch (final MalformedURLException e) {
+                            throw new ConfigException(CONNECTION_URL_CONFIG, url);
+                        }
+                    }
+                },
                 Importance.HIGH,
                 CONNECTION_URL_DOC,
                 group,
@@ -384,7 +401,18 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         super(CONFIG, props);
     }
 
-    public List<String> connectionUrls() {
+    public HttpHost[] httpHosts() {
+        final var connectionUrls = connectionUrls();
+        final var httpHosts = new HttpHost[connectionUrls.size()];
+        int idx = 0;
+        for (final var url : connectionUrls) {
+            httpHosts[idx] = HttpHost.create(url);
+            idx++;
+        }
+        return httpHosts;
+    }
+
+    private List<String> connectionUrls() {
         return getList(CONNECTION_URL_CONFIG).stream()
                 .map(u -> u.endsWith("/") ? u.substring(0, u.length() - 1) : u)
                 .collect(Collectors.toList());

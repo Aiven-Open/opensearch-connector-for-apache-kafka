@@ -39,7 +39,6 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.client.indices.PutMappingRequest;
 
-import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.config.RequestConfig;
@@ -77,11 +76,10 @@ public class OpensearchClient implements AutoCloseable {
     public OpensearchClient(final OpensearchSinkConnectorConfig config) {
         this(
                 new RestHighLevelClient(
-                        RestClient.builder(
-                                config.connectionUrls()
-                                        .stream()
-                                        .map(HttpHost::create).toArray(HttpHost[]::new)
-                        ).setHttpClientConfigCallback(new HttpClientConfigCallback(config))
+                        RestClient.builder(config.httpHosts())
+                                .setHttpClientConfigCallback(
+                                        new HttpClientConfigCallback(config)
+                                )
                 ),
                 config
         );
@@ -190,9 +188,9 @@ public class OpensearchClient implements AutoCloseable {
 
             if (config.isAuthenticatedConnection()) {
                 final var credentialsProvider = new BasicCredentialsProvider();
-                for (final var url : config.connectionUrls()) {
+                for (final var httpHost : config.httpHosts()) {
                     credentialsProvider.setCredentials(
-                            new AuthScope(HttpHost.create(url)),
+                            new AuthScope(httpHost),
                             new UsernamePasswordCredentials(
                                     config.connectionUsername(),
                                     config.connectionPassword().value()
@@ -228,7 +226,7 @@ public class OpensearchClient implements AutoCloseable {
                         );
                 final var maxPerRoute = Math.max(10, config.maxInFlightRequests() * 2);
                 connectionManager.setDefaultMaxPerRoute(maxPerRoute);
-                connectionManager.setMaxTotal(maxPerRoute * config.connectionUrls().size());
+                connectionManager.setMaxTotal(maxPerRoute * config.httpHosts().length);
                 return connectionManager;
             } catch (final IOReactorException
                     | NoSuchAlgorithmException
