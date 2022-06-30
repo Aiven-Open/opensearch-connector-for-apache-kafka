@@ -43,6 +43,7 @@ import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.rest.RestStatus;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +64,7 @@ public class BulkProcessor {
     private final int maxRetries;
     private final long retryBackoffMs;
     private final BehaviorOnMalformedDoc behaviorOnMalformedDoc;
+    private final BehaviorOnVersionConflict behaviorOnVersionConflict;
 
     private final Thread farmer;
     private final ExecutorService executor;
@@ -90,12 +92,24 @@ public class BulkProcessor {
         this.maxRetries = config.maxRetry();
         this.retryBackoffMs = config.retryBackoffMs();
         this.behaviorOnMalformedDoc = config.behaviorOnMalformedDoc();
+        this.behaviorOnVersionConflict = config.behaviorOnVersionConflict();
 
         unsentRecords = new ArrayDeque<>(maxBufferedRecords);
 
         final ThreadFactory threadFactory = makeThreadFactory();
         farmer = threadFactory.newThread(farmerTask());
         executor = Executors.newFixedThreadPool(config.maxInFlightRequests(), threadFactory);
+        
+        if (!config.ignoreKey() && config.behaviorOnVersionConflict() == BehaviorOnVersionConflict.FAIL) {
+            LOGGER.warn("The {} is set to `false` which assumes external version and optimistic locking."
+                    + " You may consider changing the configuration property '{}' from '{}' to '{}' or '{}'"
+                    + " to deal with possible version conflicts.",
+                OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG,
+                OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
+                BehaviorOnMalformedDoc.FAIL,
+                BehaviorOnMalformedDoc.IGNORE,
+                BehaviorOnMalformedDoc.WARN);
+        }
     }
 
     private ThreadFactory makeThreadFactory() {
@@ -363,10 +377,13 @@ public class BulkProcessor {
                         if (!itemResponse.getFailure().isAborted()) {
                             if (responseContainsMalformedDocError(itemResponse)) {
                                 handleMalformedDoc(itemResponse);
-                            }
-                            throw new RuntimeException(
-                                    "One of the item in the bulk response failed. Reason: "
+                            } else if (responseContainsVersionConflict(itemResponse)) {
+                                handleVersionConflict(itemResponse);
+                            } else {
+                                throw new RuntimeException(
+                                        "One of the item in the bulk response failed. Reason: "
                                             + itemResponse.getFailureMessage());
+                            }
                         } else {
                             throw new ConnectException(
                                     "One of the item in the bulk response aborted. Reason: "
@@ -382,6 +399,35 @@ public class BulkProcessor {
             }, maxRetries, retryBackoffMs, RuntimeException.class);
         }
 
+        private void handleVersionConflict(final BulkItemResponse bulkItemResponse) {
+            // if the elasticsearch request failed because of a version conflict,
+            // the behavior is configurable.
+            switch (behaviorOnVersionConflict) {
+                case IGNORE:
+                    LOGGER.debug("Encountered a version conflict when executing batch {} of {}"
+                                    + " records. Ignoring and will keep an existing record. Error was {}",
+                            batchId, batch.size(), bulkItemResponse.getFailureMessage());
+                    break;
+                case WARN:
+                    LOGGER.warn("Encountered a version conflict when executing batch {} of {}"
+                                    + " records. Ignoring and will keep an existing record. Error was {}",
+                            batchId, batch.size(), bulkItemResponse.getFailureMessage());
+                    break;
+                case FAIL:
+                default:
+                    LOGGER.error("Encountered a version conflict when executing batch {} of {}"
+                                    + " records. Error was {} (to ignore version conflicts you may consider"
+                                    + " changing the configuration property '{}' from '{}' to '{}').",
+                            batchId, batch.size(), bulkItemResponse.getFailureMessage(),
+                            OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
+                            BehaviorOnMalformedDoc.FAIL,
+                            BehaviorOnMalformedDoc.IGNORE);
+                    throw new ConnectException(
+                            "One of the item in the bulk response failed. Reason: "
+                                    + bulkItemResponse.getFailureMessage());
+            }
+        }
+
         private void handleMalformedDoc(final BulkItemResponse bulkItemResponse) {
             // if the elasticsearch request failed because of a malformed document,
             // the behavior is configurable.
@@ -390,12 +436,12 @@ public class BulkProcessor {
                     LOGGER.debug("Encountered an illegal document error when executing batch {} of {}"
                                     + " records. Ignoring and will not index record. Error was {}",
                             batchId, batch.size(), bulkItemResponse.getFailureMessage());
-                    return;
+                    break;
                 case WARN:
                     LOGGER.warn("Encountered an illegal document error when executing batch {} of {}"
                                     + " records. Ignoring and will not index record. Error was {}",
                             batchId, batch.size(), bulkItemResponse.getFailureMessage());
-                    return;
+                    break;
                 case FAIL:
                 default:
                     LOGGER.error("Encountered an illegal document error when executing batch {} of {}"
@@ -408,6 +454,11 @@ public class BulkProcessor {
                     throw new ConnectException("Bulk request failed: " + bulkItemResponse.getFailureMessage());
             }
         }
+    }
+    
+    private boolean responseContainsVersionConflict(final BulkItemResponse bulkItemResponse) {
+        return bulkItemResponse.getFailure().getStatus() == RestStatus.CONFLICT
+                || bulkItemResponse.getFailureMessage().contains("version_conflict_engine_exception");
     }
 
     private boolean responseContainsMalformedDocError(final BulkItemResponse bulkItemResponse) {
@@ -484,6 +535,55 @@ public class BulkProcessor {
         }
 
         public static BehaviorOnMalformedDoc forValue(final String value) {
+            return valueOf(value.toUpperCase(Locale.ROOT));
+        }
+
+        @Override
+        public String toString() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
+    
+    public enum BehaviorOnVersionConflict {
+        IGNORE,
+        WARN,
+        FAIL;
+
+        public static final BehaviorOnVersionConflict DEFAULT = FAIL;
+
+        // Want values for "behavior.on.version.conflict" property to be case-insensitive
+        public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
+            private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
+
+            @Override
+            public void ensureValid(final String name, final Object value) {
+                if (value instanceof String) {
+                    final String lowerCaseStringValue = ((String) value).toLowerCase(Locale.ROOT);
+                    validator.ensureValid(name, lowerCaseStringValue);
+                } else {
+                    validator.ensureValid(name, value);
+                }
+            }
+
+            // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
+            @Override
+            public String toString() {
+                return validator.toString();
+            }
+        };
+
+        public static String[] names() {
+            final BehaviorOnVersionConflict[] behaviors = values();
+            final String[] result = new String[behaviors.length];
+
+            for (int i = 0; i < behaviors.length; i++) {
+                result[i] = behaviors[i].toString();
+            }
+
+            return result;
+        }
+
+        public static BehaviorOnVersionConflict forValue(final String value) {
             return valueOf(value.toUpperCase(Locale.ROOT));
         }
 
