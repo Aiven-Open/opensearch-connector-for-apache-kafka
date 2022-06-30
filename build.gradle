@@ -120,10 +120,9 @@ publishing {
 ext {
     kafkaVersion = "2.8.1"
     slf4jVersion = "1.7.36"
-    openSearchVersion = "1.3.1"
-    luceneVersion = "8.8.2"  // this is the version in OS
+    openSearchVersion = "2.0.1"
 
-    testcontainersVersion = "1.17.2"
+    testcontainersVersion = "1.17.3"
     confluentPlatformVersion = "4.1.4"
 }
 
