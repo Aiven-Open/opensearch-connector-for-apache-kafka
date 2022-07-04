@@ -37,6 +37,8 @@ import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentType;
 
+import io.aiven.kafka.connect.opensearch.BulkProcessor.BehaviorOnVersionConflict;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -47,6 +49,7 @@ import org.mockito.stubbing.Answer;
 import static io.aiven.kafka.connect.opensearch.BulkProcessor.BehaviorOnMalformedDoc;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BATCH_SIZE_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.LINGER_MS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
@@ -413,8 +416,81 @@ public class BulkProcessorTest {
             bulkProcessor.add(newIndexRequest(43), 1);
 
             final int flushTimeoutMs = 1000;
-            assertThrows(ConnectException.class, () -> bulkProcessor.flush(flushTimeoutMs));
+            bulkProcessor.flush(flushTimeoutMs);
+
+            assertTrue(clientAnswer.expectationsMet());
         }
+    }
+
+    @Test
+    public void failOnVersionConfict(final @Mock RestHighLevelClient client) throws IOException {
+        final var clientAnswer = new ClientAnswer();
+        when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
+        final String errorInfo =
+                " [{\"type\":\"version_conflict_engine_exception\","
+                        + "\"reason\":\"[1]: version conflict, current version [3] is higher or"
+                        + " equal to the one provided [3]\""
+                        + "}]";
+        final var config = new OpensearchSinkConnectorConfig(Map.of(
+                CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100",
+                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
+                BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "5",
+                MAX_RETRIES_CONFIG, "3",
+                READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnVersionConflict.FAIL.toString()
+        ));
+        final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
+        clientAnswer.expect(
+                List.of(
+                        newIndexRequest(42),
+                        newIndexRequest(43)
+                ), failedResponse(errorInfo));
+
+        bulkProcessor.start();
+
+        bulkProcessor.add(newIndexRequest(42), 1);
+        bulkProcessor.add(newIndexRequest(43), 1);
+
+        assertThrows(ConnectException.class, () -> bulkProcessor.flush(1000));
+        verify(client, times(1)).bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT));
+        assertTrue(clientAnswer.expectationsMet());
+    }
+
+    @Test
+    public void ignoreOnVersionConfict(final @Mock RestHighLevelClient client) throws IOException {
+        final var clientAnswer = new ClientAnswer();
+        when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
+        final String errorInfo =
+                " [{\"type\":\"version_conflict_engine_exception\","
+                        + "\"reason\":\"[1]: version conflict, current version [3] is higher or"
+                        + " equal to the one provided [3]\""
+                        + "}]";
+        final var config = new OpensearchSinkConnectorConfig(Map.of(
+                CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100",
+                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
+                BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "5",
+                MAX_RETRIES_CONFIG, "3",
+                READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnVersionConflict.IGNORE.toString()
+        ));
+        final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
+        clientAnswer.expect(
+                List.of(
+                        newIndexRequest(42),
+                        newIndexRequest(43)
+                ), failedResponse(errorInfo));
+
+        bulkProcessor.start();
+
+        bulkProcessor.add(newIndexRequest(42), 1);
+        bulkProcessor.add(newIndexRequest(43), 1);
+        bulkProcessor.flush(1000);
+
+        assertTrue(clientAnswer.expectationsMet());
     }
 
     IndexRequest newIndexRequest(final int body) {

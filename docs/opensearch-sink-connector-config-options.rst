@@ -163,3 +163,11 @@ Data Conversion
   * Default: fail
   * Valid Values: [ignore, warn, fail]
   * Importance: low
+  
+``behavior.on.version.conflict``
+  How to handle records that OpenSearch rejects due to document's version conflicts. It may happen when offsets were not committed or/and records have to be reprocessed. Valid options are 'ignore', 'warn', and 'fail'.
+
+  * Type: string
+  * Default: fail
+  * Valid Values: [ignore, warn, fail]
+  * Importance: low

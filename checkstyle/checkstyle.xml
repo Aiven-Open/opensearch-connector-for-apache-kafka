@@ -288,7 +288,9 @@
         <module name="BooleanExpressionComplexity"/>
 
         <!-- See http://checkstyle.sourceforge.net/config_metrics.html#ClassFanOutComplexity -->
-        <module name="ClassFanOutComplexity"/>
+        <module name="ClassFanOutComplexity">
+            <property name="max" value="21"/>
+        </module>
 
         <!-- See http://checkstyle.sourceforge.net/config_metrics.html#CyclomaticComplexity -->
         <module name="CyclomaticComplexity"/>

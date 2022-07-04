@@ -154,6 +154,11 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             + "Opensearch rejects due to some malformation of the document itself, such as an index"
             + " mapping conflict or a field name containing illegal characters. Valid options are "
             + "'ignore', 'warn', and 'fail'.";
+    
+    public static final String BEHAVIOR_ON_VERSION_CONFLICT_CONFIG = "behavior.on.version.conflict";
+    private static final String BEHAVIOR_ON_VERSION_CONFLICT_DOC = "How to handle records that "
+            + "Opensearch rejects due to version conflicts (if optimistic locking mechanism has been"
+            + "activated). Valid options are 'ignore', 'warn', and 'fail'.";
 
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
@@ -392,7 +397,18 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 group,
                 ++order,
                 Width.SHORT,
-                "Behavior on malformed documents");
+                "Behavior on malformed documents"
+        ).define(
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
+                Type.STRING,
+                BulkProcessor.BehaviorOnVersionConflict.DEFAULT.toString(),
+                BulkProcessor.BehaviorOnVersionConflict.VALIDATOR,
+                Importance.LOW,
+                BEHAVIOR_ON_VERSION_CONFLICT_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "Behavior on document's version conflict (optimistic locking)");
     }
 
     public static final ConfigDef CONFIG = baseConfigDef();
@@ -519,6 +535,12 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public BulkProcessor.BehaviorOnMalformedDoc behaviorOnMalformedDoc() {
         return BulkProcessor.BehaviorOnMalformedDoc.forValue(
                 getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG)
+        );
+    }
+
+    public BulkProcessor.BehaviorOnVersionConflict behaviorOnVersionConflict() {
+        return BulkProcessor.BehaviorOnVersionConflict.forValue(
+                getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG)
         );
     }
 
