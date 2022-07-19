@@ -45,7 +45,7 @@ public class OpensearchSinkConnector extends SinkConnector {
             new OpensearchSinkConnectorConfig(props);
         } catch (final ConfigException e) {
             throw new ConnectException(
-                    "Couldn't start ElasticsearchSinkConnector due to configuration error",
+                    "Couldn't start OpensearchSinkConnector due to configuration error",
                     e
             );
         }
