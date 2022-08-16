@@ -1,9 +1,9 @@
 name: Main and pull request checks
 on:
   push:
-    branches: [ main ]
+    branches: [ os-1.x ]
   pull_request:
-    branches: [ main ]
+    branches: [ os-1.x ]
 jobs:
   build:
     strategy:
