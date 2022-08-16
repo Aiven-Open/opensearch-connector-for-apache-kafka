@@ -374,7 +374,7 @@ public class BulkProcessor {
                         return response;
                     }
                     for (final var itemResponse : response.getItems()) {
-                        if(itemResponse.isFailed()) {
+                        if (itemResponse.isFailed()) {
                             if (!itemResponse.getFailure().isAborted()) {
                                 if (responseContainsMalformedDocError(itemResponse)) {
                                     handleMalformedDoc(itemResponse);
