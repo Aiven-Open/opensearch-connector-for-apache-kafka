@@ -374,20 +374,22 @@ public class BulkProcessor {
                         return response;
                     }
                     for (final var itemResponse : response.getItems()) {
-                        if (!itemResponse.getFailure().isAborted()) {
-                            if (responseContainsMalformedDocError(itemResponse)) {
-                                handleMalformedDoc(itemResponse);
-                            } else if (responseContainsVersionConflict(itemResponse)) {
-                                handleVersionConflict(itemResponse);
+                        if(itemResponse.isFailed()) {
+                            if (!itemResponse.getFailure().isAborted()) {
+                                if (responseContainsMalformedDocError(itemResponse)) {
+                                    handleMalformedDoc(itemResponse);
+                                } else if (responseContainsVersionConflict(itemResponse)) {
+                                    handleVersionConflict(itemResponse);
+                                } else {
+                                    throw new RuntimeException(
+                                            "One of the item in the bulk response failed. Reason: "
+                                            + itemResponse.getFailureMessage());
+                                }
                             } else {
-                                throw new RuntimeException(
-                                        "One of the item in the bulk response failed. Reason: "
-                                            + itemResponse.getFailureMessage());
+                                throw new ConnectException(
+                                        "One of the item in the bulk response aborted. Reason: "
+                                        + itemResponse.getFailureMessage());
                             }
-                        } else {
-                            throw new ConnectException(
-                                    "One of the item in the bulk response aborted. Reason: "
-                                            + itemResponse.getFailureMessage());
                         }
                     }
                     return response;
