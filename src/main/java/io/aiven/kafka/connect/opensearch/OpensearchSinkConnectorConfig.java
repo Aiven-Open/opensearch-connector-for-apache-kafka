@@ -173,7 +173,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         configDef.define(
                 CONNECTION_URL_CONFIG,
                 Type.LIST,
-                ConfigDef.NO_DEFAULT_VALUE,
+                "https://eshost1:9200",
                 (name, value) -> {
                     @SuppressWarnings("unchecked")
                     final var urls = (List<String>) value;
