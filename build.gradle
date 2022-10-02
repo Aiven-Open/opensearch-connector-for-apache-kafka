@@ -122,7 +122,7 @@ ext {
     slf4jVersion = "1.7.36"
     openSearchVersion = "2.0.1"
 
-    testcontainersVersion = "1.17.3"
+    testcontainersVersion = "1.17.4"
     confluentPlatformVersion = "4.1.4"
 }
 
