@@ -22,7 +22,10 @@ import java.util.Map;
 
 import org.apache.kafka.connect.data.SchemaBuilder;
 
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 
 import org.junit.jupiter.api.Test;
@@ -63,6 +66,29 @@ public class OpensearchClientIT extends AbstractIT {
         assertTrue(opensearchClient.createIndex("index_3"));
         assertTrue(opensearchClient.indexExists("index_3"));
         assertFalse(opensearchClient.createIndex("index_3"));
+    }
+
+    @Test
+    void createIndexDoesNotCreateWhenAliasExists() throws Exception {
+        final var config = new OpensearchSinkConnectorConfig(getDefaultProperties());
+        final OpensearchClient tmpClient = new OpensearchClient(config);
+
+        try {
+            tmpClient.client.indices().create(
+                new CreateIndexRequest("index_4").alias(new Alias("alias_1")),
+                RequestOptions.DEFAULT
+            );
+        } catch (final OpenSearchStatusException | IOException e) {
+            throw e;
+        }
+
+        assertFalse(opensearchClient.createIndex("alias_index"));
+    }
+
+    @Test
+    void createIndexDoesNotCreateAlreadyExistingDatastream() {
+        // TODO create datastream "datastream_index"
+        // assertFalse(opensearchClient.createIndex("datastream_index"));
     }
 
     @Test
