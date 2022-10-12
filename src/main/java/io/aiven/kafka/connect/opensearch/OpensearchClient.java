@@ -64,6 +64,11 @@ public class OpensearchClient implements AutoCloseable {
 
     private static final String RESOURCE_ALREADY_EXISTS_EXCEPTION = "resource_already_exists_exception";
 
+    private static final String RESOURCE_ALREADY_EXISTS_AS_ALIAS = "already exists as alias";
+
+    private static final String RESOURCE_ALREADY_EXISTS_AS_DATASTREAM =
+        "creates data streams only, use create data stream api instead";
+
     private static final String DEFAULT_OS_VERSION = "1.0.0";
 
     private final OpensearchSinkConnectorConfig config;
@@ -121,7 +126,9 @@ public class OpensearchClient implements AutoCloseable {
                         client.indices().create(new CreateIndexRequest(index), RequestOptions.DEFAULT);
                         return true;
                     } catch (final OpenSearchStatusException | IOException e) {
-                        if (!e.getMessage().contains(RESOURCE_ALREADY_EXISTS_EXCEPTION)) {
+                        if (!(e.getMessage().contains(RESOURCE_ALREADY_EXISTS_EXCEPTION)
+                            || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_ALIAS)
+                            || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_DATASTREAM))) {
                             throw e;
                         }
                         return false;
