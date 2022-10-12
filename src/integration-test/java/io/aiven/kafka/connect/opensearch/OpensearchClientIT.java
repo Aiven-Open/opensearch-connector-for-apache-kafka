@@ -18,6 +18,7 @@
 package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -25,8 +26,12 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.indices.CreateDataStreamRequest;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
+import org.opensearch.client.indices.PutComposableIndexTemplateRequest;
+import org.opensearch.cluster.metadata.ComposableIndexTemplate;
+import org.opensearch.cluster.metadata.ComposableIndexTemplate.DataStreamTemplate;
 
 import org.junit.jupiter.api.Test;
 
@@ -82,13 +87,37 @@ public class OpensearchClientIT extends AbstractIT {
             throw e;
         }
 
-        assertFalse(opensearchClient.createIndex("alias_index"));
+        assertFalse(opensearchClient.createIndex("alias_1"));
     }
 
     @Test
-    void createIndexDoesNotCreateAlreadyExistingDatastream() {
-        // TODO create datastream "datastream_index"
-        // assertFalse(opensearchClient.createIndex("datastream_index"));
+    void createIndexDoesNotCreateAlreadyExistingDatastream() throws Exception {
+        final var config = new OpensearchSinkConnectorConfig(getDefaultProperties());
+        final OpensearchClient tmpClient = new OpensearchClient(config);
+
+        try {
+            final ComposableIndexTemplate template = new ComposableIndexTemplate(
+                    Arrays.asList("data_stream_1", "index-logs-*"),
+                    null,
+                    null,
+                    100L,
+                    null,
+                    null,
+                    new DataStreamTemplate());
+            final PutComposableIndexTemplateRequest request = new PutComposableIndexTemplateRequest();
+            request.name("data-stream-template");
+            request.indexTemplate(template);
+
+            tmpClient.client.indices().putIndexTemplate(request, RequestOptions.DEFAULT);
+            tmpClient.client.indices().createDataStream(
+                new CreateDataStreamRequest("data_stream_1"),
+                RequestOptions.DEFAULT
+            );
+        } catch (final OpenSearchStatusException | IOException e) {
+            throw e;
+        }
+
+        assertFalse(opensearchClient.createIndex("index-logs-0"));
     }
 
     @Test
