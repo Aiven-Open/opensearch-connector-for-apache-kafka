@@ -157,8 +157,10 @@ public class OpensearchSinkTask extends SinkTask {
 
     private void ensureIndexExists(final String index) {
         if (!indexCache.contains(index)) {
-            LOGGER.info("Create index {}", index);
-            client.createIndex(index);
+            if (!client.indexExists(index)) {
+                LOGGER.info("Create index {}", index);
+                client.createIndex(index);
+            }
             indexCache.add(index);
         }
     }
