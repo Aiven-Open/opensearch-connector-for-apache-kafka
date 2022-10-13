@@ -80,7 +80,7 @@ public class OpensearchClientIT extends AbstractIT {
 
         try {
             tmpClient.client.indices().create(
-                new CreateIndexRequest("index_4").alias(new Alias("alias_1")),
+                new CreateIndexRequest("index_6").alias(new Alias("alias_1")),
                 RequestOptions.DEFAULT
             );
         } catch (final OpenSearchStatusException | IOException e) {
