@@ -14,12 +14,16 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up JDK ${{ matrix.java-version }}
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.java-version }}
           distribution: 'temurin'
           cache: gradle
+      - name: Build and Test with Gradle
+        if: ${{ matrix.runs-on == 'ubuntu-latest' }}
+        run: ./gradlew check
       - name: Build with Gradle
-        run: ./gradlew build
+        if: ${{ matrix.runs-on != 'ubuntu-latest' }}
+        run: ./gradlew check -x integrationTest
