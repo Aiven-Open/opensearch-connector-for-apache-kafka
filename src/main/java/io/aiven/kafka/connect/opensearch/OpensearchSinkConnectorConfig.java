@@ -19,6 +19,7 @@ package io.aiven.kafka.connect.opensearch;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -173,7 +174,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         configDef.define(
                 CONNECTION_URL_CONFIG,
                 Type.LIST,
-                ConfigDef.NO_DEFAULT_VALUE,
+                new ArrayList<>(),
                 (name, value) -> {
                     @SuppressWarnings("unchecked")
                     final var urls = (List<String>) value;

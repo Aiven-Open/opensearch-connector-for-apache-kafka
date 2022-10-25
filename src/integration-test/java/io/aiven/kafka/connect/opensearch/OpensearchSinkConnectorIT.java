@@ -125,6 +125,17 @@ public class OpensearchSinkConnectorIT extends AbstractIT {
         }
     }
 
+    @Test
+    public void testConnectorConfig() throws Exception {
+        assertNotNull(
+                connect.validateConnectorConfig(
+                        "io.aiven.kafka.connect.opensearch.OpensearchSinkConnector",
+                        Map.of("connector.class", "io.aiven.kafka.connect.opensearch.OpensearchSinkConnector",
+                                "topics", "example-topic-name")
+                )
+        );
+    }
+
     void writeRecords(final int numRecords) {
         for (int i = 0; i < numRecords; i++) {
             connect.kafka().produce(
