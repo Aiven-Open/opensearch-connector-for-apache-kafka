@@ -17,6 +17,8 @@
 
 package io.aiven.kafka.connect.opensearch;
 
+import java.util.Objects;
+
 import io.aiven.kafka.connect.opensearch.spi.OpensearchClientConfigurator;
 
 import org.apache.http.auth.AuthScope;
@@ -31,7 +33,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigurator {
     @Override
     public boolean apply(final OpensearchSinkConnectorConfig config, final HttpAsyncClientBuilder builder) {
-        if (!config.isAuthenticatedConnection()) {
+        if (!isAuthenticatedConnection(config)) {
             return false;
         }
 
@@ -49,4 +51,10 @@ public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigur
         builder.setDefaultCredentialsProvider(credentialsProvider);
         return true;
     }
+    
+    private static boolean isAuthenticatedConnection(final OpensearchSinkConnectorConfig config) {
+        return Objects.nonNull(config.connectionUsername())
+                && Objects.nonNull(config.connectionPassword());
+    }
+
 }

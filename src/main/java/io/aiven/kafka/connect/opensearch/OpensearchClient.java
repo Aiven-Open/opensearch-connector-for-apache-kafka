@@ -196,7 +196,12 @@ public class OpensearchClient implements AutoCloseable {
 
             final Collection<OpensearchClientConfigurator> configurators = ClientsConfiguratorProvider
                 .forOpensearch(config);
-            configurators.forEach(configurator -> configurator.apply(config, httpClientBuilder));
+            configurators.forEach(configurator -> {
+                if (configurator.apply(config, httpClientBuilder)) {
+                    LOGGER.debug("Successfuly applied " + configurator.getClass().getName()
+                        + " configurator to OpensearchClient");
+                }
+            });
             
             httpClientBuilder
                     .setConnectionManager(createConnectionManager())

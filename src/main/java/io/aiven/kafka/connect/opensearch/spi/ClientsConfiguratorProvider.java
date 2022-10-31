@@ -29,8 +29,8 @@ public final class ClientsConfiguratorProvider {
     }
 
     /**
-     * Use {@link ServiceLoader} mechanism to discover available configurators for Opensearch and Kafka clients 
-     * which are applicable to the provided configuration. 
+     * Use {@link ServiceLoader} mechanism to discover available configurators for Opensearch (and possibly
+     * Kafka in future) clients which are applicable to the provided configuration. 
      * @param config provided configuration
      * @return the list of discovered {@link OpensearchClientConfigurator} configurators which are applicable to the 
      *     provided configuration.
@@ -38,7 +38,7 @@ public final class ClientsConfiguratorProvider {
     public static Collection<OpensearchClientConfigurator> forOpensearch(final OpensearchSinkConnectorConfig config) {
         final Collection<OpensearchClientConfigurator> configurators = new ArrayList<>();
         final ServiceLoader<OpensearchClientConfigurator> loaders = ServiceLoader
-            .load(OpensearchClientConfigurator.class);
+            .load(OpensearchClientConfigurator.class, ClientsConfiguratorProvider.class.getClassLoader());
 
         final Iterator<OpensearchClientConfigurator> iterator = loaders.iterator();
         while (iterator.hasNext()) {
