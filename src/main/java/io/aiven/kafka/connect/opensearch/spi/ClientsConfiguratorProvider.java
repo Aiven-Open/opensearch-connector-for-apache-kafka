@@ -43,9 +43,7 @@ public final class ClientsConfiguratorProvider {
         final Iterator<OpensearchClientConfigurator> iterator = loaders.iterator();
         while (iterator.hasNext()) {
             final OpensearchClientConfigurator configurator = iterator.next();
-            if (configurator.appliesTo(config)) {
-                configurators.add(configurator);
-            }
+            configurators.add(configurator);
         }
 
         return configurators;

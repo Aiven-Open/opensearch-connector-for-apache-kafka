@@ -30,15 +30,9 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
  */
 public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigurator {
     @Override
-    public boolean appliesTo(final OpensearchSinkConnectorConfig config) {
-        return config.isAuthenticatedConnection();
-    }
-
-    @Override
-    public void apply(final OpensearchSinkConnectorConfig config, final HttpAsyncClientBuilder builder) {
-        if (!appliesTo(config)) {
-            throw new IllegalStateException("The configurator " + getClass().getName()
-                + " is not applicable to the provided configuration");
+    public boolean apply(final OpensearchSinkConnectorConfig config, final HttpAsyncClientBuilder builder) {
+        if (!config.isAuthenticatedConnection()) {
+            return false;
         }
 
         final var credentialsProvider = new BasicCredentialsProvider();
@@ -53,6 +47,6 @@ public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigur
         }
 
         builder.setDefaultCredentialsProvider(credentialsProvider);
+        return true;
     }
-
 }

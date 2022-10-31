@@ -26,19 +26,11 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
  */
 public interface OpensearchClientConfigurator {
     /**
-     * Check if the configurator is applicable to the provided configuration
-     * @param config provided configuration
-     * @return "true" if the configurator is applicable, "false" otherwise
-     */
-    boolean appliesTo(OpensearchSinkConnectorConfig config);
-
-    /**
      * Apply the configurator to the {@link HttpAsyncClientBuilder} instance according to the 
      * provided configuration.
      * @param config provided configuration
      * @param builder {@link HttpAsyncClientBuilder} instance
-     * @throws IllegalStateException when the configurator is not applicable to the
-     *     provided configuration, see {@code appliesTo(OpensearchSinkConnectorConfig config)}
+     * @return "true" if the configurator is applicable, "false" otherwise
      */
-    void apply(OpensearchSinkConnectorConfig config, HttpAsyncClientBuilder builder);
+    boolean apply(OpensearchSinkConnectorConfig config, HttpAsyncClientBuilder builder);
 }
