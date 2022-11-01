@@ -21,9 +21,11 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -34,6 +36,8 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.types.Password;
+
+import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
 import org.apache.http.HttpHost;
 
@@ -165,7 +169,23 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
         addConversionConfigs(configDef);
+        addSpiConfigs(configDef);
         return configDef;
+    }
+
+    /**
+     * Load configuration definitions from the extension points (if available) using
+     * {@link ServiceLoader} mechanism to discover them.
+     * @param configDef configuration definitions to contribute to 
+     */
+    private static void addSpiConfigs(final ConfigDef configDef) {
+        final ServiceLoader<ConfigDefContributor> loaders = ServiceLoader
+            .load(ConfigDefContributor.class, OpensearchSinkConnectorConfig.class.getClassLoader());
+
+        final Iterator<ConfigDefContributor> iterator = loaders.iterator();
+        while (iterator.hasNext()) {
+            iterator.next().addConfig(configDef);
+        }
     }
 
     private static void addConnectorConfigs(final ConfigDef configDef) {
