@@ -19,6 +19,13 @@ package io.aiven.kafka.connect.opensearch;
 
 import java.util.Objects;
 
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigDef.Importance;
+import org.apache.kafka.common.config.ConfigDef.Type;
+import org.apache.kafka.common.config.ConfigDef.Width;
+import org.apache.kafka.common.config.types.Password;
+
+import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 import io.aiven.kafka.connect.opensearch.spi.OpensearchClientConfigurator;
 
 import org.apache.http.auth.AuthScope;
@@ -30,7 +37,18 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
  * Adds basic authentication to the {@index HttpAsyncClientBuilder} for Opensearch client 
  * if configured.
  */
-public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigurator {
+public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigurator, ConfigDefContributor {
+    public static final String CONNECTION_USERNAME_CONFIG = "connection.username";
+    private static final String CONNECTION_USERNAME_DOC =
+            "The username used to authenticate with Opensearch. "
+                    + "The default is the null, and authentication will only be performed if "
+                    + " both the username and password are non-null.";
+    public static final String CONNECTION_PASSWORD_CONFIG = "connection.password";
+    private static final String CONNECTION_PASSWORD_DOC =
+            "The password used to authenticate with Opensearch. "
+                    + "The default is the null, and authentication will only be performed if "
+                    + " both the username and password are non-null.";
+
     @Override
     public boolean apply(final OpensearchSinkConnectorConfig config, final HttpAsyncClientBuilder builder) {
         if (!isAuthenticatedConnection(config)) {
@@ -42,8 +60,8 @@ public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigur
             credentialsProvider.setCredentials(
                     new AuthScope(httpHost),
                     new UsernamePasswordCredentials(
-                            config.connectionUsername(),
-                            config.connectionPassword().value()
+                            connectionUsername(config),
+                            connectionPassword(config).value()
                     )
             );
         }
@@ -51,10 +69,43 @@ public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigur
         builder.setDefaultCredentialsProvider(credentialsProvider);
         return true;
     }
-    
+
+    @Override
+    public void addConfig(final ConfigDef config) {
+        config
+            .define(
+                CONNECTION_USERNAME_CONFIG,
+                Type.STRING,
+                null,
+                Importance.MEDIUM,
+                CONNECTION_USERNAME_DOC,
+                "Authentication",
+                0,
+                Width.SHORT,
+                "Connection Username"
+            ).define(
+                CONNECTION_PASSWORD_CONFIG,
+                Type.PASSWORD,
+                null,
+                Importance.MEDIUM,
+                CONNECTION_PASSWORD_DOC,
+                "Authentication",
+                1,
+                Width.SHORT,
+                "Connection Password");
+    }
+
     private static boolean isAuthenticatedConnection(final OpensearchSinkConnectorConfig config) {
-        return Objects.nonNull(config.connectionUsername())
-                && Objects.nonNull(config.connectionPassword());
+        return Objects.nonNull(connectionUsername(config))
+                && Objects.nonNull(connectionPassword(config));
+    }
+    
+    private static String connectionUsername(final OpensearchSinkConnectorConfig config) {
+        return config.getString(CONNECTION_USERNAME_CONFIG);
+    }
+
+    private static Password connectionPassword(final OpensearchSinkConnectorConfig config) {
+        return config.getPassword(CONNECTION_PASSWORD_CONFIG);
     }
 
 }
