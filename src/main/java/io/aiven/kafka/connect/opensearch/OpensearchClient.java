@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 
@@ -39,13 +40,13 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.client.indices.PutMappingRequest;
 
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
+import io.aiven.kafka.connect.opensearch.spi.ClientsConfiguratorProvider;
+import io.aiven.kafka.connect.opensearch.spi.OpensearchClientConfigurator;
+
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
 import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
@@ -193,22 +194,19 @@ public class OpensearchClient implements AutoCloseable {
                     .setSocketTimeout(config.readTimeoutMs())
                     .build();
 
-            if (config.isAuthenticatedConnection()) {
-                final var credentialsProvider = new BasicCredentialsProvider();
-                for (final var httpHost : config.httpHosts()) {
-                    credentialsProvider.setCredentials(
-                            new AuthScope(httpHost),
-                            new UsernamePasswordCredentials(
-                                    config.connectionUsername(),
-                                    config.connectionPassword().value()
-                            )
-                    );
+            final Collection<OpensearchClientConfigurator> configurators = ClientsConfiguratorProvider
+                .forOpensearch(config);
+            configurators.forEach(configurator -> {
+                if (configurator.apply(config, httpClientBuilder)) {
+                    LOGGER.debug("Successfuly applied " + configurator.getClass().getName()
+                        + " configurator to OpensearchClient");
                 }
-                httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
-            }
+            });
+            
             httpClientBuilder
                     .setConnectionManager(createConnectionManager())
                     .setDefaultRequestConfig(requestConfig);
+
             return httpClientBuilder;
         }
 
