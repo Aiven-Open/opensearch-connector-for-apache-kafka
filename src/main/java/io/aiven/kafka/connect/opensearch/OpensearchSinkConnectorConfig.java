@@ -34,7 +34,6 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
 import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.config.types.Password;
 
 import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
@@ -46,16 +45,6 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     private static final String CONNECTION_URL_DOC =
             "List of Opensearch HTTP connection URLs e.g. ``http://eshost1:9200,"
                     + "http://eshost2:9200``.";
-    public static final String CONNECTION_USERNAME_CONFIG = "connection.username";
-    private static final String CONNECTION_USERNAME_DOC =
-            "The username used to authenticate with Opensearch. "
-                    + "The default is the null, and authentication will only be performed if "
-                    + " both the username and password are non-null.";
-    public static final String CONNECTION_PASSWORD_CONFIG = "connection.password";
-    private static final String CONNECTION_PASSWORD_DOC =
-            "The password used to authenticate with Opensearch. "
-                    + "The default is the null, and authentication will only be performed if "
-                    + " both the username and password are non-null.";
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     private static final String BATCH_SIZE_DOC =
             "The number of records to process as a batch when writing to Opensearch.";
@@ -211,26 +200,6 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 ++order,
                 Width.LONG,
                 "Connection URLs"
-        ).define(
-                CONNECTION_USERNAME_CONFIG,
-                Type.STRING,
-                null,
-                Importance.MEDIUM,
-                CONNECTION_USERNAME_DOC,
-                group,
-                ++order,
-                Width.SHORT,
-                "Connection Username"
-        ).define(
-                CONNECTION_PASSWORD_CONFIG,
-                Type.PASSWORD,
-                null,
-                Importance.MEDIUM,
-                CONNECTION_PASSWORD_DOC,
-                group,
-                ++order,
-                Width.SHORT,
-                "Connection Password"
         ).define(
                 BATCH_SIZE_CONFIG,
                 Type.INT,
@@ -460,14 +429,6 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public int readTimeoutMs() {
         return getInt(READ_TIMEOUT_MS_CONFIG);
-    }
-
-    public String connectionUsername() {
-        return getString(CONNECTION_USERNAME_CONFIG);
-    }
-
-    public Password connectionPassword() {
-        return getPassword(CONNECTION_PASSWORD_CONFIG);
     }
 
     public boolean ignoreKey() {

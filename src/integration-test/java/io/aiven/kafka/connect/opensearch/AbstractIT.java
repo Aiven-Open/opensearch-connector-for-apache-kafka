@@ -36,9 +36,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_PASSWORD_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchBasicAuthConfigurator.CONNECTION_PASSWORD_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchBasicAuthConfigurator.CONNECTION_USERNAME_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_USERNAME_CONFIG;
 
 @Testcontainers
 public abstract class AbstractIT {
