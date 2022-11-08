@@ -91,6 +91,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                     + "A map from Kafka topic name to the destination Opensearch index, represented as "
                     + "a list of ``topic:index`` pairs.";
     public static final String KEY_IGNORE_CONFIG = "key.ignore";
+    public static final String KEY_IGNORE_ID_STRATEGY_CONFIG = "key.ignore.id.strategy";
     public static final String TOPIC_KEY_IGNORE_CONFIG = "topic.key.ignore";
     public static final String SCHEMA_IGNORE_CONFIG = "schema.ignore";
     public static final String TOPIC_SCHEMA_IGNORE_CONFIG = "topic.schema.ignore";
@@ -99,11 +100,16 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     private static final String KEY_IGNORE_DOC =
             "Whether to ignore the record key for the purpose of forming the Opensearch document ID."
                     + " When this is set to ``true``, document IDs will be generated as the record's "
-                    + "``topic+partition+offset``.\n Note that this is a global config that applies to all "
-                    + "topics, use ``" + TOPIC_KEY_IGNORE_CONFIG + "`` to override as ``true`` for specific "
+                    + "``topic+partition+offset`` or a strategy set in ``" + KEY_IGNORE_ID_STRATEGY_CONFIG + "``.\n"
+                    + "Note that this is a global config that applies to all topics, use "
+                    + "``" + TOPIC_KEY_IGNORE_CONFIG + "`` to use ID=``topic+partition+offset`` for specific "
                     + "topics.";
     private static final String TOPIC_KEY_IGNORE_DOC =
             "List of topics for which ``" + KEY_IGNORE_CONFIG + "`` should be ``true``.";
+    private static final String KEY_IGNORE_ID_STRATEGY_DOC =
+            "Specifies the strategy to generate the Document ID. Only applicable when ``" + KEY_IGNORE_CONFIG + "`` is"
+                    + " ``true``. Available strategies " + RecordConverter.DocumentIDStrategy.describe() + ".\n"
+                    + "Note that this is a global config that applies to all topics.";
     private static final String SCHEMA_IGNORE_CONFIG_DOC =
             "Whether to ignore schemas during indexing. When this is set to ``true``, the record "
                     + "schema will be ignored for the purpose of registering an Opensearch mapping. "
@@ -306,6 +312,17 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 Width.SHORT,
                 "Ignore Key mode"
         ).define(
+                KEY_IGNORE_ID_STRATEGY_CONFIG,
+                Type.STRING,
+                RecordConverter.DocumentIDStrategy.TOPIC_PARTITION_OFFSET.toString(),
+                RecordConverter.DocumentIDStrategy.VALIDATOR,
+                Importance.LOW,
+                KEY_IGNORE_ID_STRATEGY_DOC,
+                group,
+                ++order,
+                Width.LONG,
+                "Document ID generation strategy"
+        ).define(
                 SCHEMA_IGNORE_CONFIG,
                 Type.BOOLEAN,
                 false,
@@ -495,8 +512,10 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
     }
 
-    public boolean ignoreKeyFor(final String topic) {
-        return ignoreKey() || topicIgnoreKey().contains(topic);
+    public RecordConverter.DocumentIDStrategy docIdStrategy() {
+        // use the KEY_IGNORE_ID_STRATEGY only if KEY_IGNORE is true
+        return ignoreKey() ? RecordConverter.DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG))
+                : RecordConverter.DocumentIDStrategy.RECORD_KEY;
     }
 
     public boolean ignoreSchemaFor(final String topic) {
