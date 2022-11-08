@@ -30,6 +30,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.search.SearchHits;
+import org.opensearch.testcontainers.OpensearchContainer;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +48,7 @@ public abstract class AbstractIT {
 
 
     @Container
-    static OpensearchContainer opensearchContainer = new OpensearchContainer();
+    static OpensearchContainer opensearchContainer = new OpensearchContainer(getOpenSearchImage());
 
     OpensearchClient opensearchClient;
 
@@ -95,5 +96,11 @@ public abstract class AbstractIT {
         );
     }
 
+    private static String getOpenSearchImage() {
+        return "opensearchproject/opensearch:" + getOpenSearchVersion();
+    }
 
+    protected static String getOpenSearchVersion() {
+        return System.getProperty("opensearch.testcontainers.image-version", "2.0.0");
+    }
 }

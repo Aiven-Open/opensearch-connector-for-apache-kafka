@@ -64,7 +64,7 @@ checkstyle {
 }
 
 jacoco {
-    toolVersion = "0.8.7"
+    toolVersion = "0.8.8"
 }
 
 distributions {
@@ -175,6 +175,7 @@ dependencies {
 
     integrationTestImplementation "org.testcontainers:junit-jupiter:$testcontainersVersion"
     integrationTestImplementation "org.testcontainers:kafka:$testcontainersVersion" // this is not Kafka version
+    integrationTestImplementation "org.opensearch:opensearch-testcontainers:2.0.0"
     integrationTestImplementation "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}"
     integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}:test"
@@ -203,6 +204,8 @@ task integrationTest(type: Test) {
 
     // Pass the distribution file path to the tests.
     systemProperty("integration-test.distribution.file.path", distTar.archiveFile.get().asFile.path)
+    systemProperty("opensearch.testcontainers.image-version", 
+        project.findProperty("opensearch.testcontainers.image-version") ? project.getProperty("opensearch.testcontainers.image-version") : "2.0.0")
 }
 
 task connectorConfigDoc {
