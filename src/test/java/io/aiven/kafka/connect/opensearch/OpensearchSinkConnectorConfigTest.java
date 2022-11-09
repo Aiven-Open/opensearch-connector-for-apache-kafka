@@ -106,4 +106,38 @@ public class OpensearchSinkConnectorConfigTest {
                 );
         }
     }
+
+    @Test
+    public void docIdStrategyValidator() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, "something");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
+    @Test
+    public void docIdStrategies() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        for (final var strategy : RecordConverter.DocumentIDStrategy.values()) {
+            props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, strategy.toString());
+            final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+            assertEquals(config.docIdStrategy(), strategy);
+        }
+    }
+
+    @Test
+    public void docIdStrategyWithoutKeyIgnoreIdStrategy() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+        assertEquals(config.docIdStrategy(), RecordConverter.DocumentIDStrategy.TOPIC_PARTITION_OFFSET);
+    }
+
+    @Test
+    public void docIdStrategyWithoutKeyIgnore() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, 
+                  RecordConverter.DocumentIDStrategy.NONE.toString());
+        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+        assertEquals(config.docIdStrategy(), RecordConverter.DocumentIDStrategy.RECORD_KEY);
+    }
 }
