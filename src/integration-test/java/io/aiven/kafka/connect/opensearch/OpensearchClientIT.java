@@ -45,7 +45,7 @@ public class OpensearchClientIT extends AbstractIT {
 
     @Test
     void getsVersion() {
-        assertEquals(opensearchClient.getVersion(), "1.1.0");
+        assertEquals(opensearchClient.getVersion(), getOpenSearchVersion());
     }
 
     @Test
