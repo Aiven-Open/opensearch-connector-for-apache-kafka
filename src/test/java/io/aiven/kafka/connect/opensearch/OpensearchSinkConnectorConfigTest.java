@@ -127,8 +127,10 @@ public class OpensearchSinkConnectorConfigTest {
     @Test
     public void docIdStrategyWithoutKeyIgnoreIdStrategy() {
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        assertEquals(config.docIdStrategy(), RecordConverter.DocumentIDStrategy.TOPIC_PARTITION_OFFSET);
+        assertEquals(RecordConverter.DocumentIDStrategy.TOPIC_PARTITION_OFFSET, config.docIdStrategy());
+        assertEquals(RecordConverter.DocumentIDStrategy.RECORD_KEY, config.globalDocIdStrategy());
     }
 
     @Test
@@ -138,6 +140,7 @@ public class OpensearchSinkConnectorConfigTest {
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, 
                   RecordConverter.DocumentIDStrategy.NONE.toString());
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        assertEquals(config.docIdStrategy(), RecordConverter.DocumentIDStrategy.RECORD_KEY);
+        assertEquals(config.docIdStrategy(), RecordConverter.DocumentIDStrategy.NONE);
+        assertEquals(config.globalDocIdStrategy(), RecordConverter.DocumentIDStrategy.RECORD_KEY);
     }
 }

@@ -63,7 +63,8 @@ public class RecordConverter {
 
     private final OpensearchSinkConnectorConfig config;
 
-    private final DocumentIDStrategy defaultDocIdGenerator;
+    private final DocumentIDStrategy globalDocIdGenerator;
+    private final DocumentIDStrategy perTopicDocIdGenerator; // Used on topics present in TOPIC_KEY_IGNORE_CONFIG
 
     public RecordConverter(final Boolean useCompactMapEntries,
                            final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
@@ -72,13 +73,12 @@ public class RecordConverter {
 
     public RecordConverter(final OpensearchSinkConnectorConfig config) {
         this.config = config;
-        defaultDocIdGenerator = (config != null) ? config.docIdStrategy() : DocumentIDStrategy.RECORD_KEY;
+        globalDocIdGenerator = (config != null) ? config.globalDocIdStrategy() : DocumentIDStrategy.RECORD_KEY;
+        perTopicDocIdGenerator = (config != null) ? config.docIdStrategy() : DocumentIDStrategy.TOPIC_PARTITION_OFFSET;
     }
 
     private DocumentIDStrategy getDocIdStrategy(final SinkRecord record) {
-        // Keep the legacy behavior of TOPIC_PARTITION_OFFSET when topic in topic.ignore.key
-        return config.topicIgnoreKey().contains(record.topic())
-                ? DocumentIDStrategy.TOPIC_PARTITION_OFFSET : defaultDocIdGenerator;
+        return config.topicIgnoreKey().contains(record.topic()) ? perTopicDocIdGenerator : globalDocIdGenerator;
     }
 
     private static String convertKey(final Schema keySchema, final Object key) {
