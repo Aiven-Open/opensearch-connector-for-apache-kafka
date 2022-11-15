@@ -99,8 +99,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     private static final String KEY_IGNORE_DOC =
             "Whether to ignore the record key for the purpose of forming the Opensearch document ID."
-                    + " When this is set to ``true``, document IDs will be generated as the record's "
-                    + "``topic+partition+offset`` or a strategy set in ``" + KEY_IGNORE_ID_STRATEGY_CONFIG + "``.\n"
+                    + " When this is set to ``true``, document IDs will be generated according to the "
+                    + "``" + KEY_IGNORE_ID_STRATEGY_CONFIG + "`` strategy.\n"
                     + "Note that this is a global config that applies to all topics, use "
                     + "``" + TOPIC_KEY_IGNORE_CONFIG + "`` to apply ``" + KEY_IGNORE_ID_STRATEGY_CONFIG + "`` "
                     + "strategy for specific topics only.";
@@ -109,7 +109,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     private static final String KEY_IGNORE_ID_STRATEGY_DOC =
             "Specifies the strategy to generate the Document ID. Only applicable when ``" + KEY_IGNORE_CONFIG + "`` is"
                     + " ``true`` or specific topics are configured using ``" + TOPIC_KEY_IGNORE_CONFIG + "``. "
-                    + "Available strategies " + RecordConverter.DocumentIDStrategy.describe() + ".";
+                    + "Available strategies " + RecordConverter.DocumentIDStrategy.describe() + ". "
+                    + "If not specified, the default generation strategy is ``topic+partition+offset``.\n";
     private static final String SCHEMA_IGNORE_CONFIG_DOC =
             "Whether to ignore schemas during indexing. When this is set to ``true``, the record "
                     + "schema will be ignored for the purpose of registering an Opensearch mapping. "
