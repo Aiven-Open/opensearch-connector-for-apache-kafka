@@ -110,7 +110,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             "Specifies the strategy to generate the Document ID. Only applicable when ``" + KEY_IGNORE_CONFIG + "`` is"
                     + " ``true`` or specific topics are configured using ``" + TOPIC_KEY_IGNORE_CONFIG + "``. "
                     + "Available strategies " + DocumentIDStrategy.describe() + ". "
-                    + "If not specified, the default generation strategy is ``topic+partition+offset``.\n";
+                    + "If not specified, the default generation strategy is ``topic.partition.offset``.\n";
     private static final String SCHEMA_IGNORE_CONFIG_DOC =
             "Whether to ignore schemas during indexing. When this is set to ``true``, the record "
                     + "schema will be ignored for the purpose of registering an Opensearch mapping. "

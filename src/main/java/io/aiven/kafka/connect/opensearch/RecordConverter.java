@@ -47,7 +47,6 @@ import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.index.VersionType;
 
 public class RecordConverter {
 
@@ -144,11 +143,9 @@ public class RecordConverter {
         }
 
         final DocumentIDStrategy docIdStrategy = getDocIdStrategy(record.topic());
-        final var id = docIdStrategy.generate(record);
-
+        
         if (Objects.isNull(record.value())) {
-            return (docIdStrategy == DocumentIDStrategy.NONE) ? null 
-                : addExternalVersionIfNeeded(new DeleteRequest(index).id(id), record, docIdStrategy);
+            return docIdStrategy.updateDeleteRequest(new DeleteRequest(index), record);
         }
 
         final String payload = getPayload(record);
@@ -156,18 +153,7 @@ public class RecordConverter {
             .source(payload, XContentType.JSON)
             .opType(DocWriteRequest.OpType.INDEX);
 
-        // VersionType.EXTERNAL can't be used without a Document ID.
-        return (docIdStrategy == DocumentIDStrategy.NONE) ? indexRequest
-            : addExternalVersionIfNeeded(indexRequest.id(id), record, docIdStrategy);
-    }
-
-    private DocWriteRequest<?> addExternalVersionIfNeeded(final DocWriteRequest<?> request, final SinkRecord record, 
-                                                          final DocumentIDStrategy docIdStrategy) {
-        if (docIdStrategy == DocumentIDStrategy.RECORD_KEY) {
-            request.versionType(VersionType.EXTERNAL);
-            request.version(record.kafkaOffset());
-        }
-        return request;
+        return docIdStrategy.updateIndexRequest(indexRequest, record);
     }
 
     private String getPayload(final SinkRecord record) {
