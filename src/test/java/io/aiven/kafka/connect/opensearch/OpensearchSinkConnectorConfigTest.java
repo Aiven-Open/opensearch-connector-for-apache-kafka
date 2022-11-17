@@ -117,7 +117,7 @@ public class OpensearchSinkConnectorConfigTest {
     @Test
     public void docIdStrategies() {
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        for (final var strategy : RecordConverter.DocumentIDStrategy.values()) {
+        for (final var strategy : DocumentIDStrategy.values()) {
             props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, strategy.toString());
             final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
             assertEquals(config.docIdStrategy(), strategy);
@@ -129,8 +129,7 @@ public class OpensearchSinkConnectorConfigTest {
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        assertEquals(RecordConverter.DocumentIDStrategy.TOPIC_PARTITION_OFFSET, config.docIdStrategy());
-        assertEquals(RecordConverter.DocumentIDStrategy.RECORD_KEY, config.globalDocIdStrategy());
+        assertEquals(DocumentIDStrategy.TOPIC_PARTITION_OFFSET, config.docIdStrategy());
     }
 
     @Test
@@ -138,9 +137,8 @@ public class OpensearchSinkConnectorConfigTest {
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, 
-                  RecordConverter.DocumentIDStrategy.NONE.toString());
+                  DocumentIDStrategy.NONE.toString());
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        assertEquals(config.docIdStrategy(), RecordConverter.DocumentIDStrategy.NONE);
-        assertEquals(config.globalDocIdStrategy(), RecordConverter.DocumentIDStrategy.RECORD_KEY);
+        assertEquals(config.docIdStrategy(), DocumentIDStrategy.NONE);
     }
 }

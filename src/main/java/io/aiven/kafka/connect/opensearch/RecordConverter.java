@@ -20,7 +20,6 @@ package io.aiven.kafka.connect.opensearch;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,8 +27,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.data.ConnectSchema;
@@ -73,15 +70,16 @@ public class RecordConverter {
 
     public RecordConverter(final OpensearchSinkConnectorConfig config) {
         this.config = config;
-        globalDocIdGenerator = (config != null) ? config.globalDocIdStrategy() : DocumentIDStrategy.RECORD_KEY;
+        globalDocIdGenerator = (config != null && config.ignoreKey()) ? config.docIdStrategy()
+                                 : DocumentIDStrategy.RECORD_KEY; 
         perTopicDocIdGenerator = (config != null) ? config.docIdStrategy() : DocumentIDStrategy.TOPIC_PARTITION_OFFSET;
     }
 
-    private DocumentIDStrategy getDocIdStrategy(final SinkRecord record) {
-        return config.topicIgnoreKey().contains(record.topic()) ? perTopicDocIdGenerator : globalDocIdGenerator;
+    private DocumentIDStrategy getDocIdStrategy(final String topic) {
+        return config.topicIgnoreKey().contains(topic) ? perTopicDocIdGenerator : globalDocIdGenerator;
     }
 
-    private static String convertKey(final Schema keySchema, final Object key) {
+    public static String convertKey(final Schema keySchema, final Object key) {
         if (key == null) {
             throw new DataException("Key is used as document id and can not be null.");
         }
@@ -145,7 +143,7 @@ public class RecordConverter {
             }
         }
 
-        final DocumentIDStrategy docIdStrategy = getDocIdStrategy(record);
+        final DocumentIDStrategy docIdStrategy = getDocIdStrategy(record.topic());
         final var id = docIdStrategy.generate(record);
 
         if (Objects.isNull(record.value())) {
@@ -427,77 +425,5 @@ public class RecordConverter {
         public String toString() {
             return name().toLowerCase(Locale.ROOT);
         }
-    }
-
-    public enum DocumentIDStrategy {
-        NONE("none", "No Doc ID is added", record -> null),
-        RECORD_KEY("record.key", "Generated from the record's key",
-            record -> convertKey(record.keySchema(), record.key())),
-        TOPIC_PARTITION_OFFSET("topic.partition.offset", "Generated as record's ``topic+partition+offset``",
-            record ->  record.topic() + "+" + record.kafkaPartition() + "+" + record.kafkaOffset());
-                
-        private final String name;
-
-        private final String description;
-
-        private final Function<SinkRecord, String> docIdGenerator;
-
-        private DocumentIDStrategy(final String name, final String description, 
-                                   final Function<SinkRecord, String> docIdGenerator) {
-            this.name = name.toLowerCase(Locale.ROOT);
-            this.description = description;
-            this.docIdGenerator = docIdGenerator;
-        }
-
-        @Override
-        public String toString() {
-            return name;
-        }
-
-        public static DocumentIDStrategy fromString(final String name) {
-            for (final DocumentIDStrategy strategy : DocumentIDStrategy.values()) {
-                if (strategy.nameEquals(name)) {
-                    return strategy;
-                }
-            }
-            throw new IllegalArgumentException("Unknown Document ID Strategy " + name);
-        }
-
-        public static String[] names() {
-            return Arrays.stream(values()).map(v -> v.toString()).toArray(String[]::new);
-        }
-
-        public static String describe() {
-            return Arrays.stream(values()).map(v -> v.toString() + " : " + v.description)
-                    .collect(Collectors.joining(", ", "{", "}"));
-        }
-
-        public Boolean nameEquals(final String name) {
-            return name.equalsIgnoreCase(this.name);
-        }
-
-        public String generate(final SinkRecord record) {
-            return docIdGenerator.apply(record);
-        }
-
-        public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
-            private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
-
-            @Override
-            public void ensureValid(final String name, final Object value) {
-                if (value instanceof String) {
-                    final String lowerStringValue = ((String) value).toLowerCase(Locale.ROOT);
-                    validator.ensureValid(name, lowerStringValue);
-                } else {
-                    validator.ensureValid(name, value);
-                }
-            }
-
-            // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
-            @Override
-            public String toString() {
-                return validator.toString();
-            }
-        };
     }
 }

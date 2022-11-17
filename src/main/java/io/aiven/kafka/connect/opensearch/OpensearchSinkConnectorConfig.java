@@ -109,7 +109,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     private static final String KEY_IGNORE_ID_STRATEGY_DOC =
             "Specifies the strategy to generate the Document ID. Only applicable when ``" + KEY_IGNORE_CONFIG + "`` is"
                     + " ``true`` or specific topics are configured using ``" + TOPIC_KEY_IGNORE_CONFIG + "``. "
-                    + "Available strategies " + RecordConverter.DocumentIDStrategy.describe() + ". "
+                    + "Available strategies " + DocumentIDStrategy.describe() + ". "
                     + "If not specified, the default generation strategy is ``topic+partition+offset``.\n";
     private static final String SCHEMA_IGNORE_CONFIG_DOC =
             "Whether to ignore schemas during indexing. When this is set to ``true``, the record "
@@ -315,8 +315,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 KEY_IGNORE_ID_STRATEGY_CONFIG,
                 Type.STRING,
-                RecordConverter.DocumentIDStrategy.TOPIC_PARTITION_OFFSET.toString(),
-                RecordConverter.DocumentIDStrategy.VALIDATOR,
+                DocumentIDStrategy.TOPIC_PARTITION_OFFSET.toString(),
+                DocumentIDStrategy.VALIDATOR,
                 Importance.LOW,
                 KEY_IGNORE_ID_STRATEGY_DOC,
                 group,
@@ -513,14 +513,9 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
     }
 
-    public RecordConverter.DocumentIDStrategy docIdStrategy() {
+    public DocumentIDStrategy docIdStrategy() {
         // Default is TOPIC_PARTITION_OFFSET if unspecified
-        return RecordConverter.DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG));
-    }
-
-    public RecordConverter.DocumentIDStrategy globalDocIdStrategy() {
-        // Use the KEY_IGNORE_ID_STRATEGY at global level only if KEY_IGNORE is true
-        return ignoreKey() ? docIdStrategy() : RecordConverter.DocumentIDStrategy.RECORD_KEY;
+        return DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG));
     }
 
     public boolean ignoreSchemaFor(final String topic) {
