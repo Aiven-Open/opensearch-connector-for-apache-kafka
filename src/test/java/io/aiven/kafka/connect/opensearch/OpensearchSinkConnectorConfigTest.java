@@ -135,7 +135,7 @@ public class OpensearchSinkConnectorConfigTest {
 
     @Test
     public void docIdStrategyWithoutKeyIgnoreWithTopicKeyIgnore() {
-        DocumentIDStrategy keyIgnoreStrategy = DocumentIDStrategy.NONE;
+        final DocumentIDStrategy keyIgnoreStrategy = DocumentIDStrategy.NONE;
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
         props.put(OpensearchSinkConnectorConfig.TOPIC_KEY_IGNORE_CONFIG, "topic1,topic2");

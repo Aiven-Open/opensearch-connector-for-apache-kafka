@@ -514,9 +514,9 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
     }
 
-    public DocumentIDStrategy docIdStrategy(String topic) {
-        return (ignoreKey() || topicIgnoreKey().contains(topic)) ? 
-            DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG))
+    public DocumentIDStrategy docIdStrategy(final String topic) {
+        return (ignoreKey() || topicIgnoreKey().contains(topic))
+            ? DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG))
                 : DocumentIDStrategy.RECORD_KEY;
     }
 

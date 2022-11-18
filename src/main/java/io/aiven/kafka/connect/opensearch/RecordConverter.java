@@ -65,7 +65,7 @@ public class RecordConverter {
 
     public RecordConverter(final OpensearchSinkConnectorConfig config) {
         this.config = config;
-     }
+    }
 
     public DocWriteRequest<?> convert(final SinkRecord record, final String index) {
         if (record.value() == null) {
