@@ -40,12 +40,12 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 public class OpensearchBasicAuthConfigurator implements OpensearchClientConfigurator, ConfigDefContributor {
     public static final String CONNECTION_USERNAME_CONFIG = "connection.username";
     private static final String CONNECTION_USERNAME_DOC =
-            "The username used to authenticate with Opensearch. "
+            "The username used to authenticate with OpenSearch. "
                     + "The default is the null, and authentication will only be performed if "
                     + " both the username and password are non-null.";
     public static final String CONNECTION_PASSWORD_CONFIG = "connection.password";
     private static final String CONNECTION_PASSWORD_DOC =
-            "The password used to authenticate with Opensearch. "
+            "The password used to authenticate with OpenSearch. "
                     + "The default is the null, and authentication will only be performed if "
                     + " both the username and password are non-null.";
 

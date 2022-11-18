@@ -43,14 +43,14 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public static final String CONNECTION_URL_CONFIG = "connection.url";
     private static final String CONNECTION_URL_DOC =
-            "List of Opensearch HTTP connection URLs e.g. ``http://eshost1:9200,"
+            "List of OpenSearch HTTP connection URLs e.g. ``http://eshost1:9200,"
                     + "http://eshost2:9200``.";
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     private static final String BATCH_SIZE_DOC =
-            "The number of records to process as a batch when writing to Opensearch.";
+            "The number of records to process as a batch when writing to OpenSearch.";
     public static final String MAX_IN_FLIGHT_REQUESTS_CONFIG = "max.in.flight.requests";
     private static final String MAX_IN_FLIGHT_REQUESTS_DOC =
-            "The maximum number of indexing requests that can be in-flight to Opensearch before "
+            "The maximum number of indexing requests that can be in-flight to OpenSearch before "
                     + "blocking further requests.";
     public static final String MAX_BUFFERED_RECORDS_CONFIG = "max.buffered.records";
     private static final String MAX_BUFFERED_RECORDS_DOC =
@@ -88,7 +88,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     private static final String TOPIC_INDEX_MAP_DOC =
             "This option is now deprecated. A future version may remove it completely. Please use "
                     + "single message transforms, such as RegexRouter, to map topic names to index names.\n"
-                    + "A map from Kafka topic name to the destination Opensearch index, represented as "
+                    + "A map from Kafka topic name to the destination OpenSearch index, represented as "
                     + "a list of ``topic:index`` pairs.";
     public static final String KEY_IGNORE_CONFIG = "key.ignore";
     public static final String KEY_IGNORE_ID_STRATEGY_CONFIG = "key.ignore.id.strategy";
@@ -98,7 +98,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public static final String DROP_INVALID_MESSAGE_CONFIG = "drop.invalid.message";
 
     private static final String KEY_IGNORE_DOC =
-            "Whether to ignore the record key for the purpose of forming the Opensearch document ID."
+            "Whether to ignore the record key for the purpose of forming the OpenSearch document ID."
                     + " When this is set to ``true``, document IDs will be generated according to the "
                     + "``" + KEY_IGNORE_ID_STRATEGY_CONFIG + "`` strategy.\n"
                     + "Note that this is a global config that applies to all topics, use "
@@ -113,8 +113,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                     + "If not specified, the default generation strategy is ``topic.partition.offset``.\n";
     private static final String SCHEMA_IGNORE_CONFIG_DOC =
             "Whether to ignore schemas during indexing. When this is set to ``true``, the record "
-                    + "schema will be ignored for the purpose of registering an Opensearch mapping. "
-                    + "Opensearch will infer the mapping from the data (dynamic mapping needs to be enabled "
+                    + "schema will be ignored for the purpose of registering an OpenSearch mapping. "
+                    + "OpenSearch will infer the mapping from the data (dynamic mapping needs to be enabled "
                     + "by the user).\n Note that this is a global config that applies to all topics, use ``"
                     + TOPIC_SCHEMA_IGNORE_CONFIG + "`` to override as ``true`` for specific topics.";
     private static final String TOPIC_SCHEMA_IGNORE_DOC =
@@ -136,11 +136,11 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public static final String CONNECTION_TIMEOUT_MS_CONFIG = "connection.timeout.ms";
     public static final String READ_TIMEOUT_MS_CONFIG = "read.timeout.ms";
     private static final String CONNECTION_TIMEOUT_MS_CONFIG_DOC = "How long to wait "
-            + "in milliseconds when establishing a connection to the Opensearch server. "
+            + "in milliseconds when establishing a connection to the OpenSearch server. "
             + "The task fails if the client fails to connect to the server in this "
             + "interval, and will need to be restarted.";
     private static final String READ_TIMEOUT_MS_CONFIG_DOC = "How long to wait in "
-            + "milliseconds for the Opensearch server to send a response. The task fails "
+            + "milliseconds for the OpenSearch server to send a response. The task fails "
             + "if any read operation times out, and will need to be restarted to resume "
             + "further operations.";
 
@@ -151,14 +151,15 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public static final String BEHAVIOR_ON_MALFORMED_DOCS_CONFIG = "behavior.on.malformed.documents";
     private static final String BEHAVIOR_ON_MALFORMED_DOCS_DOC = "How to handle records that "
-            + "Opensearch rejects due to some malformation of the document itself, such as an index"
+            + "OpenSearch rejects due to some malformation of the document itself, such as an index"
             + " mapping conflict or a field name containing illegal characters. Valid options are "
             + "'ignore', 'warn', and 'fail'.";
     
     public static final String BEHAVIOR_ON_VERSION_CONFLICT_CONFIG = "behavior.on.version.conflict";
     private static final String BEHAVIOR_ON_VERSION_CONFLICT_DOC = "How to handle records that "
-            + "Opensearch rejects due to version conflicts (if optimistic locking mechanism has been"
-            + "activated). Valid options are 'ignore', 'warn', and 'fail'.";
+            + "OpenSearch rejects due to document's version conflicts. It may happen when offsets "
+            + "were not committed or/and records have to be reprocessed. "
+            + "Valid options are 'ignore', 'warn', and 'fail'.";
 
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();

@@ -6,15 +6,14 @@ Connector
 ^^^^^^^^^
 
 ``connection.url``
-  List of Opensearch HTTP connection URLs e.g. ``http://eshost1:9200,http://eshost2:9200``.
+  List of OpenSearch HTTP connection URLs e.g. ``http://eshost1:9200,http://eshost2:9200``.
 
   * Type: list
   * Default: ""
-  * Valid Values: io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig$$Lambda$16/0x0000000800c074b0@45283ce2
   * Importance: high
 
 ``batch.size``
-  The number of records to process as a batch when writing to Opensearch.
+  The number of records to process as a batch when writing to OpenSearch.
 
   * Type: int
   * Default: 2000
@@ -37,7 +36,7 @@ Connector
   * Importance: low
 
 ``max.in.flight.requests``
-  The maximum number of indexing requests that can be in-flight to Opensearch before blocking further requests.
+  The maximum number of indexing requests that can be in-flight to OpenSearch before blocking further requests.
 
   * Type: int
   * Default: 5
@@ -65,14 +64,14 @@ Connector
   * Importance: low
 
 ``connection.timeout.ms``
-  How long to wait in milliseconds when establishing a connection to the Opensearch server. The task fails if the client fails to connect to the server in this interval, and will need to be restarted.
+  How long to wait in milliseconds when establishing a connection to the OpenSearch server. The task fails if the client fails to connect to the server in this interval, and will need to be restarted.
 
   * Type: int
   * Default: 1000 (1 second)
   * Importance: low
 
 ``read.timeout.ms``
-  How long to wait in milliseconds for the Opensearch server to send a response. The task fails if any read operation times out, and will need to be restarted to resume further operations.
+  How long to wait in milliseconds for the OpenSearch server to send a response. The task fails if any read operation times out, and will need to be restarted to resume further operations.
 
   * Type: int
   * Default: 3000 (3 seconds)
@@ -82,7 +81,7 @@ Data Conversion
 ^^^^^^^^^^^^^^^
 
 ``key.ignore``
-  Whether to ignore the record key for the purpose of forming the Opensearch document ID. When this is set to ``true``, document IDs will be generated according to the ``key.ignore.id.strategy`` strategy.
+  Whether to ignore the record key for the purpose of forming the OpenSearch document ID. When this is set to ``true``, document IDs will be generated according to the ``key.ignore.id.strategy`` strategy.
 
   Note that this is a global config that applies to all topics, use ``topic.key.ignore`` to apply ``key.ignore.id.strategy`` strategy for specific topics only.
 
@@ -99,7 +98,7 @@ Data Conversion
   * Importance: low
 
 ``schema.ignore``
-  Whether to ignore schemas during indexing. When this is set to ``true``, the record schema will be ignored for the purpose of registering an Opensearch mapping. Opensearch will infer the mapping from the data (dynamic mapping needs to be enabled by the user).
+  Whether to ignore schemas during indexing. When this is set to ``true``, the record schema will be ignored for the purpose of registering an OpenSearch mapping. OpenSearch will infer the mapping from the data (dynamic mapping needs to be enabled by the user).
 
    Note that this is a global config that applies to all topics, use ``topic.schema.ignore`` to override as ``true`` for specific topics.
 
@@ -117,7 +116,7 @@ Data Conversion
 ``topic.index.map``
   This option is now deprecated. A future version may remove it completely. Please use single message transforms, such as RegexRouter, to map topic names to index names.
 
-  A map from Kafka topic name to the destination Opensearch index, represented as a list of ``topic:index`` pairs.
+  A map from Kafka topic name to the destination OpenSearch index, represented as a list of ``topic:index`` pairs.
 
   * Type: list
   * Default: ""
@@ -153,7 +152,7 @@ Data Conversion
   * Importance: low
 
 ``behavior.on.malformed.documents``
-  How to handle records that Opensearch rejects due to some malformation of the document itself, such as an index mapping conflict or a field name containing illegal characters. Valid options are 'ignore', 'warn', and 'fail'.
+  How to handle records that OpenSearch rejects due to some malformation of the document itself, such as an index mapping conflict or a field name containing illegal characters. Valid options are 'ignore', 'warn', and 'fail'.
 
   * Type: string
   * Default: fail
@@ -161,7 +160,7 @@ Data Conversion
   * Importance: low
 
 ``behavior.on.version.conflict``
-  How to handle records that Opensearch rejects due to version conflicts (if optimistic locking mechanism has beenactivated). Valid options are 'ignore', 'warn', and 'fail'.
+  How to handle records that OpenSearch rejects due to document's version conflicts. It may happen when offsets were not committed or/and records have to be reprocessed. Valid options are 'ignore', 'warn', and 'fail'.
 
   * Type: string
   * Default: fail
@@ -172,14 +171,14 @@ Authentication
 ^^^^^^^^^^^^^^
 
 ``connection.username``
-  The username used to authenticate with Opensearch. The default is the null, and authentication will only be performed if  both the username and password are non-null.
+  The username used to authenticate with OpenSearch. The default is the null, and authentication will only be performed if  both the username and password are non-null.
 
   * Type: string
   * Default: null
   * Importance: medium
 
 ``connection.password``
-  The password used to authenticate with Opensearch. The default is the null, and authentication will only be performed if  both the username and password are non-null.
+  The password used to authenticate with OpenSearch. The default is the null, and authentication will only be performed if  both the username and password are non-null.
 
   * Type: password
   * Default: null
