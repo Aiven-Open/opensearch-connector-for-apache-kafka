@@ -25,6 +25,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.data.ConnectSchema;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 import org.opensearch.action.DocWriteRequest;
@@ -40,7 +43,7 @@ public enum DocumentIDStrategy {
     ),
     
     RECORD_KEY("record.key", "Generated from the record's key",
-        record -> RecordConverter.convertKey(record.keySchema(), record.key()),
+        record -> convertKey(record.keySchema(), record.key()),
         (request, record) ->  {
             request.versionType(VersionType.EXTERNAL);
             request.version(record.kafkaOffset());
@@ -60,15 +63,15 @@ public enum DocumentIDStrategy {
 
     private final Function<SinkRecord, String> docIdGenerator;
 
-    private final BiFunction<DocWriteRequest<?>, SinkRecord, DocWriteRequest<?>> updateRequest;
+    private final BiFunction<DocWriteRequest<?>, SinkRecord, DocWriteRequest<?>> requestUpdater;
 
     private DocumentIDStrategy(final String name, final String description, 
                                final Function<SinkRecord, String> docIdGenerator,
-                               final BiFunction<DocWriteRequest<?>, SinkRecord, DocWriteRequest<?>> updateRequest) {
+                               final BiFunction<DocWriteRequest<?>, SinkRecord, DocWriteRequest<?>> requestUpdater) {
         this.name = name.toLowerCase(Locale.ROOT);
         this.description = description;
         this.docIdGenerator = docIdGenerator;
-        this.updateRequest = updateRequest;
+        this.requestUpdater = requestUpdater;
     }
 
     @Override
@@ -78,24 +81,16 @@ public enum DocumentIDStrategy {
 
     public static DocumentIDStrategy fromString(final String name) {
         for (final DocumentIDStrategy strategy : DocumentIDStrategy.values()) {
-            if (strategy.nameEquals(name)) {
+            if (strategy.name.equalsIgnoreCase(name)) {
                 return strategy;
             }
         }
         throw new IllegalArgumentException("Unknown Document ID Strategy " + name);
     }
 
-    public static String[] names() {
-        return Arrays.stream(values()).map(v -> v.toString()).toArray(String[]::new);
-    }
-
     public static String describe() {
         return Arrays.stream(values()).map(v -> v.toString() + " : " + v.description)
                 .collect(Collectors.joining(", ", "{", "}"));
-    }
-
-    public Boolean nameEquals(final String name) {
-        return name.equalsIgnoreCase(this.name);
     }
 
     /**
@@ -114,9 +109,9 @@ public enum DocumentIDStrategy {
      * @param record The record for which to update the IndexRequest
      * @return Updated IndexRequest
      */
-    public DocWriteRequest<?> updateIndexRequest(final IndexRequest request,
-                                                 final SinkRecord record) {
-        return updateRequest.apply(request.id(docId(record)), record);
+    public DocWriteRequest<?> updateRequest(final IndexRequest request,
+                                            final SinkRecord record) {
+        return requestUpdater.apply(request.id(docId(record)), record);
     }
 
     /**
@@ -126,13 +121,14 @@ public enum DocumentIDStrategy {
      * @param record The record for which to update the DeleteRequest
      * @return Updated DeleteRequest
      */
-    public DocWriteRequest<?> updateDeleteRequest(final DeleteRequest request,
-                                                  final SinkRecord record) {
-        return updateRequest.apply(request.id(docId(record)), record);
+    public DocWriteRequest<?> updateRequest(final DeleteRequest request,
+                                            final SinkRecord record) {
+        return requestUpdater.apply(request.id(docId(record)), record);
     }
 
     public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
-        private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
+        private final String[] names = Arrays.stream(values()).map(v -> v.toString()).toArray(String[]::new);
+        private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names);
 
         @Override
         public void ensureValid(final String name, final Object value) {
@@ -150,4 +146,33 @@ public enum DocumentIDStrategy {
             return validator.toString();
         }
     };
+
+    private static String convertKey(final Schema keySchema, final Object key) {
+        if (key == null) {
+            throw new DataException("Key is used as document id and can not be null.");
+        }
+
+        final Schema.Type schemaType;
+        if (keySchema == null) {
+            schemaType = ConnectSchema.schemaType(key.getClass());
+            if (schemaType == null) {
+                throw new DataException(
+                        String.format("Java class %s does not have corresponding schema type.", key.getClass())
+                );
+            }
+        } else {
+            schemaType = keySchema.type();
+        }
+
+        switch (schemaType) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case STRING:
+                return String.valueOf(key);
+            default:
+                throw new DataException(schemaType.name() + " is not supported as the document id.");
+        }
+    }
 }

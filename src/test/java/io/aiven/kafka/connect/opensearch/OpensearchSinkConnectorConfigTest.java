@@ -120,7 +120,7 @@ public class OpensearchSinkConnectorConfigTest {
         for (final var strategy : DocumentIDStrategy.values()) {
             props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, strategy.toString());
             final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-            assertEquals(config.docIdStrategy(), strategy);
+            assertEquals(strategy, config.docIdStrategy("anyTopic"));
         }
     }
 
@@ -128,17 +128,22 @@ public class OpensearchSinkConnectorConfigTest {
     public void docIdStrategyWithoutKeyIgnoreIdStrategy() {
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString());
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        assertEquals(DocumentIDStrategy.TOPIC_PARTITION_OFFSET, config.docIdStrategy());
+        assertEquals(DocumentIDStrategy.RECORD_KEY, config.docIdStrategy("anyTopic"));
     }
 
     @Test
-    public void docIdStrategyWithoutKeyIgnore() {
+    public void docIdStrategyWithoutKeyIgnoreWithTopicKeyIgnore() {
+        DocumentIDStrategy keyIgnoreStrategy = DocumentIDStrategy.NONE;
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, 
-                  DocumentIDStrategy.NONE.toString());
+        props.put(OpensearchSinkConnectorConfig.TOPIC_KEY_IGNORE_CONFIG, "topic1,topic2");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, keyIgnoreStrategy.toString());
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        assertEquals(config.docIdStrategy(), DocumentIDStrategy.NONE);
+        
+        assertEquals(keyIgnoreStrategy, config.docIdStrategy("topic1"));
+        assertEquals(keyIgnoreStrategy, config.docIdStrategy("topic2"));
+        assertEquals(DocumentIDStrategy.RECORD_KEY, config.docIdStrategy("otherTopic"));
     }
 }

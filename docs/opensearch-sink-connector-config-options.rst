@@ -1,5 +1,5 @@
 =========================================
-Opensearch Sink Connector Configuration Options
+OpenSearch Sink Connector Configuration Options
 =========================================
 
 Connector
@@ -10,7 +10,7 @@ Connector
 
   * Type: list
   * Default: ""
-  * Valid Values: io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig$$Lambda$13/0x0000000800c0c998@1698c449
+  * Valid Values: io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig$$Lambda$16/0x0000000800c074b0@45283ce2
   * Importance: high
 
 ``batch.size``
@@ -91,7 +91,7 @@ Data Conversion
   * Importance: high
 
 ``key.ignore.id.strategy``
-  Specifies the strategy to generate the Document ID. Only applicable when ``key.ignore`` is ``true`` or specific topics are configured using ``topic.key.ignore``. Available strategies {none : No Doc ID is added, record.key : Generated from the record's key, topic.partition.offset : Generated as record's ``topic+partition+offset``}. If not specified, the default generation strategy is ``topic+partition+offset``.
+  Specifies the strategy to generate the Document ID. Only applicable when ``key.ignore`` is ``true`` or specific topics are configured using ``topic.key.ignore``. Available strategies {none : No Doc ID is added, record.key : Generated from the record's key, topic.partition.offset : Generated as record's ``topic+partition+offset``}. If not specified, the default generation strategy is ``topic.partition.offset``.
 
   * Type: string
   * Default: topic.partition.offset

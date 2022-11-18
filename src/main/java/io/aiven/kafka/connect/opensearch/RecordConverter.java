@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
@@ -59,9 +58,6 @@ public class RecordConverter {
 
     private final OpensearchSinkConnectorConfig config;
 
-    private final DocumentIDStrategy globalDocIdGenerator;
-    private final DocumentIDStrategy perTopicDocIdGenerator; // Used on topics present in TOPIC_KEY_IGNORE_CONFIG
-
     public RecordConverter(final Boolean useCompactMapEntries,
                            final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
         this(null);
@@ -69,43 +65,7 @@ public class RecordConverter {
 
     public RecordConverter(final OpensearchSinkConnectorConfig config) {
         this.config = config;
-        globalDocIdGenerator = (config != null && config.ignoreKey()) ? config.docIdStrategy()
-                                 : DocumentIDStrategy.RECORD_KEY; 
-        perTopicDocIdGenerator = (config != null) ? config.docIdStrategy() : DocumentIDStrategy.TOPIC_PARTITION_OFFSET;
-    }
-
-    private DocumentIDStrategy getDocIdStrategy(final String topic) {
-        return config.topicIgnoreKey().contains(topic) ? perTopicDocIdGenerator : globalDocIdGenerator;
-    }
-
-    public static String convertKey(final Schema keySchema, final Object key) {
-        if (key == null) {
-            throw new DataException("Key is used as document id and can not be null.");
-        }
-
-        final Schema.Type schemaType;
-        if (keySchema == null) {
-            schemaType = ConnectSchema.schemaType(key.getClass());
-            if (schemaType == null) {
-                throw new DataException(
-                        String.format("Java class %s does not have corresponding schema type.", key.getClass())
-                );
-            }
-        } else {
-            schemaType = keySchema.type();
-        }
-
-        switch (schemaType) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-            case STRING:
-                return String.valueOf(key);
-            default:
-                throw new DataException(schemaType.name() + " is not supported as the document id.");
-        }
-    }
+     }
 
     public DocWriteRequest<?> convert(final SinkRecord record, final String index) {
         if (record.value() == null) {
@@ -142,10 +102,10 @@ public class RecordConverter {
             }
         }
 
-        final DocumentIDStrategy docIdStrategy = getDocIdStrategy(record.topic());
+        final DocumentIDStrategy docIdStrategy = config.docIdStrategy(record.topic());
         
         if (Objects.isNull(record.value())) {
-            return docIdStrategy.updateDeleteRequest(new DeleteRequest(index), record);
+            return docIdStrategy.updateRequest(new DeleteRequest(index), record);
         }
 
         final String payload = getPayload(record);
@@ -153,7 +113,7 @@ public class RecordConverter {
             .source(payload, XContentType.JSON)
             .opType(DocWriteRequest.OpType.INDEX);
 
-        return docIdStrategy.updateIndexRequest(indexRequest, record);
+        return docIdStrategy.updateRequest(indexRequest, record);
     }
 
     private String getPayload(final SinkRecord record) {

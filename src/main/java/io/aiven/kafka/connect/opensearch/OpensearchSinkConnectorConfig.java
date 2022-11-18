@@ -513,9 +513,10 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
     }
 
-    public DocumentIDStrategy docIdStrategy() {
-        // Default is TOPIC_PARTITION_OFFSET if unspecified
-        return DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG));
+    public DocumentIDStrategy docIdStrategy(String topic) {
+        return (ignoreKey() || topicIgnoreKey().contains(topic)) ? 
+            DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG))
+                : DocumentIDStrategy.RECORD_KEY;
     }
 
     public boolean ignoreSchemaFor(final String topic) {
@@ -542,7 +543,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public static void main(final String[] args) {
         System.out.println("=========================================");
-        System.out.println("Opensearch Sink Connector Configuration Options");
+        System.out.println("OpenSearch Sink Connector Configuration Options");
         System.out.println("=========================================");
         System.out.println();
         System.out.println(CONFIG.toEnrichedRst());

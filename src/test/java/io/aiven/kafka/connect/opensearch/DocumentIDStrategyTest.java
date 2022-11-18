@@ -62,7 +62,7 @@ public class DocumentIDStrategyTest {
     public void docIdStrategyNoneWithNullRecord() {
         final DocumentIDStrategy strategy = DocumentIDStrategy.NONE;
         final SinkRecord record = createSinkRecordWithValue(null);
-        final DocWriteRequest<?> req = strategy.updateIndexRequest(new IndexRequest(index), record);
+        final DocWriteRequest<?> req = strategy.updateRequest(new IndexRequest(index), record);
         assertNull(req);
     }
 
@@ -70,7 +70,7 @@ public class DocumentIDStrategyTest {
     public void docIdStrategyNone() {
         final DocumentIDStrategy strategy = DocumentIDStrategy.NONE;
         final SinkRecord record = createSinkRecordWithValue(value);
-        final DocWriteRequest<?> req = strategy.updateIndexRequest(new IndexRequest(index), record);
+        final DocWriteRequest<?> req = strategy.updateRequest(new IndexRequest(index), record);
         assertNotNull(req);
         assertNull(req.id());
         assertEquals(VersionType.INTERNAL, req.versionType());
@@ -80,7 +80,7 @@ public class DocumentIDStrategyTest {
     public void docIdStrategyRecordKey() {
         final DocumentIDStrategy strategy = DocumentIDStrategy.RECORD_KEY;
         final SinkRecord record = createSinkRecordWithValue(value);
-        final DocWriteRequest<?> req = strategy.updateIndexRequest(new IndexRequest(index), record);
+        final DocWriteRequest<?> req = strategy.updateRequest(new IndexRequest(index), record);
         assertNotNull(req);
         assertEquals(key, req.id());
         assertEquals(VersionType.EXTERNAL, req.versionType());
@@ -91,7 +91,7 @@ public class DocumentIDStrategyTest {
     public void docIdStrategyRecordKeyDelete() {
         final DocumentIDStrategy strategy = DocumentIDStrategy.RECORD_KEY;
         final SinkRecord record = createSinkRecordWithValue(value);
-        final DocWriteRequest<?> req = strategy.updateDeleteRequest(new DeleteRequest(index), record);
+        final DocWriteRequest<?> req = strategy.updateRequest(new DeleteRequest(index), record);
         assertNotNull(req);
         assertEquals(key, req.id());
         assertEquals(VersionType.EXTERNAL, req.versionType());
@@ -102,7 +102,7 @@ public class DocumentIDStrategyTest {
     public void docIdStrategyTopicPartitionOffset() {
         final DocumentIDStrategy strategy = DocumentIDStrategy.TOPIC_PARTITION_OFFSET;
         final SinkRecord record = createSinkRecordWithValue(value);
-        final DocWriteRequest<?> req = strategy.updateIndexRequest(new IndexRequest(index), record);
+        final DocWriteRequest<?> req = strategy.updateRequest(new IndexRequest(index), record);
         assertNotNull(req);
         assertEquals(record.topic() + "+" + record.kafkaPartition() + "+" + record.kafkaOffset(), req.id());
         assertEquals(VersionType.INTERNAL, req.versionType());
