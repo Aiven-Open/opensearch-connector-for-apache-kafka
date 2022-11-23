@@ -117,13 +117,13 @@ public class BulkProcessor {
 
         if (!config.ignoreKey() && config.behaviorOnVersionConflict() == BehaviorOnVersionConflict.FAIL) {
             LOGGER.warn("The {} is set to `false` which assumes external version and optimistic locking."
-                            + " You may consider changing the configuration property '{}' from '{}' to '{}' or '{}'"
-                            + " to deal with possible version conflicts.",
-                    OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG,
-                    OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
-                    BehaviorOnMalformedDoc.FAIL,
-                    BehaviorOnMalformedDoc.IGNORE,
-                    BehaviorOnMalformedDoc.WARN);
+                    + " You may consider changing the configuration property '{}' from '{}' to '{}' or '{}'"
+                    + " to deal with possible version conflicts.",
+                OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG,
+                OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
+                BehaviorOnMalformedDoc.FAIL,
+                BehaviorOnMalformedDoc.IGNORE,
+                BehaviorOnMalformedDoc.WARN);
         }
     }
 
@@ -403,12 +403,12 @@ public class BulkProcessor {
                                 } else {
                                     throw new RuntimeException(
                                             "One of the item in the bulk response failed. Reason: "
-                                                    + itemResponse.getFailureMessage());
+                                            + itemResponse.getFailureMessage());
                                 }
                             } else {
                                 throw new ConnectException(
                                         "One of the item in the bulk response aborted. Reason: "
-                                                + itemResponse.getFailureMessage());
+                                        + itemResponse.getFailureMessage());
                             }
                         }
                     }
