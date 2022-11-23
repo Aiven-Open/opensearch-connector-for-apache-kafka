@@ -18,6 +18,7 @@
 package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +27,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.common.utils.Time;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequest;
@@ -140,18 +144,18 @@ public class BulkProcessorTest {
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
 
         final int addTimeoutMs = 10;
-        bulkProcessor.add(newIndexRequest(1), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(2), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(3), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(4), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(5), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(6), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(7), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(8), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(9), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(10), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(11), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(12), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(1), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(2), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(3), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(4), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(5), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(6), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(7), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(8), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(9), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(10), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(11), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(12), newSinkRecord(), addTimeoutMs);
 
         clientAnswer.expect(
                 List.of(
@@ -211,9 +215,9 @@ public class BulkProcessorTest {
         bulkProcessor.start();
 
         final int addTimeoutMs = 10;
-        bulkProcessor.add(newIndexRequest(1), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(2), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(3), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(1), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(2), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(3), newSinkRecord(), addTimeoutMs);
 
         assertFalse(clientAnswer.expectationsMet());
 
@@ -239,9 +243,10 @@ public class BulkProcessorTest {
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
 
         final int addTimeoutMs = 10;
-        bulkProcessor.add(newIndexRequest(42), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(42), newSinkRecord(), addTimeoutMs);
         assertEquals(1, bulkProcessor.bufferedRecords());
-        assertThrows(ConnectException.class, () -> bulkProcessor.add(newIndexRequest(43), addTimeoutMs));
+        assertThrows(ConnectException.class,
+                () -> bulkProcessor.add(newIndexRequest(43), newSinkRecord(), addTimeoutMs));
     }
 
     @Test
@@ -267,8 +272,8 @@ public class BulkProcessorTest {
         clientAnswer.expect(List.of(newIndexRequest(42), newIndexRequest(43)), successResponse());
 
         final int addTimeoutMs = 10;
-        bulkProcessor.add(newIndexRequest(42), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(43), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(42), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(43), newSinkRecord(), addTimeoutMs);
 
         assertFalse(bulkProcessor.submitBatchWhenReady().get().hasFailures());
 
@@ -298,8 +303,8 @@ public class BulkProcessorTest {
         clientAnswer.expect(List.of(newIndexRequest(42), newIndexRequest(43)), failedResponse());
 
         final int addTimeoutMs = 10;
-        bulkProcessor.add(newIndexRequest(42), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(43), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(42), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(43), newSinkRecord(), addTimeoutMs);
 
         assertThrows(ExecutionException.class, () -> bulkProcessor.submitBatchWhenReady().get());
         verify(client, times(3)).bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT));
@@ -328,8 +333,8 @@ public class BulkProcessorTest {
         );
 
         final int addTimeoutMs = 10;
-        bulkProcessor.add(newIndexRequest(42), addTimeoutMs);
-        bulkProcessor.add(newIndexRequest(43), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(42), newSinkRecord(), addTimeoutMs);
+        bulkProcessor.add(newIndexRequest(43), newSinkRecord(), addTimeoutMs);
 
         assertThrows(ExecutionException.class, () -> bulkProcessor.submitBatchWhenReady().get());
         verify(client, times(1)).bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT));
@@ -367,8 +372,8 @@ public class BulkProcessorTest {
 
         bulkProcessor.start();
 
-        bulkProcessor.add(newIndexRequest(42), 1);
-        bulkProcessor.add(newIndexRequest(43), 1);
+        bulkProcessor.add(newIndexRequest(42), newSinkRecord(), 1);
+        bulkProcessor.add(newIndexRequest(43), newSinkRecord(), 1);
 
         assertThrows(ConnectException.class, () -> bulkProcessor.flush(1000));
         verify(client, times(1)).bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT));
@@ -412,8 +417,8 @@ public class BulkProcessorTest {
 
             bulkProcessor.start();
 
-            bulkProcessor.add(newIndexRequest(42), 1);
-            bulkProcessor.add(newIndexRequest(43), 1);
+            bulkProcessor.add(newIndexRequest(42), newSinkRecord(), 1);
+            bulkProcessor.add(newIndexRequest(43), newSinkRecord(), 1);
 
             final int flushTimeoutMs = 1000;
             bulkProcessor.flush(flushTimeoutMs);
@@ -450,8 +455,8 @@ public class BulkProcessorTest {
 
         bulkProcessor.start();
 
-        bulkProcessor.add(newIndexRequest(42), 1);
-        bulkProcessor.add(newIndexRequest(43), 1);
+        bulkProcessor.add(newIndexRequest(42), newSinkRecord(), 1);
+        bulkProcessor.add(newIndexRequest(43), newSinkRecord(), 1);
 
         assertThrows(ConnectException.class, () -> bulkProcessor.flush(1000));
         verify(client, times(1)).bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT));
@@ -486,11 +491,57 @@ public class BulkProcessorTest {
 
         bulkProcessor.start();
 
-        bulkProcessor.add(newIndexRequest(42), 1);
-        bulkProcessor.add(newIndexRequest(43), 1);
+        bulkProcessor.add(newIndexRequest(42), newSinkRecord(), 1);
+        bulkProcessor.add(newIndexRequest(43), newSinkRecord(), 1);
         bulkProcessor.flush(1000);
 
         assertTrue(clientAnswer.expectationsMet());
+    }
+
+    @Test
+    public void reportToDlqOnMalformedDoc(final @Mock RestHighLevelClient client) throws IOException {
+        final var clientAnswer = new ClientAnswer();
+        when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
+
+        final var dlqReporter = mock(ErrantRecordReporter.class);
+        final var config = new OpensearchSinkConnectorConfig(Map.of(
+                CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100",
+                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
+                BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "5",
+                MAX_RETRIES_CONFIG, "3",
+                READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString()
+        ));
+        final String errorInfo =
+                " [{\"type\":\"mapper_parsing_exception\",\"reason\":\"failed to parse\","
+                        + "\"caused_by\":{\"type\":\"illegal_argument_exception\",\"reason\":\"object\n"
+                        + " field starting or ending with a [.] "
+                        + "makes object resolution ambiguous: [avjpz{{.}}wjzse{{..}}gal9d]\"}}]";
+        final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
+        clientAnswer.expect(
+                List.of(
+                        newIndexRequest(42),
+                        newIndexRequest(43)
+                ), failedResponse(errorInfo));
+
+        bulkProcessor.start();
+
+        bulkProcessor.add(newIndexRequest(42), newSinkRecord(), 1);
+        bulkProcessor.add(newIndexRequest(43), newSinkRecord(), 1);
+
+        final int flushTimeoutMs = 1000;
+        bulkProcessor.flush(flushTimeoutMs);
+
+        assertTrue(clientAnswer.expectationsMet());
+        verify(dlqReporter, times(1)).report(any(SinkRecord.class), any(Throwable.class));
+    }
+
+    private SinkRecord newSinkRecord() {
+        final Map<String, Object> valueMap = new HashMap<>();
+        valueMap.put("field1", "123");
+        return new SinkRecord("dlq", 0, Schema.STRING_SCHEMA, "1", null, valueMap, 0);
     }
 
     IndexRequest newIndexRequest(final int body) {

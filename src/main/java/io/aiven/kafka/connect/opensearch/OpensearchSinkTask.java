@@ -74,7 +74,7 @@ public class OpensearchSinkTask extends SinkTask {
                         TimeUnit.MILLISECONDS.toHours(maxRetryBackoffMs));
             }
 
-            this.client = new OpensearchClient(config);
+            this.client = new OpensearchClient(config, context.errantRecordReporter());
             this.recordConverter = new RecordConverter(config);
         } catch (final ConfigException e) {
             throw new ConnectException(
@@ -112,7 +112,7 @@ public class OpensearchSinkTask extends SinkTask {
         try {
             final var indexRecord = recordConverter.convert(record, index);
             if (Objects.nonNull(indexRecord)) {
-                client.index(indexRecord);
+                client.index(indexRecord, record);
             }
         } catch (final DataException e) {
             if (config.dropInvalidMessage()) {

@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,10 +34,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkItemResponse;
@@ -77,12 +82,21 @@ public class BulkProcessor {
 
     // shared state, synchronized on (this), may be part of wait() conditions so need notifyAll() on
     // changes
-    private final Deque<DocWriteRequest<?>> unsentRecords;
+    private final Deque<DocWriteRequestWrapper> unsentRecords;
     private int inFlightRecords = 0;
+
+    private final ErrantRecordReporter reporter;
 
     public BulkProcessor(final Time time,
                          final RestHighLevelClient client,
                          final OpensearchSinkConnectorConfig config) {
+        this(time, client, config, null);
+    }
+
+    public BulkProcessor(final Time time,
+                         final RestHighLevelClient client,
+                         final OpensearchSinkConnectorConfig config,
+                         final ErrantRecordReporter reporter) {
         this.time = time;
         this.client = client;
 
@@ -93,22 +107,23 @@ public class BulkProcessor {
         this.retryBackoffMs = config.retryBackoffMs();
         this.behaviorOnMalformedDoc = config.behaviorOnMalformedDoc();
         this.behaviorOnVersionConflict = config.behaviorOnVersionConflict();
+        this.reporter = reporter;
 
         unsentRecords = new ArrayDeque<>(maxBufferedRecords);
 
         final ThreadFactory threadFactory = makeThreadFactory();
         farmer = threadFactory.newThread(farmerTask());
         executor = Executors.newFixedThreadPool(config.maxInFlightRequests(), threadFactory);
-        
+
         if (!config.ignoreKey() && config.behaviorOnVersionConflict() == BehaviorOnVersionConflict.FAIL) {
             LOGGER.warn("The {} is set to `false` which assumes external version and optimistic locking."
-                    + " You may consider changing the configuration property '{}' from '{}' to '{}' or '{}'"
-                    + " to deal with possible version conflicts.",
-                OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG,
-                OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
-                BehaviorOnMalformedDoc.FAIL,
-                BehaviorOnMalformedDoc.IGNORE,
-                BehaviorOnMalformedDoc.WARN);
+                            + " You may consider changing the configuration property '{}' from '{}' to '{}' or '{}'"
+                            + " to deal with possible version conflicts.",
+                    OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG,
+                    OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
+                    BehaviorOnMalformedDoc.FAIL,
+                    BehaviorOnMalformedDoc.IGNORE,
+                    BehaviorOnMalformedDoc.WARN);
         }
     }
 
@@ -162,7 +177,7 @@ public class BulkProcessor {
     private synchronized Future<BulkResponse> submitBatch() {
         assert !unsentRecords.isEmpty();
         final int batchableSize = Math.min(batchSize, unsentRecords.size());
-        final var batch = new ArrayList<DocWriteRequest<?>>(batchableSize);
+        final var batch = new ArrayList<DocWriteRequestWrapper>(batchableSize);
         for (int i = 0; i < batchableSize; i++) {
             batch.add(unsentRecords.removeFirst());
         }
@@ -279,7 +294,8 @@ public class BulkProcessor {
      * <p>If any task has failed prior to or while blocked in the add, or if the timeout expires
      * while blocked, {@link ConnectException} will be thrown.
      */
-    public synchronized void add(final DocWriteRequest<?> request, final long timeoutMs) {
+    public synchronized void add(final DocWriteRequest<?> docWriteRequests, final SinkRecord sinkRecord,
+                                 final long timeoutMs) {
         throwIfTerminal();
 
         if (bufferedRecords() >= maxBufferedRecords) {
@@ -299,7 +315,7 @@ public class BulkProcessor {
             }
         }
 
-        unsentRecords.addLast(request);
+        unsentRecords.addLast(new DocWriteRequestWrapper(docWriteRequests, sinkRecord));
         notifyAll();
     }
 
@@ -338,13 +354,13 @@ public class BulkProcessor {
 
         final long batchId = BATCH_ID_GEN.incrementAndGet();
 
-        final List<DocWriteRequest<?>> batch;
+        final List<DocWriteRequestWrapper> batch;
 
         final int maxRetries;
 
         final long retryBackoffMs;
 
-        BulkTask(final List<DocWriteRequest<?>> batch, final int maxRetries, final long retryBackoffMs) {
+        BulkTask(final List<DocWriteRequestWrapper> batch, final int maxRetries, final long retryBackoffMs) {
             this.batch = batch;
             this.maxRetries = maxRetries;
             this.retryBackoffMs = retryBackoffMs;
@@ -367,7 +383,10 @@ public class BulkProcessor {
             return callWithRetry("bulk processing", () -> {
                 try {
                     final var response =
-                            client.bulk(new BulkRequest().add(batch), RequestOptions.DEFAULT);
+                            client.bulk(new BulkRequest().add(
+                                            batch.stream().map(DocWriteRequestWrapper::getDocWriteRequests)
+                                                    .collect(Collectors.toList())),
+                                    RequestOptions.DEFAULT);
                     if (!response.hasFailures()) {
                         // We only logged failures, so log the success immediately after a failure ...
                         LOGGER.debug("Completed batch {} of {} records", batchId, batch.size());
@@ -375,6 +394,7 @@ public class BulkProcessor {
                     }
                     for (final var itemResponse : response.getItems()) {
                         if (itemResponse.isFailed()) {
+                            reportMalformedRecord(itemResponse);
                             if (!itemResponse.getFailure().isAborted()) {
                                 if (responseContainsMalformedDocError(itemResponse)) {
                                     handleMalformedDoc(itemResponse);
@@ -383,12 +403,12 @@ public class BulkProcessor {
                                 } else {
                                     throw new RuntimeException(
                                             "One of the item in the bulk response failed. Reason: "
-                                            + itemResponse.getFailureMessage());
+                                                    + itemResponse.getFailureMessage());
                                 }
                             } else {
                                 throw new ConnectException(
                                         "One of the item in the bulk response aborted. Reason: "
-                                        + itemResponse.getFailureMessage());
+                                                + itemResponse.getFailureMessage());
                             }
                         }
                     }
@@ -399,6 +419,25 @@ public class BulkProcessor {
                     throw new ConnectException(e);
                 }
             }, maxRetries, retryBackoffMs, RuntimeException.class);
+        }
+
+        private void reportMalformedRecord(final BulkItemResponse itemResponse) {
+            try {
+                if (reporter != null) {
+                    LOGGER.info("Reporting on record failure to DLQ");
+                    final SinkRecord record = batch.get(itemResponse.getItemId()).getSinkRecord();
+                    if (!(record.value() instanceof Map)) {
+                        LOGGER.error("Only Map objects supported");
+                        return;
+                    }
+                    final String errorMsg = Optional.ofNullable(itemResponse.getFailureMessage())
+                            .orElse("Unknown error");
+                    reporter.report(record, new Exception(errorMsg));
+
+                }
+            } catch (final Exception e) {
+                LOGGER.error("An error occurred when reporting on record failure to DLQ: {}", e.getMessage(), e);
+            }
         }
 
         private void handleVersionConflict(final BulkItemResponse bulkItemResponse) {
@@ -457,7 +496,27 @@ public class BulkProcessor {
             }
         }
     }
-    
+
+    public final class DocWriteRequestWrapper {
+
+        private final DocWriteRequest<?> docWriteRequests;
+        private final SinkRecord sinkRecord;
+
+        DocWriteRequestWrapper(final DocWriteRequest<?> docWriteRequests, final SinkRecord sinkRecord) {
+            this.docWriteRequests = docWriteRequests;
+            this.sinkRecord = sinkRecord;
+        }
+
+        public DocWriteRequest<?> getDocWriteRequests() {
+            return docWriteRequests;
+        }
+
+        public SinkRecord getSinkRecord() {
+            return sinkRecord;
+        }
+    }
+
+
     private boolean responseContainsVersionConflict(final BulkItemResponse bulkItemResponse) {
         return bulkItemResponse.getFailure().getStatus() == RestStatus.CONFLICT
                 || bulkItemResponse.getFailureMessage().contains("version_conflict_engine_exception");
@@ -545,7 +604,7 @@ public class BulkProcessor {
             return name().toLowerCase(Locale.ROOT);
         }
     }
-    
+
     public enum BehaviorOnVersionConflict {
         IGNORE,
         WARN,
