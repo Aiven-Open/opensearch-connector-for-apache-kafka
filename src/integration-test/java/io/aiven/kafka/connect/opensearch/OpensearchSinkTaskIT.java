@@ -44,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.SCHEMA_IGNORE_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -304,6 +305,16 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         );
         assertTrue(opensearchClient.indexExists(TOPIC_NAME));
         waitForRecords(2);
+    }
+
+    @Test
+    public void testKeyIgnoreStrategy() throws Exception {
+        final int numRecords = 5;
+        final var props = getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT);
+        props.put(KEY_IGNORE_ID_STRATEGY_CONFIG, "none");
+        runTask(props, prepareData(numRecords));
+        assertTrue(opensearchClient.indexExists(TOPIC_NAME));
+        waitForRecords(numRecords);
     }
 
     private List<SinkRecord> prepareData(final int numRecords) {
