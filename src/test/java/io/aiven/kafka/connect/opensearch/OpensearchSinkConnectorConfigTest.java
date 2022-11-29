@@ -106,4 +106,44 @@ public class OpensearchSinkConnectorConfigTest {
                 );
         }
     }
+
+    @Test
+    public void docIdStrategyValidator() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, "something");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
+    @Test
+    public void docIdStrategies() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        for (final var strategy : DocumentIDStrategy.values()) {
+            props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, strategy.toString());
+            final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+            assertEquals(strategy, config.docIdStrategy("anyTopic"));
+        }
+    }
+
+    @Test
+    public void docIdStrategyWithoutKeyIgnoreIdStrategy() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString());
+        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+        assertEquals(DocumentIDStrategy.RECORD_KEY, config.docIdStrategy("anyTopic"));
+    }
+
+    @Test
+    public void docIdStrategyWithoutKeyIgnoreWithTopicKeyIgnore() {
+        final DocumentIDStrategy keyIgnoreStrategy = DocumentIDStrategy.NONE;
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
+        props.put(OpensearchSinkConnectorConfig.TOPIC_KEY_IGNORE_CONFIG, "topic1,topic2");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, keyIgnoreStrategy.toString());
+        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+        
+        assertEquals(keyIgnoreStrategy, config.docIdStrategy("topic1"));
+        assertEquals(keyIgnoreStrategy, config.docIdStrategy("topic2"));
+        assertEquals(DocumentIDStrategy.RECORD_KEY, config.docIdStrategy("otherTopic"));
+    }
 }

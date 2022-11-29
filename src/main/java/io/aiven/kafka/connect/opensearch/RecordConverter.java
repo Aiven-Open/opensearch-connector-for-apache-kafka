@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
@@ -47,7 +46,6 @@ import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.index.VersionType;
 
 public class RecordConverter {
 
@@ -67,35 +65,6 @@ public class RecordConverter {
 
     public RecordConverter(final OpensearchSinkConnectorConfig config) {
         this.config = config;
-    }
-
-    private String convertKey(final Schema keySchema, final Object key) {
-        if (key == null) {
-            throw new DataException("Key is used as document id and can not be null.");
-        }
-
-        final Schema.Type schemaType;
-        if (keySchema == null) {
-            schemaType = ConnectSchema.schemaType(key.getClass());
-            if (schemaType == null) {
-                throw new DataException(
-                        String.format("Java class %s does not have corresponding schema type.", key.getClass())
-                );
-            }
-        } else {
-            schemaType = keySchema.type();
-        }
-
-        switch (schemaType) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-            case STRING:
-                return String.valueOf(key);
-            default:
-                throw new DataException(schemaType.name() + " is not supported as the document id.");
-        }
     }
 
     public DocWriteRequest<?> convert(final SinkRecord record, final String index) {
@@ -133,27 +102,18 @@ public class RecordConverter {
             }
         }
 
-        final var id = (config.ignoreKeyFor(record.topic()))
-                ? record.topic() + "+" + record.kafkaPartition() + "+" + record.kafkaOffset()
-                : convertKey(record.keySchema(), record.key());
-
+        final DocumentIDStrategy docIdStrategy = config.docIdStrategy(record.topic());
+        
         if (Objects.isNull(record.value())) {
-            return addExternalVersionIfNeeded(new DeleteRequest(index).id(id), record);
+            return docIdStrategy.updateRequest(new DeleteRequest(index), record);
         }
 
         final String payload = getPayload(record);
-        return addExternalVersionIfNeeded(new IndexRequest(index)
-                .id(id)
-                .source(payload, XContentType.JSON)
-                .opType(DocWriteRequest.OpType.INDEX), record);
-    }
+        final IndexRequest indexRequest = new IndexRequest(index)
+            .source(payload, XContentType.JSON)
+            .opType(DocWriteRequest.OpType.INDEX);
 
-    private DocWriteRequest<?> addExternalVersionIfNeeded(final DocWriteRequest<?> request, final SinkRecord record) {
-        if (!config.ignoreKeyFor(record.topic())) {
-            request.versionType(VersionType.EXTERNAL);
-            request.version(record.kafkaOffset());
-        }
-        return request;
+        return docIdStrategy.updateRequest(indexRequest, record);
     }
 
     private String getPayload(final SinkRecord record) {
