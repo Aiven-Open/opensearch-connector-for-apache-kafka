@@ -71,6 +71,7 @@ public class OpensearchSinkConnectorConfigTest {
 
     @Test
     public void testAddConfigDefs() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put("custom.property.1", "10");
         props.put("custom.property.2", "http://localhost:9000");
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
