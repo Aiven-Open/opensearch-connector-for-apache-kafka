@@ -19,7 +19,6 @@ package io.aiven.kafka.connect.opensearch;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -190,15 +189,18 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         configDef.define(
                 CONNECTION_URL_CONFIG,
                 Type.LIST,
-                new ArrayList<>(),
+                ConfigDef.NO_DEFAULT_VALUE,
                 (name, value) -> {
-                    @SuppressWarnings("unchecked")
-                    final var urls = (List<String>) value;
-                    for (final var url : urls) {
-                        try {
-                            new URL(url);
-                        } catch (final MalformedURLException e) {
-                            throw new ConfigException(CONNECTION_URL_CONFIG, url);
+                    // If value is null default validator for required value is triggered.
+                    if (value != null) {
+                        @SuppressWarnings("unchecked")
+                        final var urls = (List<String>) value;
+                        for (final var url : urls) {
+                            try {
+                                new URL(url);
+                            } catch (final MalformedURLException e) {
+                                throw new ConfigException(CONNECTION_URL_CONFIG, url);
+                            }
                         }
                     }
                 },
