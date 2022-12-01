@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -384,7 +383,7 @@ public class BulkProcessor {
                 try {
                     final var response =
                             client.bulk(new BulkRequest().add(
-                                            batch.stream().map(DocWriteRequestWrapper::getDocWriteRequests)
+                                            batch.stream().map(DocWriteRequestWrapper::getDocWriteRequest)
                                                     .collect(Collectors.toList())),
                                     RequestOptions.DEFAULT);
                     if (!response.hasFailures()) {
@@ -424,19 +423,17 @@ public class BulkProcessor {
         private void reportMalformedRecord(final BulkItemResponse itemResponse) {
             try {
                 if (reporter != null) {
-                    LOGGER.info("Reporting on record failure to DLQ");
+                    LOGGER.debug("Reporting on record failure to DLQ");
                     final SinkRecord record = batch.get(itemResponse.getItemId()).getSinkRecord();
-                    if (!(record.value() instanceof Map)) {
-                        LOGGER.error("Only Map objects supported");
-                        return;
-                    }
-                    final String errorMsg = Optional.ofNullable(itemResponse.getFailureMessage())
-                            .orElse("Unknown error");
+                    final String errorMsg = String.format("Encountered an error when executing request. " +
+                                    "Rest status: %s, Action id: %s, Error message: %s",
+                            itemResponse.getFailure().getStatus(), itemResponse.getFailure().getId(),
+                            Optional.ofNullable(itemResponse.getFailureMessage()).orElse("Unknown error"));
                     reporter.report(record, new Exception(errorMsg));
 
                 }
             } catch (final Exception e) {
-                LOGGER.error("An error occurred when reporting on record failure to DLQ: {}", e.getMessage(), e);
+                LOGGER.error("An error occurred when reporting record failure with errant record reporter", e);
             }
         }
 
@@ -497,18 +494,18 @@ public class BulkProcessor {
         }
     }
 
-    public final class DocWriteRequestWrapper {
+    private static final class DocWriteRequestWrapper {
 
-        private final DocWriteRequest<?> docWriteRequests;
+        private final DocWriteRequest<?> docWriteRequest;
         private final SinkRecord sinkRecord;
 
         DocWriteRequestWrapper(final DocWriteRequest<?> docWriteRequests, final SinkRecord sinkRecord) {
-            this.docWriteRequests = docWriteRequests;
+            this.docWriteRequest = docWriteRequests;
             this.sinkRecord = sinkRecord;
         }
 
-        public DocWriteRequest<?> getDocWriteRequests() {
-            return docWriteRequests;
+        public DocWriteRequest<?> getDocWriteRequest() {
+            return docWriteRequest;
         }
 
         public SinkRecord getSinkRecord() {

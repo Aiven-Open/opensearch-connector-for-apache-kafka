@@ -30,6 +30,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 
@@ -74,13 +75,21 @@ public class OpensearchSinkTask extends SinkTask {
                         TimeUnit.MILLISECONDS.toHours(maxRetryBackoffMs));
             }
 
-            this.client = new OpensearchClient(config, context.errantRecordReporter());
+            this.client = new OpensearchClient(config, getErrantRecordReporter());
             this.recordConverter = new RecordConverter(config);
         } catch (final ConfigException e) {
             throw new ConnectException(
                     "Couldn't start OpensearchSinkTask due to configuration error:",
                     e
             );
+        }
+    }
+
+    private ErrantRecordReporter getErrantRecordReporter() {
+        try {
+            return context.errantRecordReporter();
+        } catch (NoSuchMethodError | NoClassDefFoundError e) {
+            return null;
         }
     }
 
