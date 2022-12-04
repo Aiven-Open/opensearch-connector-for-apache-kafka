@@ -4,11 +4,11 @@
 def svcName = currentBuild.rawBuild.project.parent.displayName
 
 // Define pod
-def pod = libraryResource 'com/naturalint/kafka-agent-gradle.yaml'
+def pod = libraryResource 'com/naturalint/kafka-agent.yaml'
 print pod
 
 // Define sharedLibrary
-def sharedLibrary = new com.naturalint.kafkaConnectGradle()
+def sharedLibrary = new com.naturalint.kafkaConnect()
 
 // Custom maven build command
 // def mavenBuildCommand=""
