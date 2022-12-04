@@ -32,8 +32,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.runtime.WorkerSinkTaskContext;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.apache.kafka.test.TestUtils;
 
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -132,7 +132,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
 
         final var opensearchSinkTask = new OpensearchSinkTask();
         try {
-            final var mockContext = mock(WorkerSinkTaskContext.class);
+            final var mockContext = mock(SinkTaskContext.class);
             opensearchSinkTask.initialize(mockContext);
             opensearchSinkTask.start(getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT));
             opensearchSinkTask.put(
@@ -354,7 +354,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
 
     private void runTask(final Map<String, String> props, final List<SinkRecord> records) {
         final var opensearchSinkTask = new OpensearchSinkTask();
-        final var mockContext = mock(WorkerSinkTaskContext.class);
+        final var mockContext = mock(SinkTaskContext.class);
         opensearchSinkTask.initialize(mockContext);
         try {
             opensearchSinkTask.start(props);

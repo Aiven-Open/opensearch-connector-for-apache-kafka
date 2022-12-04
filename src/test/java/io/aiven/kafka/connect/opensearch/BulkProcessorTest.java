@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.common.utils.Time;
@@ -64,6 +65,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -499,7 +501,7 @@ public class BulkProcessorTest {
     }
 
     @Test
-    public void reportToDlqOnMalformedDoc(final @Mock RestHighLevelClient client) throws IOException {
+    public void reportToDlqOnNonAbortableFailure(final @Mock RestHighLevelClient client) throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
 
@@ -509,7 +511,7 @@ public class BulkProcessorTest {
                 MAX_BUFFERED_RECORDS_CONFIG, "100",
                 MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
                 BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "5",
+                LINGER_MS_CONFIG, "1000",
                 MAX_RETRIES_CONFIG, "3",
                 READ_TIMEOUT_MS_CONFIG, "1",
                 BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString()
@@ -522,14 +524,12 @@ public class BulkProcessorTest {
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
         clientAnswer.expect(
                 List.of(
-                        newIndexRequest(42),
-                        newIndexRequest(43)
-                ), failedResponse(errorInfo));
+                        newIndexRequest(42)
+                 ), failedResponse(errorInfo, false));
 
         bulkProcessor.start();
 
         bulkProcessor.add(newIndexRequest(42), newSinkRecord(), 1);
-        bulkProcessor.add(newIndexRequest(43), newSinkRecord(), 1);
 
         final int flushTimeoutMs = 1000;
         bulkProcessor.flush(flushTimeoutMs);
@@ -538,10 +538,44 @@ public class BulkProcessorTest {
         verify(dlqReporter, times(1)).report(any(SinkRecord.class), any(Throwable.class));
     }
 
+    @Test
+    public void reportToDlqOncePerRecordWhenExceptionOccurs(final @Mock RestHighLevelClient client) throws IOException {
+        final Exception exception = new RuntimeException("Failed to process request");
+        when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenThrow(exception);
+
+        final var dlqReporter = mock(ErrantRecordReporter.class);
+        final var config = new OpensearchSinkConnectorConfig(Map.of(
+                CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100",
+                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
+                BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "1000",
+                MAX_RETRIES_CONFIG, "3",
+                READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString()
+        ));
+
+        final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
+        final SinkRecord record1 = newSinkRecord();
+        final SinkRecord record2 = newSinkRecord();
+        bulkProcessor.start();
+        bulkProcessor.add(newIndexRequest(42), record1, 1);
+        bulkProcessor.add(newIndexRequest(43), record2, 1);
+
+        final int flushTimeoutMs = 1000;
+        try {
+            bulkProcessor.flush(flushTimeoutMs);
+            fail("Should report to DLQ on each record and throw an exception");
+        } catch (final Exception e) {
+            verify(dlqReporter, times(2)).report(any(SinkRecord.class), any(Throwable.class));
+        }
+    }
+
     private SinkRecord newSinkRecord() {
         final Map<String, Object> valueMap = new HashMap<>();
-        valueMap.put("field1", "123");
-        return new SinkRecord("dlq", 0, Schema.STRING_SCHEMA, "1", null, valueMap, 0);
+        valueMap.put("test_field", ThreadLocalRandom.current().nextInt());
+        return new SinkRecord("test_topic", 0, Schema.STRING_SCHEMA,
+                ThreadLocalRandom.current().nextLong(), null, valueMap, ThreadLocalRandom.current().nextInt());
     }
 
     IndexRequest newIndexRequest(final int body) {

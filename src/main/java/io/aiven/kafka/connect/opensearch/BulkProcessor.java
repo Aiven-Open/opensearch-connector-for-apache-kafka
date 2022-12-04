@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -82,7 +81,7 @@ public class BulkProcessor {
 
     // shared state, synchronized on (this), may be part of wait() conditions so need notifyAll() on
     // changes
-    private final Deque<DocWriteRequestWrapper> unsentRecords;
+    private final Deque<DocWriteWrapper> unsentRecords;
     private int inFlightRecords = 0;
 
     private final ErrantRecordReporter reporter;
@@ -177,7 +176,7 @@ public class BulkProcessor {
     private synchronized Future<BulkResponse> submitBatch() {
         assert !unsentRecords.isEmpty();
         final int batchableSize = Math.min(batchSize, unsentRecords.size());
-        final var batch = new ArrayList<DocWriteRequestWrapper>(batchableSize);
+        final var batch = new ArrayList<DocWriteWrapper>(batchableSize);
         for (int i = 0; i < batchableSize; i++) {
             batch.add(unsentRecords.removeFirst());
         }
@@ -315,7 +314,7 @@ public class BulkProcessor {
             }
         }
 
-        unsentRecords.addLast(new DocWriteRequestWrapper(docWriteRequests, sinkRecord));
+        unsentRecords.addLast(new DocWriteWrapper(docWriteRequests, sinkRecord));
         notifyAll();
     }
 
@@ -354,13 +353,13 @@ public class BulkProcessor {
 
         final long batchId = BATCH_ID_GEN.incrementAndGet();
 
-        final List<DocWriteRequestWrapper> batch;
+        final List<DocWriteWrapper> batch;
 
         final int maxRetries;
 
         final long retryBackoffMs;
 
-        BulkTask(final List<DocWriteRequestWrapper> batch, final int maxRetries, final long retryBackoffMs) {
+        BulkTask(final List<DocWriteWrapper> batch, final int maxRetries, final long retryBackoffMs) {
             this.batch = batch;
             this.maxRetries = maxRetries;
             this.retryBackoffMs = retryBackoffMs;
@@ -372,10 +371,41 @@ public class BulkProcessor {
                 final var rsp = execute();
                 LOGGER.debug("Successfully executed batch {} of {} records", batchId, batch.size());
                 onBatchCompletion(batch.size());
+                reportMalformedRecords(null);
                 return rsp;
             } catch (final Exception e) {
+                reportMalformedRecords(e);
                 failAndStop(e);
                 throw e;
+            }
+        }
+
+        private void reportMalformedRecords(final Exception exception) {
+            if (reporter == null) {
+                return;
+            }
+            for (final DocWriteWrapper batchItem : batch) {
+                final BulkItemResponse itemResponse = batchItem.getBulkItemResponse();
+                if (exception != null || itemResponse == null || itemResponse.isFailed()) {
+                    try {
+                        final Exception exceptionToReport;
+                        if (itemResponse != null && itemResponse.isFailed()) {
+                            final String errorMsg = String.format("Encountered an error when executing request. "
+                                            + "Rest status: %s, Action id: %s, Error message: %s",
+                                    itemResponse.getFailure().getStatus(),
+                                    itemResponse.getFailure().getId(),
+                                    itemResponse.getFailureMessage());
+                            exceptionToReport = new Exception(errorMsg);
+                        } else {
+                            exceptionToReport = Optional.ofNullable(exception)
+                                    .orElse(new Exception("Unknown error occurred"));
+                        }
+                        LOGGER.debug("Reporting to DLQ, error message is: {}", exceptionToReport.getMessage());
+                        reporter.report(batchItem.getSinkRecord(), exceptionToReport);
+                    } catch (final Exception e) {
+                        LOGGER.error("An error occurred when reporting record failure with errant record reporter", e);
+                    }
+                }
             }
         }
 
@@ -384,7 +414,7 @@ public class BulkProcessor {
                 try {
                     final var response =
                             client.bulk(new BulkRequest().add(
-                                            batch.stream().map(DocWriteRequestWrapper::getDocWriteRequests)
+                                            batch.stream().map(DocWriteWrapper::getDocWriteRequest)
                                                     .collect(Collectors.toList())),
                                     RequestOptions.DEFAULT);
                     if (!response.hasFailures()) {
@@ -393,8 +423,8 @@ public class BulkProcessor {
                         return response;
                     }
                     for (final var itemResponse : response.getItems()) {
+                        batch.get(itemResponse.getItemId()).setBulkItemResponse(itemResponse);
                         if (itemResponse.isFailed()) {
-                            reportMalformedRecord(itemResponse);
                             if (!itemResponse.getFailure().isAborted()) {
                                 if (responseContainsMalformedDocError(itemResponse)) {
                                     handleMalformedDoc(itemResponse);
@@ -419,25 +449,6 @@ public class BulkProcessor {
                     throw new ConnectException(e);
                 }
             }, maxRetries, retryBackoffMs, RuntimeException.class);
-        }
-
-        private void reportMalformedRecord(final BulkItemResponse itemResponse) {
-            try {
-                if (reporter != null) {
-                    LOGGER.info("Reporting on record failure to DLQ");
-                    final SinkRecord record = batch.get(itemResponse.getItemId()).getSinkRecord();
-                    if (!(record.value() instanceof Map)) {
-                        LOGGER.error("Only Map objects supported");
-                        return;
-                    }
-                    final String errorMsg = Optional.ofNullable(itemResponse.getFailureMessage())
-                            .orElse("Unknown error");
-                    reporter.report(record, new Exception(errorMsg));
-
-                }
-            } catch (final Exception e) {
-                LOGGER.error("An error occurred when reporting on record failure to DLQ: {}", e.getMessage(), e);
-            }
         }
 
         private void handleVersionConflict(final BulkItemResponse bulkItemResponse) {
@@ -497,22 +508,31 @@ public class BulkProcessor {
         }
     }
 
-    public final class DocWriteRequestWrapper {
+    private static final class DocWriteWrapper {
 
-        private final DocWriteRequest<?> docWriteRequests;
+        private final DocWriteRequest<?> docWriteRequest;
         private final SinkRecord sinkRecord;
+        private BulkItemResponse bulkItemResponse;
 
-        DocWriteRequestWrapper(final DocWriteRequest<?> docWriteRequests, final SinkRecord sinkRecord) {
-            this.docWriteRequests = docWriteRequests;
+        DocWriteWrapper(final DocWriteRequest<?> docWriteRequests, final SinkRecord sinkRecord) {
+            this.docWriteRequest = docWriteRequests;
             this.sinkRecord = sinkRecord;
         }
 
-        public DocWriteRequest<?> getDocWriteRequests() {
-            return docWriteRequests;
+        public DocWriteRequest<?> getDocWriteRequest() {
+            return docWriteRequest;
         }
 
         public SinkRecord getSinkRecord() {
             return sinkRecord;
+        }
+
+        public BulkItemResponse getBulkItemResponse() {
+            return bulkItemResponse;
+        }
+
+        public void setBulkItemResponse(final BulkItemResponse bulkItemResponse) {
+            this.bulkItemResponse = bulkItemResponse;
         }
     }
 
