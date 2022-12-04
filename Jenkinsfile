@@ -4,7 +4,7 @@
 def svcName = currentBuild.rawBuild.project.parent.displayName
 
 // Define pod
-def pod = libraryResource 'com/naturalint/kafka-agent.yaml'
+def pod = libraryResource 'com/naturalint/kafka-agent-grade.yaml'
 print pod
 
 // Define sharedLibrary
