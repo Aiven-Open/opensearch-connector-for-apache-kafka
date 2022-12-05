@@ -8,7 +8,7 @@ def pod = libraryResource 'com/naturalint/kafka-agent-gradle.yaml'
 print pod
 
 // Define sharedLibrary
-def sharedLibrary = new com.naturalint.kafkaConnect()
+def sharedLibrary = new com.naturalint.kafkaConnectGradle()
 
 // Custom maven build command
 // def mavenBuildCommand=""
