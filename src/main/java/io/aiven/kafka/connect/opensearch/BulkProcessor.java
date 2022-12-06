@@ -127,7 +127,7 @@ public class BulkProcessor {
                 BehaviorOnMalformedDoc.WARN);
         }
 
-        if (reporter != null && this.errorToleranceType.equals(ErrorToleranceType.NONE)
+        if (reporter != null && this.errorToleranceType == ErrorToleranceType.NONE
                 && (config.behaviorOnMalformedDoc() != BehaviorOnMalformedDoc.FAIL
                 || config.behaviorOnVersionConflict() != BehaviorOnVersionConflict.FAIL)) {
             LOGGER.warn("The '{}' is set to `{}`, which means that only errors that would cause the task to fail"
