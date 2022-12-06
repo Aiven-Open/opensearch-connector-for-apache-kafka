@@ -153,6 +153,11 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             + "Opensearch rejects due to version conflicts (if optimistic locking mechanism has been"
             + "activated). Valid options are 'ignore', 'warn', and 'fail'.";
 
+    public static final String ERRORS_TOLERANCE_CONFIG = "errors.tolerance";
+    public static final String ERRORS_TOLERANCE_DOC = "Behavior for tolerating errors during connector operation. "
+        + "'none' is the default value and signals that any error will result in an immediate connector task failure;"
+        + " 'all' changes the behavior to skip over problematic records.";
+
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
@@ -397,7 +402,18 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 group,
                 ++order,
                 Width.SHORT,
-                "Behavior on document's version conflict (optimistic locking)");
+                "Behavior on document's version conflict (optimistic locking)"
+        ).define(
+                ERRORS_TOLERANCE_CONFIG,
+                Type.STRING,
+                BulkProcessor.ErrorToleranceType.DEFAULT.toString(),
+                BulkProcessor.ErrorToleranceType.VALIDATOR,
+                Importance.LOW,
+                ERRORS_TOLERANCE_DOC,
+                group,
+                ++order,
+                Width.SHORT,
+                "Error Tolerance");
     }
 
     public static final ConfigDef CONFIG = baseConfigDef();
@@ -518,6 +534,12 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public BulkProcessor.BehaviorOnVersionConflict behaviorOnVersionConflict() {
         return BulkProcessor.BehaviorOnVersionConflict.forValue(
                 getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG)
+        );
+    }
+
+    public BulkProcessor.ErrorToleranceType errorToleranceType() {
+        return BulkProcessor.ErrorToleranceType.forValue(
+                getString(OpensearchSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG)
         );
     }
 
