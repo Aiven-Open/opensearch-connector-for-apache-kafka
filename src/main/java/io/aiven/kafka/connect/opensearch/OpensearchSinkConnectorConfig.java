@@ -19,10 +19,10 @@ package io.aiven.kafka.connect.opensearch;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -39,6 +39,12 @@ import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 import org.apache.http.HttpHost;
 
 public class OpensearchSinkConnectorConfig extends AbstractConfig {
+
+    public static final String CONNECTOR_GROUP_NAME = "Connector";
+
+    public static final String DATA_STREAM_GROUP_NAME = "Data Stream";
+
+    public static final String DATA_CONVERSION_GROUP_NAME = "Data Conversion";
 
     public static final String CONNECTION_URL_CONFIG = "connection.url";
     private static final String CONNECTION_URL_DOC =
@@ -82,13 +88,6 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                     + "wait, up to the maximum number of retries. "
                     + "This avoids retrying in a tight loop under failure scenarios.";
 
-    @Deprecated
-    public static final String TOPIC_INDEX_MAP_CONFIG = "topic.index.map";
-    private static final String TOPIC_INDEX_MAP_DOC =
-            "This option is now deprecated. A future version may remove it completely. Please use "
-                    + "single message transforms, such as RegexRouter, to map topic names to index names.\n"
-                    + "A map from Kafka topic name to the destination OpenSearch index, represented as "
-                    + "a list of ``topic:index`` pairs.";
     public static final String KEY_IGNORE_CONFIG = "key.ignore";
     public static final String KEY_IGNORE_ID_STRATEGY_CONFIG = "key.ignore.id.strategy";
     public static final String TOPIC_KEY_IGNORE_CONFIG = "topic.key.ignore";
@@ -160,10 +159,30 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             + "were not committed or/and records have to be reprocessed. "
             + "Valid options are 'ignore', 'warn', and 'fail'.";
 
+    public static final String DATA_STREAM_ENABLED = "data.stream.enabled";
+
+    public static final String DATA_STREAM_ENABLED_DOC = "Enable use of data streams. "
+            + "If set to true the connector will write to data streams instead of regular indices. "
+            + "Default is false.";
+
+    public static final String DATA_STREAM_PREFIX = "data.stream.prefix";
+
+    public static final String DATA_STREAM_NAME_DOC = "Generic data stream name to write into. "
+            + "If set, it will be used to construct the final data stream name in the form "
+            + "of {data.stream.prefix}-{topic}.";
+
+    public static final String DATA_STREAM_TIMESTAMP_FIELD = "data.stream.timestamp.field";
+
+    public static final String DATA_STREAM_TIMESTAMP_FIELD_DEFAULT = "@timestamp";
+
+    public static final String DATA_STREAM_TIMESTAMP_FIELD_DOC = "The Kafka record field to use as "
+            + "the timestamp for the @timestamp field in documents sent to a data stream. The default is @timestamp.";
+
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
         addConversionConfigs(configDef);
+        addDataStreamConfig(configDef);
         addSpiConfigs(configDef);
         return configDef;
     }
@@ -184,29 +203,35 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     }
 
     private static void addConnectorConfigs(final ConfigDef configDef) {
-        final String group = "Connector";
         int order = 0;
         configDef.define(
                 CONNECTION_URL_CONFIG,
                 Type.LIST,
                 ConfigDef.NO_DEFAULT_VALUE,
-                (name, value) -> {
-                    // If value is null default validator for required value is triggered.
-                    if (value != null) {
-                        @SuppressWarnings("unchecked")
-                        final var urls = (List<String>) value;
-                        for (final var url : urls) {
-                            try {
-                                new URL(url);
-                            } catch (final MalformedURLException e) {
-                                throw new ConfigException(CONNECTION_URL_CONFIG, url);
+                new ConfigDef.Validator() {
+                    @Override
+                    public void ensureValid(final String name, final Object value) {
+                        // If value is null default validator for required value is triggered.
+                        if (value != null) {
+                            @SuppressWarnings("unchecked") final var urls = (List<String>) value;
+                            for (final var url : urls) {
+                                try {
+                                    new URL(url);
+                                } catch (final MalformedURLException e) {
+                                    throw new ConfigException(CONNECTION_URL_CONFIG, url);
+                                }
                             }
                         }
+                    }
+
+                    @Override
+                    public String toString() {
+                        return String.join(", ", "http://eshost1:9200", "http://eshost2:9200");
                     }
                 },
                 Importance.HIGH,
                 CONNECTION_URL_DOC,
-                group,
+                CONNECTOR_GROUP_NAME,
                 ++order,
                 Width.LONG,
                 "Connection URLs"
@@ -216,7 +241,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 2000,
                 Importance.MEDIUM,
                 BATCH_SIZE_DOC,
-                group,
+                CONNECTOR_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Batch Size"
@@ -226,8 +251,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 5,
                 Importance.MEDIUM,
                 MAX_IN_FLIGHT_REQUESTS_DOC,
-                group,
-                5,
+                CONNECTOR_GROUP_NAME,
+                ++order,
                 Width.SHORT,
                 "Max In-flight Requests"
         ).define(
@@ -236,7 +261,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 20000,
                 Importance.LOW,
                 MAX_BUFFERED_RECORDS_DOC,
-                group,
+                CONNECTOR_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Max Buffered Records"
@@ -246,7 +271,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 1L,
                 Importance.LOW,
                 LINGER_MS_DOC,
-                group,
+                CONNECTOR_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Linger (ms)"
@@ -256,7 +281,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 10000L,
                 Importance.LOW,
                 FLUSH_TIMEOUT_MS_DOC,
-                group,
+                CONNECTOR_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Flush Timeout (ms)"
@@ -266,7 +291,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 5,
                 Importance.LOW,
                 MAX_RETRIES_DOC,
-                group,
+                CONNECTOR_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Max Retries"
@@ -276,7 +301,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 100L,
                 Importance.LOW,
                 RETRY_BACKOFF_MS_DOC,
-                group,
+                CONNECTOR_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Retry Backoff (ms)"
@@ -286,7 +311,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 1000,
                 Importance.LOW,
                 CONNECTION_TIMEOUT_MS_CONFIG_DOC,
-                group,
+                CONNECTOR_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Connection Timeout"
@@ -296,14 +321,14 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 3000,
                 Importance.LOW,
                 READ_TIMEOUT_MS_CONFIG_DOC,
-                group,
+                CONNECTOR_GROUP_NAME,
                 ++order,
                 Width.SHORT,
-                "Read Timeout");
+                "Read Timeout"
+        );
     }
 
     private static void addConversionConfigs(final ConfigDef configDef) {
-        final String group = "Data Conversion";
         int order = 0;
         configDef.define(
                 KEY_IGNORE_CONFIG,
@@ -311,7 +336,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 false,
                 Importance.HIGH,
                 KEY_IGNORE_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Ignore Key mode"
@@ -322,7 +347,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 DocumentIDStrategy.VALIDATOR,
                 Importance.LOW,
                 KEY_IGNORE_ID_STRATEGY_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.LONG,
                 "Document ID generation strategy"
@@ -332,7 +357,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 false,
                 Importance.LOW,
                 SCHEMA_IGNORE_CONFIG_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Ignore Schema mode"
@@ -342,27 +367,17 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 true,
                 Importance.LOW,
                 COMPACT_MAP_ENTRIES_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Compact Map Entries"
-        ).define(
-                TOPIC_INDEX_MAP_CONFIG,
-                Type.LIST,
-                "",
-                Importance.LOW,
-                TOPIC_INDEX_MAP_DOC,
-                group,
-                ++order,
-                Width.LONG,
-                "Topic to Index Map"
         ).define(
                 TOPIC_KEY_IGNORE_CONFIG,
                 Type.LIST,
                 "",
                 Importance.LOW,
                 TOPIC_KEY_IGNORE_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.LONG,
                 "Topics for 'Ignore Key' mode"
@@ -372,7 +387,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 "",
                 Importance.LOW,
                 TOPIC_SCHEMA_IGNORE_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.LONG,
                 "Topics for 'Ignore Schema' mode"
@@ -382,7 +397,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 false,
                 Importance.LOW,
                 DROP_INVALID_MESSAGE_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.LONG,
                 "Drop invalid messages"
@@ -393,7 +408,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 RecordConverter.BehaviorOnNullValues.VALIDATOR,
                 Importance.LOW,
                 BEHAVIOR_ON_NULL_VALUES_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Behavior for null-valued records"
@@ -404,7 +419,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 BulkProcessor.BehaviorOnMalformedDoc.VALIDATOR,
                 Importance.LOW,
                 BEHAVIOR_ON_MALFORMED_DOCS_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Behavior on malformed documents"
@@ -415,10 +430,47 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 BulkProcessor.BehaviorOnVersionConflict.VALIDATOR,
                 Importance.LOW,
                 BEHAVIOR_ON_VERSION_CONFLICT_DOC,
-                group,
+                DATA_CONVERSION_GROUP_NAME,
                 ++order,
                 Width.SHORT,
                 "Behavior on document's version conflict (optimistic locking)");
+    }
+
+    private static void addDataStreamConfig(final ConfigDef configDef) {
+        int order = 0;
+        configDef.define(
+                DATA_STREAM_ENABLED,
+                Type.BOOLEAN,
+                false,
+                Importance.MEDIUM,
+                DATA_STREAM_ENABLED_DOC,
+                DATA_STREAM_GROUP_NAME,
+                ++order,
+                Width.LONG,
+                "Data stream name"
+        ).define(
+                DATA_STREAM_PREFIX,
+                Type.STRING,
+                null,
+                new ConfigDef.NonEmptyString(),
+                Importance.MEDIUM,
+                DATA_STREAM_NAME_DOC,
+                DATA_STREAM_GROUP_NAME,
+                ++order,
+                Width.LONG,
+                "Data stream name"
+        ).define(
+                DATA_STREAM_TIMESTAMP_FIELD,
+                Type.STRING,
+                DATA_STREAM_TIMESTAMP_FIELD_DEFAULT,
+                new ConfigDef.NonEmptyString(),
+                Importance.MEDIUM,
+                DATA_STREAM_TIMESTAMP_FIELD_DOC,
+                DATA_STREAM_GROUP_NAME,
+                ++order,
+                Width.LONG,
+                "Data stream timestamp field"
+        );
     }
 
     public static final ConfigDef CONFIG = baseConfigDef();
@@ -464,16 +516,16 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG);
     }
 
+    public boolean dataStreamEnabled() {
+        return getBoolean(DATA_STREAM_ENABLED);
+    }
 
-    public Map<String, String> topicToIndexMap() {
-        final Map<String, String> map = new HashMap<>();
-        for (final String value : getList(OpensearchSinkConnectorConfig.TOPIC_INDEX_MAP_CONFIG)) {
-            final String[] parts = value.split(":");
-            final String topic = parts[0];
-            final String type = parts[1];
-            map.put(topic, type);
-        }
-        return map;
+    public Optional<String> dataStreamPrefix() {
+        return Optional.ofNullable(getString(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX));
+    }
+
+    public String dataStreamTimestampField() {
+        return getString(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD);
     }
 
     public Set<String> topicIgnoreKey() {
