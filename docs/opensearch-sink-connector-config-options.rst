@@ -9,7 +9,7 @@ Connector
   List of OpenSearch HTTP connection URLs e.g. ``http://eshost1:9200,http://eshost2:9200``.
 
   * Type: list
-  * Default: ""
+  * Valid Values: http://eshost1:9200, http://eshost2:9200
   * Importance: high
 
 ``batch.size``
@@ -17,6 +17,13 @@ Connector
 
   * Type: int
   * Default: 2000
+  * Importance: medium
+
+``max.in.flight.requests``
+  The maximum number of indexing requests that can be in-flight to OpenSearch before blocking further requests.
+
+  * Type: int
+  * Default: 5
   * Importance: medium
 
 ``max.buffered.records``
@@ -34,13 +41,6 @@ Connector
   * Type: long
   * Default: 1
   * Importance: low
-
-``max.in.flight.requests``
-  The maximum number of indexing requests that can be in-flight to OpenSearch before blocking further requests.
-
-  * Type: int
-  * Default: 5
-  * Importance: medium
 
 ``flush.timeout.ms``
   The timeout in milliseconds to use for periodic flushing, and when waiting for buffer space to be made available by completed requests as records are added. If this timeout is exceeded the task will fail.
@@ -113,15 +113,6 @@ Data Conversion
   * Default: true
   * Importance: low
 
-``topic.index.map``
-  This option is now deprecated. A future version may remove it completely. Please use single message transforms, such as RegexRouter, to map topic names to index names.
-
-  A map from Kafka topic name to the destination OpenSearch index, represented as a list of ``topic:index`` pairs.
-
-  * Type: list
-  * Default: ""
-  * Importance: low
-
 ``topic.key.ignore``
   List of topics for which ``key.ignore`` should be ``true``.
 
@@ -166,6 +157,32 @@ Data Conversion
   * Default: fail
   * Valid Values: [ignore, warn, fail]
   * Importance: low
+
+Data Stream
+^^^^^^^^^^^
+
+``data.stream.enabled``
+  Enable use of data streams. If set to true the connector will write to data streams instead of regular indices. Default is false.
+
+  * Type: boolean
+  * Default: false
+  * Importance: medium
+
+``data.stream.prefix``
+  Generic data stream name to write into. If set, it will be used to construct the final data stream name in the form of {data.stream.prefix}-{topic}.
+
+  * Type: string
+  * Default: null
+  * Valid Values: non-empty string
+  * Importance: medium
+
+``data.stream.timestamp.field``
+  The Kafka record field to use as the timestamp for the @timestamp field in documents sent to a data stream. The default is @timestamp.
+
+  * Type: string
+  * Default: @timestamp
+  * Valid Values: non-empty string
+  * Importance: medium
 
 Authentication
 ^^^^^^^^^^^^^^

@@ -147,4 +147,22 @@ public class OpensearchSinkConnectorConfigTest {
         assertEquals(keyIgnoreStrategy, config.docIdStrategy("topic2"));
         assertEquals(DocumentIDStrategy.RECORD_KEY, config.docIdStrategy("otherTopic"));
     }
+
+    @Test
+    public void dataStreamConfig() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaa");
+
+        final var defaultConfig = new OpensearchSinkConnectorConfig(props);
+
+        assertEquals("aaaa", defaultConfig.dataStreamPrefix().get());
+        assertEquals("@timestamp", defaultConfig.dataStreamTimestampField());
+
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "bbbb");
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "custom_timestamp");
+        final var customConfig = new OpensearchSinkConnectorConfig(props);
+        assertEquals("bbbb", customConfig.dataStreamPrefix().get());
+        assertEquals("custom_timestamp", customConfig.dataStreamTimestampField());
+    }
+
 }
