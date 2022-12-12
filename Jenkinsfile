@@ -1,4 +1,4 @@
-@Library('ni-utils@feature/DAI-18946/deploy-new-artifacts-kafka-connect') _
+@Library('ni-utils') _
 
 // service name is extrapolated from repository name check
 def svcName = currentBuild.rawBuild.project.parent.displayName
