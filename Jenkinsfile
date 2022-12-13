@@ -1,14 +1,14 @@
 @Library('ni-utils@feature/DAI-18946/deploy-new-artifacts-kafka-connect') _
 
-// service name is extrapolated from repository name check
+//service name is extrapolated from repository name check
 def svcName = currentBuild.rawBuild.project.parent.displayName
 
 // Define pod
-def pod = libraryResource 'com/naturalint/kafka-agent.yaml'
+def pod = libraryResource 'com/naturalint/kafka-agent-gradle.yaml'
 print pod
 
 // Define sharedLibrary
-def sharedLibrary = new com.naturalint.kafkaConnect()
+def sharedLibrary = new com.naturalint.kafkaConnectGradle()
 
 // Custom maven build command
 // def mavenBuildCommand=""
