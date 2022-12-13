@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.common.config.AbstractConfig;
@@ -37,8 +38,12 @@ import org.apache.kafka.common.config.ConfigException;
 import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
 import org.apache.http.HttpHost;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OpensearchSinkConnectorConfig extends AbstractConfig {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(OpensearchSinkConnectorConfig.class);
 
     public static final String CONNECTOR_GROUP_NAME = "Connector";
 
@@ -572,6 +577,39 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return (ignoreKey() || topicIgnoreKey().contains(topic))
             ? DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG))
                 : DocumentIDStrategy.RECORD_KEY;
+    }
+
+    public Function<String, String> topicToIndexNameConverter() {
+        return dataStreamEnabled()
+                ? this::convertTopicToDataStreamName
+                : OpensearchSinkConnectorConfig::convertTopicToIndexName;
+    }
+
+    private static String convertTopicToIndexName(final String topic) {
+        var indexName = topic.toLowerCase();
+        if (indexName.length() > 255) {
+            indexName = indexName.substring(0, 255);
+            LOGGER.warn("Topic {} length is more than 255 bytes. The final index name is {}", topic, indexName);
+        }
+        if (indexName.contains(":")) {
+            indexName = indexName.replaceAll(":", "_");
+            LOGGER.warn("Topic {} contains :. The final index name is {}", topic, indexName);
+        }
+        if (indexName.startsWith("-") || indexName.startsWith("_") || indexName.startsWith("+")) {
+            indexName = indexName.substring(1);
+            LOGGER.warn("Topic {} starts with -, _ or +. The final index name is {}", topic, indexName);
+        }
+        if (indexName.equals(".") || indexName.equals("..")) {
+            indexName = indexName.replace(".", "dot");
+            LOGGER.warn("Topic {} name is . or .. . The final index name is {}", topic, indexName);
+        }
+        return indexName;
+    }
+
+    private String convertTopicToDataStreamName(final String topic) {
+        return dataStreamPrefix()
+                .map(prefix -> String.format("%s-%s", prefix, convertTopicToIndexName(topic)))
+                .orElseGet(() -> convertTopicToIndexName(topic));
     }
 
     public boolean ignoreSchemaFor(final String topic) {

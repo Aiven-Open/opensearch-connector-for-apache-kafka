@@ -55,12 +55,14 @@ public class OpensearchSinkTaskIT extends AbstractIT {
 
     private static final int PARTITION_1 = 12;
 
+    public static final String TOPIC_NAME = "os-data-test";
+
     @AfterEach
     void tearDown() throws Exception {
-        if (opensearchClient.indexExists(TOPIC_NAME)) {
+        if (opensearchClient.indexOrDataStreamExists(TOPIC_NAME)) {
             opensearchClient.client.indices().delete(new DeleteIndexRequest(TOPIC_NAME), RequestOptions.DEFAULT);
             TestUtils.waitForCondition(
-                    () -> !opensearchClient.indexExists(TOPIC_NAME),
+                    () -> !opensearchClient.indexOrDataStreamExists(TOPIC_NAME),
                     TimeUnit.MINUTES.toMillis(1),
                     "Index has not been deleted yet."
             );
@@ -87,10 +89,10 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                 )
         );
 
-        assertTrue(opensearchClient.indexExists(TOPIC_NAME));
-        waitForRecords(1);
+        assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
+        waitForRecords(TOPIC_NAME, 1);
 
-        for (final var hint : search()) {
+        for (final var hint : search(TOPIC_NAME)) {
             if (hint.getId().equals("key")) {
                 assertEquals(Base64.getEncoder().encodeToString(new byte[]{42}), hint.getSourceAsMap().get("bytes"));
             }
@@ -114,7 +116,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                 List.of(new SinkRecord(TOPIC_NAME, PARTITION_1,
                         Schema.STRING_SCHEMA, "key", structSchema, struct, 0))
         );
-        for (final var hint : search()) {
+        for (final var hint : search(TOPIC_NAME)) {
             if (hint.getId().equals("key")) {
                 assertEquals(0.02d, hint.getSourceAsMap().get("decimal"));
             }
@@ -140,9 +142,9 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                                     Schema.STRING_SCHEMA, "key", schema, record, 1)
                     )
             );
-            assertTrue(opensearchClient.indexExists(TOPIC_NAME));
+            assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
             opensearchSinkTask.flush(null);
-            waitForRecords(2);
+            waitForRecords(TOPIC_NAME, 2);
             opensearchSinkTask.put(
                     List.of(
                             new SinkRecord(TOPIC_NAME, PARTITION_1, Schema.STRING_SCHEMA,
@@ -152,7 +154,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                     )
             );
             opensearchSinkTask.flush(null);
-            waitForRecords(4);
+            waitForRecords(TOPIC_NAME, 4);
         } finally {
             opensearchSinkTask.stop();
         }
@@ -193,8 +195,8 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                                 Schema.STRING_SCHEMA, key2, schema, record, 1)
                 )
         );
-        assertTrue(opensearchClient.indexExists(TOPIC_NAME));
-        waitForRecords(2);
+        assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
+        waitForRecords(TOPIC_NAME, 2);
         // Then, write a record with the same key as the first inserted record but a null value
         runTask(
                 getDefaultTaskProperties(false, RecordConverter.BehaviorOnNullValues.DELETE),
@@ -202,7 +204,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                         new SinkRecord(TOPIC_NAME, PARTITION_1, Schema.STRING_SCHEMA, key1, schema, null, 2)
                 )
         );
-        waitForRecords(1);
+        waitForRecords(TOPIC_NAME, 1);
     }
 
     @Test
@@ -214,8 +216,8 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                                 Schema.STRING_SCHEMA, null, createSchema(), null, 0)
                 )
         );
-        assertTrue(opensearchClient.indexExists(TOPIC_NAME));
-        waitForRecords(0);
+        assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
+        waitForRecords(TOPIC_NAME, 0);
     }
 
     @Test
@@ -241,7 +243,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                                 Schema.STRING_SCHEMA, "key", createSchema(), null, 0)
                 )
         );
-        assertFalse(opensearchClient.indexExists(TOPIC_NAME));
+        assertFalse(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
     }
 
     @Test
@@ -264,8 +266,8 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                                 Schema.STRING_SCHEMA, "key", structSchema, struct, 0)
                 )
         );
-        assertTrue(opensearchClient.indexExists(TOPIC_NAME));
-        waitForRecords(1);
+        assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
+        waitForRecords(TOPIC_NAME, 1);
     }
 
     @Test
@@ -281,8 +283,8 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                 List.of(new SinkRecord(TOPIC_NAME, PARTITION_1,
                         Schema.STRING_SCHEMA, "key", mapSchema, map, 0))
         );
-        assertTrue(opensearchClient.indexExists(TOPIC_NAME));
-        waitForRecords(1);
+        assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
+        waitForRecords(TOPIC_NAME, 1);
     }
 
     @Test
@@ -291,8 +293,8 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                 getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT),
                 prepareData(2)
         );
-        assertTrue(opensearchClient.indexExists(TOPIC_NAME));
-        waitForRecords(2);
+        assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
+        waitForRecords(TOPIC_NAME, 2);
     }
 
     @Test
@@ -303,8 +305,8 @@ public class OpensearchSinkTaskIT extends AbstractIT {
                 getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT),
                 prepareData(2)
         );
-        assertTrue(opensearchClient.indexExists(TOPIC_NAME));
-        waitForRecords(2);
+        assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
+        waitForRecords(TOPIC_NAME, 2);
     }
 
     @Test
@@ -313,8 +315,8 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         final var props = getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT);
         props.put(KEY_IGNORE_ID_STRATEGY_CONFIG, "none");
         runTask(props, prepareData(numRecords));
-        assertTrue(opensearchClient.indexExists(TOPIC_NAME));
-        waitForRecords(numRecords);
+        assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
+        waitForRecords(TOPIC_NAME, numRecords);
     }
 
     private List<SinkRecord> prepareData(final int numRecords) {

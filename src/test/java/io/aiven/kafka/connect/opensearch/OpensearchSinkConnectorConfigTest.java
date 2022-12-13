@@ -165,4 +165,51 @@ public class OpensearchSinkConnectorConfigTest {
         assertEquals("custom_timestamp", customConfig.dataStreamTimestampField());
     }
 
+    @Test
+    void convertTopicToIndexName() {
+        final var config = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200")
+        );
+        final var longTopicName = "a".repeat(260);
+        assertEquals("a".repeat(255), config.topicToIndexNameConverter().apply(longTopicName));
+
+        final var colonTopicName = "a:b:c";
+        assertEquals("a_b_c", config.topicToIndexNameConverter().apply(colonTopicName));
+
+        final var minusTopicName = "-minusTopicName";
+        assertEquals("minustopicname", config.topicToIndexNameConverter().apply(minusTopicName));
+
+        final var plusTopicName = "+plusTopicName";
+        assertEquals("plustopicname", config.topicToIndexNameConverter().apply(plusTopicName));
+
+        final var underscoreTopicName = "_underscoreTopicName";
+        assertEquals("underscoretopicname", config.topicToIndexNameConverter().apply(underscoreTopicName));
+
+        final var dotTopicName = ".";
+        assertEquals("dot", config.topicToIndexNameConverter().apply(dotTopicName));
+
+        final var dotDotTopicName = "..";
+        assertEquals("dotdot", config.topicToIndexNameConverter().apply(dotDotTopicName));
+
+    }
+
+    void convertTopicToDataStreamName() {
+        final var config = new OpensearchSinkConnectorConfig(
+                Map.of(
+                        OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                        OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                        OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaaa"
+                )
+        );
+        assertEquals("aaaaa-bbbbbb".repeat(255), config.topicToIndexNameConverter().apply("bbbbb"));
+
+        final var noDsPrefixConfig = new OpensearchSinkConnectorConfig(
+                Map.of(
+                        OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                        OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"
+                )
+        );
+        assertEquals("bbbbbb".repeat(255), noDsPrefixConfig.topicToIndexNameConverter().apply("bbbbb"));
+    }
+
 }
