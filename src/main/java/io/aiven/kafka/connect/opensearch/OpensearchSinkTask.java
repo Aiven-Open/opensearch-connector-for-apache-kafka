@@ -106,11 +106,16 @@ public class OpensearchSinkTask extends SinkTask {
     }
 
     private void tryWriteRecord(final SinkRecord record) {
-        final var index = convertTopicToIndexName(record.topic());
-        ensureIndexExists(index);
-        checkMappingFor(index, record);
+        final var indexOrDataStreamName =
+                config.dataStreamEnabled()
+                    ? config.dataStreamPrefix()
+                        .map(dsName -> String.format("%s-%s", dsName, convertTopicToIndexName(record.topic())))
+                        .orElseGet(() -> convertTopicToIndexName(record.topic()))
+                    :  convertTopicToIndexName(record.topic());
+        ensureIndexOrDataStreamExists(indexOrDataStreamName);
+        checkMappingFor(indexOrDataStreamName, record);
         try {
-            final var indexRecord = recordConverter.convert(record, index);
+            final var indexRecord = recordConverter.convert(record, indexOrDataStreamName);
             if (Objects.nonNull(indexRecord)) {
                 client.index(indexRecord);
             }
@@ -155,11 +160,16 @@ public class OpensearchSinkTask extends SinkTask {
     }
 
 
-    private void ensureIndexExists(final String index) {
+    private void ensureIndexOrDataStreamExists(final String index) {
         if (!indexCache.contains(index)) {
             if (!client.indexExists(index)) {
-                LOGGER.info("Create index {}", index);
-                client.createIndex(index);
+                if (config.dataStreamEnabled()) {
+                    LOGGER.info("Create data stream {}", index);
+                    client.createIndexTemplateAndDataStream(index, config.dataStreamTimestampField());
+                } else {
+                    LOGGER.info("Create index {}", index);
+                    client.createIndex(index);
+                }
             }
             indexCache.add(index);
         }
