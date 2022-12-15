@@ -17,6 +17,7 @@
 
 package io.aiven.kafka.connect.opensearch;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -47,6 +48,11 @@ import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.common.xcontent.XContentType;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT;
+
 public class RecordConverter {
 
     private static final Converter JSON_CONVERTER;
@@ -58,6 +64,8 @@ public class RecordConverter {
 
     private final OpensearchSinkConnectorConfig config;
 
+    private final ObjectMapper objectMapper;
+
     public RecordConverter(final Boolean useCompactMapEntries,
                            final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
         this(null);
@@ -65,9 +73,10 @@ public class RecordConverter {
 
     public RecordConverter(final OpensearchSinkConnectorConfig config) {
         this.config = config;
+        this.objectMapper = new ObjectMapper();
     }
 
-    public DocWriteRequest<?> convert(final SinkRecord record, final String index) {
+    public DocWriteRequest<?> convert(final SinkRecord record, final String indexOrDataStreamName) {
         if (record.value() == null) {
             switch (config.behaviorOnNullValues()) {
                 case IGNORE:
@@ -101,18 +110,25 @@ public class RecordConverter {
                     ));
             }
         }
+        return createDocWriteRequest(indexOrDataStreamName, record);
+    }
 
-        final DocumentIDStrategy docIdStrategy = config.docIdStrategy(record.topic());
-        
+    private DocWriteRequest<?> createDocWriteRequest(final String indexOrDataStreamName, final SinkRecord record) {
+        final var docIdStrategy = config.docIdStrategy(record.topic());
         if (Objects.isNull(record.value())) {
-            return docIdStrategy.updateRequest(new DeleteRequest(index), record);
+            return docIdStrategy.updateRequest(new DeleteRequest(indexOrDataStreamName), record);
         }
-
-        final String payload = getPayload(record);
-        final IndexRequest indexRequest = new IndexRequest(index)
-            .source(payload, XContentType.JSON)
-            .opType(DocWriteRequest.OpType.INDEX);
-
+        final var payload = getPayload(record);
+        final var indexRequest = new IndexRequest().index(indexOrDataStreamName);
+        if (config.dataStreamEnabled()) {
+            indexRequest
+                    .source(addTimestampToPayload(payload, record.timestamp()), XContentType.JSON)
+                    .opType(DocWriteRequest.OpType.CREATE);
+        } else {
+            indexRequest
+                    .source(payload, XContentType.JSON)
+                    .opType(DocWriteRequest.OpType.INDEX);
+        }
         return docIdStrategy.updateRequest(indexRequest, record);
     }
 
@@ -131,6 +147,29 @@ public class RecordConverter {
 
         final byte[] rawJsonPayload = JSON_CONVERTER.fromConnectData(record.topic(), schema, value);
         return new String(rawJsonPayload, StandardCharsets.UTF_8);
+    }
+
+    private String addTimestampToPayload(final String payload, final long timestamp) {
+        if (DATA_STREAM_TIMESTAMP_FIELD_DEFAULT.equals(config.dataStreamTimestampField())) {
+            try {
+                final var json = objectMapper.readTree(payload);
+                if (!json.isObject()) {
+                    throw new DataException(
+                            "JSON payload is a type of "
+                                    + json.getNodeType()
+                                    + ". Required is JSON Object.");
+                }
+                final var rootObject = (ObjectNode) json;
+                if (!rootObject.has(DATA_STREAM_TIMESTAMP_FIELD_DEFAULT)) {
+                    rootObject.put(DATA_STREAM_TIMESTAMP_FIELD_DEFAULT, timestamp);
+                }
+                return objectMapper.writeValueAsString(json);
+            } catch (final IOException e) {
+                throw new DataException("Could not parse payload", e);
+            }
+        } else {
+            return payload;
+        }
     }
 
     // We need to pre process the Kafka Connect schema before converting to JSON as Elasticsearch

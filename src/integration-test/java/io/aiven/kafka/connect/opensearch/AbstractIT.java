@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.kafka.test.TestCondition;
 import org.apache.kafka.test.TestUtils;
 
 import org.opensearch.action.search.SearchRequest;
@@ -43,9 +42,6 @@ import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CO
 
 @Testcontainers
 public abstract class AbstractIT {
-
-    static final String TOPIC_NAME = "super_topic";
-
 
     @Container
     static OpensearchContainer opensearchContainer = new OpensearchContainer(getOpenSearchImage());
@@ -73,22 +69,19 @@ public abstract class AbstractIT {
         }
     }
 
-    protected SearchHits search() throws IOException {
+    protected SearchHits search(final String indexName) throws IOException {
         return opensearchClient.client
-                .search(new SearchRequest(TOPIC_NAME), RequestOptions.DEFAULT).getHits();
+                .search(new SearchRequest(indexName), RequestOptions.DEFAULT).getHits();
     }
 
-    protected void waitForRecords(final int expectedRecords) throws InterruptedException {
+    protected void waitForRecords(final String indexName, final int expectedRecords) throws InterruptedException {
         TestUtils.waitForCondition(
-                new TestCondition() {
-                    @Override
-                    public boolean conditionMet() {
-                        try {
-                            return expectedRecords == opensearchClient.client
-                                    .count(new CountRequest(TOPIC_NAME), RequestOptions.DEFAULT).getCount();
-                        } catch (final IOException e) {
-                            throw new UncheckedIOException(e);
-                        }
+                () -> {
+                    try {
+                        return expectedRecords == opensearchClient.client
+                                .count(new CountRequest(indexName), RequestOptions.DEFAULT).getCount();
+                    } catch (final IOException e) {
+                        throw new UncheckedIOException(e);
                     }
                 },
                 TimeUnit.MINUTES.toMillis(1),

@@ -19,6 +19,7 @@ package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -28,6 +29,7 @@ import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.CreateDataStreamRequest;
 import org.opensearch.client.indices.CreateIndexRequest;
+import org.opensearch.client.indices.GetDataStreamRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.client.indices.PutComposableIndexTemplateRequest;
 import org.opensearch.cluster.metadata.ComposableIndexTemplate;
@@ -51,25 +53,25 @@ public class OpensearchClientIT extends AbstractIT {
     @Test
     void createIndex() {
         assertTrue(opensearchClient.createIndex("index_1"));
-        assertTrue(opensearchClient.indexExists("index_1"));
+        assertTrue(opensearchClient.indexOrDataStreamExists("index_1"));
     }
 
     @Test
     void createIndexDoesNotExist() {
-        assertFalse(opensearchClient.indexExists("index_2"));
+        assertFalse(opensearchClient.indexOrDataStreamExists("index_2"));
     }
 
     @Test
     void createIndexExists() {
-        assertFalse(opensearchClient.indexExists("index_2"));
+        assertFalse(opensearchClient.indexOrDataStreamExists("index_2"));
         assertTrue(opensearchClient.createIndex("index_2"));
-        assertTrue(opensearchClient.indexExists("index_2"));
+        assertTrue(opensearchClient.indexOrDataStreamExists("index_2"));
     }
 
     @Test
     void createIndexDoesNotCreateAlreadyExistingIndex() {
         assertTrue(opensearchClient.createIndex("index_3"));
-        assertTrue(opensearchClient.indexExists("index_3"));
+        assertTrue(opensearchClient.indexOrDataStreamExists("index_3"));
         assertFalse(opensearchClient.createIndex("index_3"));
     }
 
@@ -91,7 +93,30 @@ public class OpensearchClientIT extends AbstractIT {
     }
 
     @Test
-    void createIndexDoesNotCreateAlreadyExistingDatastream() throws Exception {
+    void createIndexTemplateAndDataStream() throws Exception {
+        final var props = new HashMap<>(getDefaultProperties());
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "some_data_stream");
+        final var config = new OpensearchSinkConnectorConfig(props);
+
+        opensearchClient.createIndexTemplateAndDataStream(
+                config.dataStreamPrefix().get(), config.dataStreamTimestampField());
+
+        assertTrue(
+                opensearchClient.dataStreamIndexTemplateExists(
+                        String.format(OpensearchClient.DATA_STREAM_TEMPLATE_NAME_PATTERN, "some_data_stream")
+                )
+        );
+        final var dataStreams = opensearchClient.client.indices().getDataStream(
+                new GetDataStreamRequest("some_data_stream"),
+                RequestOptions.DEFAULT
+        ).getDataStreams();
+        assertFalse(dataStreams.isEmpty());
+        assertEquals(1, dataStreams.size());
+        assertEquals("some_data_stream", dataStreams.get(0).getName());
+    }
+
+    @Test
+    void createIndexDoesNotCreateAlreadyExistingDataStream() throws Exception {
         final var config = new OpensearchSinkConnectorConfig(getDefaultProperties());
         final OpensearchClient tmpClient = new OpensearchClient(config);
 
