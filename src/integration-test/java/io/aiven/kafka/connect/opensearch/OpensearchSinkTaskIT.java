@@ -80,7 +80,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         struct.put("bytes", new byte[]{42});
 
         runTask(
-                getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT),
+                getDefaultTaskProperties(true, BehaviorOnNullValues.DEFAULT),
                 List.of(
                         new SinkRecord(
                                 TOPIC_NAME, PARTITION_1,
@@ -112,7 +112,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         final Struct struct = new Struct(structSchema);
         struct.put("decimal", decimal);
         runTask(
-                getDefaultTaskProperties(false, RecordConverter.BehaviorOnNullValues.DEFAULT),
+                getDefaultTaskProperties(false, BehaviorOnNullValues.DEFAULT),
                 List.of(new SinkRecord(TOPIC_NAME, PARTITION_1,
                         Schema.STRING_SCHEMA, "key", structSchema, struct, 0))
         );
@@ -133,7 +133,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
 
         final var opensearchSinkTask = new OpensearchSinkTask();
         try {
-            opensearchSinkTask.start(getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT));
+            opensearchSinkTask.start(getDefaultTaskProperties(true, BehaviorOnNullValues.DEFAULT));
             opensearchSinkTask.put(
                     List.of(
                             new SinkRecord(TOPIC_NAME, PARTITION_1,
@@ -167,7 +167,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         final var otherSchema = createOtherSchema();
         final var otherRecord = createOtherRecord(otherSchema);
         assertThrows(ConnectException.class, () -> runTask(
-                getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT),
+                getDefaultTaskProperties(true, BehaviorOnNullValues.DEFAULT),
                 List.of(new SinkRecord(
                                 TOPIC_NAME, PARTITION_1,
                                 Schema.STRING_SCHEMA, "key", otherSchema, otherRecord, 0),
@@ -187,7 +187,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
 
         // First, write a couple of actual (non-null-valued) records
         runTask(
-                getDefaultTaskProperties(false, RecordConverter.BehaviorOnNullValues.DELETE),
+                getDefaultTaskProperties(false, BehaviorOnNullValues.DELETE),
                 List.of(
                         new SinkRecord(TOPIC_NAME, PARTITION_1,
                                 Schema.STRING_SCHEMA, key1, schema, record, 0),
@@ -199,7 +199,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         waitForRecords(TOPIC_NAME, 2);
         // Then, write a record with the same key as the first inserted record but a null value
         runTask(
-                getDefaultTaskProperties(false, RecordConverter.BehaviorOnNullValues.DELETE),
+                getDefaultTaskProperties(false, BehaviorOnNullValues.DELETE),
                 List.of(
                         new SinkRecord(TOPIC_NAME, PARTITION_1, Schema.STRING_SCHEMA, key1, schema, null, 2)
                 )
@@ -210,7 +210,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
     @Test
     public void testDeleteWithNullKey() throws Exception {
         runTask(
-                getDefaultTaskProperties(false, RecordConverter.BehaviorOnNullValues.DELETE),
+                getDefaultTaskProperties(false, BehaviorOnNullValues.DELETE),
                 List.of(
                         new SinkRecord(TOPIC_NAME, PARTITION_1,
                                 Schema.STRING_SCHEMA, null, createSchema(), null, 0)
@@ -225,7 +225,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         assertThrows(
                 ConnectException.class,
                 () -> runTask(
-                        getDefaultTaskProperties(false, RecordConverter.BehaviorOnNullValues.FAIL),
+                        getDefaultTaskProperties(false, BehaviorOnNullValues.FAIL),
                         List.of(
                                 new SinkRecord(TOPIC_NAME, PARTITION_1,
                                         Schema.STRING_SCHEMA, "key", createSchema(), null, 0)
@@ -237,7 +237,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
     @Test
     public void testIgnoreNullValue() throws Exception {
         runTask(
-                getDefaultTaskProperties(false, RecordConverter.BehaviorOnNullValues.IGNORE),
+                getDefaultTaskProperties(false, BehaviorOnNullValues.IGNORE),
                 List.of(
                         new SinkRecord(TOPIC_NAME, PARTITION_1,
                                 Schema.STRING_SCHEMA, "key", createSchema(), null, 0)
@@ -260,7 +260,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         struct.put("map", map);
 
         runTask(
-                getDefaultTaskProperties(false, RecordConverter.BehaviorOnNullValues.DEFAULT),
+                getDefaultTaskProperties(false, BehaviorOnNullValues.DEFAULT),
                 List.of(
                         new SinkRecord(TOPIC_NAME, PARTITION_1,
                                 Schema.STRING_SCHEMA, "key", structSchema, struct, 0)
@@ -279,7 +279,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         map.put("Two", 2);
 
         runTask(
-                getDefaultTaskProperties(false, RecordConverter.BehaviorOnNullValues.DEFAULT),
+                getDefaultTaskProperties(false, BehaviorOnNullValues.DEFAULT),
                 List.of(new SinkRecord(TOPIC_NAME, PARTITION_1,
                         Schema.STRING_SCHEMA, "key", mapSchema, map, 0))
         );
@@ -290,7 +290,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
     @Test
     public void testWriterIgnoreKey() throws Exception {
         runTask(
-                getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT),
+                getDefaultTaskProperties(true, BehaviorOnNullValues.DEFAULT),
                 prepareData(2)
         );
         assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
@@ -299,10 +299,10 @@ public class OpensearchSinkTaskIT extends AbstractIT {
 
     @Test
     public void testWriterIgnoreSchema() throws Exception {
-        final var props = getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT);
+        final var props = getDefaultTaskProperties(true, BehaviorOnNullValues.DEFAULT);
         props.put(SCHEMA_IGNORE_CONFIG, "true");
         runTask(
-                getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT),
+                getDefaultTaskProperties(true, BehaviorOnNullValues.DEFAULT),
                 prepareData(2)
         );
         assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
@@ -312,7 +312,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
     @Test
     public void testKeyIgnoreStrategy() throws Exception {
         final int numRecords = 5;
-        final var props = getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT);
+        final var props = getDefaultTaskProperties(true, BehaviorOnNullValues.DEFAULT);
         props.put(KEY_IGNORE_ID_STRATEGY_CONFIG, "none");
         runTask(props, prepareData(numRecords));
         assertTrue(opensearchClient.indexOrDataStreamExists(TOPIC_NAME));
@@ -330,7 +330,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
     }
 
     Map<String, String> getDefaultTaskProperties(final boolean ignoreKey,
-                                                 final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
+                                                 final BehaviorOnNullValues behaviorOnNullValues) {
         final var props = new HashMap<>(getDefaultProperties());
         props.put(BEHAVIOR_ON_NULL_VALUES_CONFIG, behaviorOnNullValues.name());
         props.put(DROP_INVALID_MESSAGE_CONFIG, "false");

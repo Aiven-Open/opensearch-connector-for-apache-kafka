@@ -29,22 +29,15 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Time;
 import org.apache.kafka.connect.data.Timestamp;
-import org.apache.kafka.connect.errors.DataException;
-import org.apache.kafka.connect.sink.SinkRecord;
-
-import org.opensearch.action.delete.DeleteRequest;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class RecordConverterTest {
+public class PayloadBuilderTest {
 
-    private RecordConverter converter;
+    private PayloadBuilder payloadBuilder;
     private String key;
     private String topic;
     private int partition;
@@ -54,7 +47,7 @@ public class RecordConverterTest {
 
     @BeforeEach
     public void setUp() {
-        converter = createDataConverter(true);
+        payloadBuilder = createPayloadBuilder(true);
         key = "key";
         topic = "topic";
         partition = 0;
@@ -67,19 +60,19 @@ public class RecordConverterTest {
                 .build();
     }
 
-    private RecordConverter createDataConverter(final boolean useCompactMapEntries) {
-        return createDataConverter(useCompactMapEntries, RecordConverter.BehaviorOnNullValues.DEFAULT);
+    private PayloadBuilder createPayloadBuilder(final boolean useCompactMapEntries) {
+        return createPayloadBuilder(useCompactMapEntries, BehaviorOnNullValues.DEFAULT);
     }
 
-    private RecordConverter createDataConverter(final boolean useCompactMapEntries,
-                                                final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
+    private PayloadBuilder createPayloadBuilder(final boolean useCompactMapEntries,
+                                                final BehaviorOnNullValues behaviorOnNullValues) {
         final var props = Map.of(
                 OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
                 OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
                 behaviorOnNullValues.toString(),
                 OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, Boolean.toString(useCompactMapEntries)
         );
-        return new RecordConverter(new OpensearchSinkConnectorConfig(props));
+        return new PayloadBuilder(new OpensearchSinkConnectorConfig(props));
     }
 
     @Test
@@ -115,39 +108,39 @@ public class RecordConverterTest {
     }
 
     private void assertIdenticalAfterPreProcess(final Schema schema) {
-        assertEquals(schema, converter.preProcessSchema(schema));
+        assertEquals(schema, payloadBuilder.preProcessSchema(schema));
     }
 
     @Test
     public void decimal() {
         final Schema origSchema = Decimal.schema(2);
-        final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
+        final Schema preProcessedSchema = payloadBuilder.preProcessSchema(origSchema);
         assertEquals(Schema.FLOAT64_SCHEMA, preProcessedSchema);
 
-        assertEquals(0.02, converter.preProcessValue(new BigDecimal("0.02"), origSchema, preProcessedSchema));
+        assertEquals(0.02, payloadBuilder.preProcessValue(new BigDecimal("0.02"), origSchema, preProcessedSchema));
 
         // optional
         assertEquals(
                 Schema.OPTIONAL_FLOAT64_SCHEMA,
-                converter.preProcessSchema(Decimal.builder(2).optional().build())
+                payloadBuilder.preProcessSchema(Decimal.builder(2).optional().build())
         );
 
         // default
         assertEquals(
                 SchemaBuilder.float64().defaultValue(0.00).build(),
-                converter.preProcessSchema(Decimal.builder(2).defaultValue(new BigDecimal("0.00")).build())
+                payloadBuilder.preProcessSchema(Decimal.builder(2).defaultValue(new BigDecimal("0.00")).build())
         );
     }
 
     @Test
     public void array() {
         final Schema origSchema = SchemaBuilder.array(Decimal.schema(2)).schema();
-        final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
+        final Schema preProcessedSchema = payloadBuilder.preProcessSchema(origSchema);
         assertEquals(SchemaBuilder.array(Schema.FLOAT64_SCHEMA).build(), preProcessedSchema);
 
         assertEquals(
                 List.of(0.02, 0.42),
-                converter.preProcessValue(
+                payloadBuilder.preProcessValue(
                         List.of(new BigDecimal("0.02"), new BigDecimal("0.42")),
                         origSchema,
                         preProcessedSchema
@@ -157,13 +150,13 @@ public class RecordConverterTest {
         // optional
         assertEquals(
                 SchemaBuilder.array(preProcessedSchema.valueSchema()).optional().build(),
-                converter.preProcessSchema(SchemaBuilder.array(Decimal.schema(2)).optional().build())
+                payloadBuilder.preProcessSchema(SchemaBuilder.array(Decimal.schema(2)).optional().build())
         );
 
         // default value
         assertEquals(
                 SchemaBuilder.array(preProcessedSchema.valueSchema()).defaultValue(Collections.emptyList()).build(),
-                converter.preProcessSchema(
+                payloadBuilder.preProcessSchema(
                         SchemaBuilder.array(Decimal.schema(2))
                                 .defaultValue(Collections.emptyList()).build()
                 )
@@ -173,7 +166,7 @@ public class RecordConverterTest {
     @Test
     public void map() {
         final Schema origSchema = SchemaBuilder.map(Schema.INT32_SCHEMA, Decimal.schema(2)).build();
-        final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
+        final Schema preProcessedSchema = payloadBuilder.preProcessSchema(origSchema);
         assertEquals(
                 SchemaBuilder.array(
                         SchemaBuilder.struct().name(Schema.INT32_SCHEMA.type().name() + "-" + Decimal.LOGICAL_NAME)
@@ -193,12 +186,13 @@ public class RecordConverterTest {
                         new Struct(preProcessedSchema.valueSchema())
                                 .put(Mapping.KEY_FIELD, 2)
                                 .put(Mapping.VALUE_FIELD, 0.42)),
-                Set.copyOf((List<?>) converter.preProcessValue(origValue, origSchema, preProcessedSchema)));
+                Set.copyOf((List<?>) payloadBuilder.preProcessValue(origValue, origSchema, preProcessedSchema)));
 
         // optional
         assertEquals(
                 SchemaBuilder.array(preProcessedSchema.valueSchema()).optional().build(),
-                converter.preProcessSchema(SchemaBuilder.map(Schema.INT32_SCHEMA, Decimal.schema(2)).optional().build())
+                payloadBuilder.preProcessSchema(
+                        SchemaBuilder.map(Schema.INT32_SCHEMA, Decimal.schema(2)).optional().build())
         );
 
         // default value
@@ -207,7 +201,7 @@ public class RecordConverterTest {
                                 preProcessedSchema.valueSchema())
                         .defaultValue(Collections.emptyList())
                         .build(),
-                converter.preProcessSchema(
+                payloadBuilder.preProcessSchema(
                         SchemaBuilder.map(Schema.INT32_SCHEMA, Decimal.schema(2))
                                 .defaultValue(Collections.emptyMap())
                                 .build()
@@ -222,9 +216,9 @@ public class RecordConverterTest {
         final Map<Object, Object> origValue = Map.of("field1", 1, "field2", 2);
 
         // Use the older non-compact format for map entries with string keys
-        converter = createDataConverter(false);
+        payloadBuilder = createPayloadBuilder(false);
 
-        final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
+        final Schema preProcessedSchema = payloadBuilder.preProcessSchema(origSchema);
         assertEquals(
                 SchemaBuilder.array(
                         SchemaBuilder.struct().name(
@@ -246,7 +240,7 @@ public class RecordConverterTest {
                                 .put(Mapping.KEY_FIELD, "field2")
                                 .put(Mapping.VALUE_FIELD, 2)
                 ),
-                Set.copyOf((List<?>) converter.preProcessValue(origValue, origSchema, preProcessedSchema))
+                Set.copyOf((List<?>) payloadBuilder.preProcessValue(origValue, origSchema, preProcessedSchema))
         );
     }
 
@@ -257,21 +251,21 @@ public class RecordConverterTest {
         final Map<Object, Object> origValue = Map.of("field1", 1, "field2", 2);
 
         // Use the newer compact format for map entries with string keys
-        converter = createDataConverter(true);
-        final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
+        payloadBuilder = createPayloadBuilder(true);
+        final Schema preProcessedSchema = payloadBuilder.preProcessSchema(origSchema);
         assertEquals(
                 SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.INT32_SCHEMA).build(),
                 preProcessedSchema
         );
         final Map<?, ?> newValue = (Map<?, ?>)
-                converter.preProcessValue(origValue, origSchema, preProcessedSchema);
+                payloadBuilder.preProcessValue(origValue, origSchema, preProcessedSchema);
         assertEquals(origValue, newValue);
     }
 
     @Test
     public void struct() {
         final Schema origSchema = SchemaBuilder.struct().name("struct").field("decimal", Decimal.schema(2)).build();
-        final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
+        final Schema preProcessedSchema = payloadBuilder.preProcessSchema(origSchema);
         assertEquals(
                 SchemaBuilder.struct().name("struct").field("decimal", Schema.FLOAT64_SCHEMA).build(),
                 preProcessedSchema
@@ -279,7 +273,7 @@ public class RecordConverterTest {
 
         assertEquals(
                 new Struct(preProcessedSchema).put("decimal", 0.02),
-                converter.preProcessValue(
+                payloadBuilder.preProcessValue(
                         new Struct(origSchema)
                                 .put("decimal", new BigDecimal("0.02")),
                         origSchema,
@@ -290,7 +284,7 @@ public class RecordConverterTest {
         // optional
         assertEquals(
                 SchemaBuilder.struct().name("struct").field("decimal", Schema.FLOAT64_SCHEMA).optional().build(),
-                converter.preProcessSchema(
+                payloadBuilder.preProcessSchema(
                         SchemaBuilder.struct().name("struct").field("decimal", Decimal.schema(2))
                                 .optional()
                                 .build()
@@ -311,7 +305,7 @@ public class RecordConverterTest {
         testOptionalFieldWithoutDefault(SchemaBuilder.struct().field("innerField", Schema.BOOLEAN_SCHEMA));
         testOptionalFieldWithoutDefault(SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.BOOLEAN_SCHEMA));
         // Have to test maps with useCompactMapEntries set to true and set to false
-        converter = createDataConverter(false);
+        payloadBuilder = createPayloadBuilder(false);
         testOptionalFieldWithoutDefault(SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.BOOLEAN_SCHEMA));
     }
 
@@ -319,56 +313,13 @@ public class RecordConverterTest {
         final Schema origSchema = SchemaBuilder.struct().name("struct").field(
                 "optionalField", optionalFieldSchema.optional().build()
         ).build();
-        final Schema preProcessedSchema = converter.preProcessSchema(origSchema);
+        final Schema preProcessedSchema = payloadBuilder.preProcessSchema(origSchema);
 
-        final Object preProcessedValue = converter.preProcessValue(
+        final Object preProcessedValue = payloadBuilder.preProcessValue(
                 new Struct(origSchema).put("optionalField", null), origSchema, preProcessedSchema
         );
 
         assertEquals(new Struct(preProcessedSchema).put("optionalField", null), preProcessedValue);
-    }
-
-    @Test
-    public void ignoreOnNullValue() {
-        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.IGNORE);
-
-        final SinkRecord sinkRecord = createSinkRecordWithValue(null);
-        assertNull(converter.convert(sinkRecord, index));
-    }
-
-    @Test
-    public void deleteOnNullValue() {
-        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.DELETE);
-
-        final SinkRecord sinkRecord = createSinkRecordWithValue(null);
-        final var deleteRecord = converter.convert(sinkRecord, index);
-
-        assertTrue(deleteRecord instanceof DeleteRequest);
-        assertEquals(key, deleteRecord.id());
-        assertEquals(index, deleteRecord.index());
-    }
-
-    @Test
-    public void ignoreDeleteOnNullValueWithNullKey() {
-        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.DELETE);
-        key = null;
-
-        final SinkRecord sinkRecord = createSinkRecordWithValue(null);
-        assertNull(converter.convert(sinkRecord, index));
-    }
-
-    @Test
-    public void failOnNullValue() {
-        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.FAIL);
-
-        final SinkRecord sinkRecord = createSinkRecordWithValue(null);
-        assertThrows(
-                DataException.class,
-                () -> converter.convert(sinkRecord, index));
-    }
-
-    public SinkRecord createSinkRecordWithValue(final Object value) {
-        return new SinkRecord(topic, partition, Schema.STRING_SCHEMA, key, schema, value, offset);
     }
 
 }

@@ -409,8 +409,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         ).define(
                 BEHAVIOR_ON_NULL_VALUES_CONFIG,
                 Type.STRING,
-                RecordConverter.BehaviorOnNullValues.DEFAULT.toString(),
-                RecordConverter.BehaviorOnNullValues.VALIDATOR,
+                BehaviorOnNullValues.DEFAULT.toString(),
+                BehaviorOnNullValues.VALIDATOR,
                 Importance.LOW,
                 BEHAVIOR_ON_NULL_VALUES_DOC,
                 DATA_CONVERSION_GROUP_NAME,
@@ -573,7 +573,11 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
     }
 
-    public DocumentIDStrategy docIdStrategy(final String topic) {
+    public RequestBuilder createRequestBuilder() {
+        return RequestBuilder.create(this);
+    }
+
+    protected DocumentIDStrategy docIdStrategy(final String topic) {
         return (ignoreKey() || topicIgnoreKey().contains(topic))
             ? DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG))
                 : DocumentIDStrategy.RECORD_KEY;
@@ -616,8 +620,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return ignoreSchema() || topicIgnoreSchema().contains(topic);
     }
 
-    public RecordConverter.BehaviorOnNullValues behaviorOnNullValues() {
-        return RecordConverter.BehaviorOnNullValues.forValue(
+    public BehaviorOnNullValues behaviorOnNullValues() {
+        return BehaviorOnNullValues.forValue(
                 getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)
         );
     }

@@ -17,7 +17,6 @@
 
 package io.aiven.kafka.connect.opensearch;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -25,11 +24,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
-import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
@@ -43,19 +39,8 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.Converter;
 
-import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.delete.DeleteRequest;
-import org.opensearch.action.index.IndexRequest;
-import org.opensearch.common.xcontent.XContentType;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT;
-
-public class RecordConverter {
-
-    private static final Converter JSON_CONVERTER;
+final class PayloadBuilder {
+    static final Converter JSON_CONVERTER;
 
     static {
         JSON_CONVERTER = new JsonConverter();
@@ -64,75 +49,11 @@ public class RecordConverter {
 
     private final OpensearchSinkConnectorConfig config;
 
-    private final ObjectMapper objectMapper;
-
-    public RecordConverter(final Boolean useCompactMapEntries,
-                           final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
-        this(null);
-    }
-
-    public RecordConverter(final OpensearchSinkConnectorConfig config) {
+    PayloadBuilder(final OpensearchSinkConnectorConfig config) {
         this.config = config;
-        this.objectMapper = new ObjectMapper();
     }
 
-    public DocWriteRequest<?> convert(final SinkRecord record, final String indexOrDataStreamName) {
-        if (record.value() == null) {
-            switch (config.behaviorOnNullValues()) {
-                case IGNORE:
-                    return null;
-                case DELETE:
-                    if (record.key() == null) {
-                        // Since the record key is used as the ID of the index to delete and we don't have a key
-                        // for this record, we can't delete anything anyways, so we ignore the record.
-                        // We can also disregard the value of the ignoreKey parameter, since even if it's true
-                        // the resulting index we'd try to delete would be based solely off topic/partition/
-                        // offset information for the SinkRecord. Since that information is guaranteed to be
-                        // unique per message, we can be confident that there wouldn't be any corresponding
-                        // index present in ES to delete anyways.
-                        return null;
-                    }
-                    // Will proceed as normal, ultimately creating an with a null payload
-                    break;
-                case FAIL:
-                default:
-                    throw new DataException(String.format(
-                            "Sink record with key of %s and null value encountered for topic/partition/offset "
-                                    + "%s/%s/%s (to ignore future records like this change the configuration property "
-                                    + "'%s' from '%s' to '%s')",
-                            record.key(),
-                            record.topic(),
-                            record.kafkaPartition(),
-                            record.kafkaOffset(),
-                            OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
-                            BehaviorOnNullValues.FAIL,
-                            BehaviorOnNullValues.IGNORE
-                    ));
-            }
-        }
-        return createDocWriteRequest(indexOrDataStreamName, record);
-    }
-
-    private DocWriteRequest<?> createDocWriteRequest(final String indexOrDataStreamName, final SinkRecord record) {
-        final var docIdStrategy = config.docIdStrategy(record.topic());
-        if (Objects.isNull(record.value())) {
-            return docIdStrategy.updateRequest(new DeleteRequest(indexOrDataStreamName), record);
-        }
-        final var payload = getPayload(record);
-        final var indexRequest = new IndexRequest().index(indexOrDataStreamName);
-        if (config.dataStreamEnabled()) {
-            indexRequest
-                    .source(addTimestampToPayload(payload, record.timestamp()), XContentType.JSON)
-                    .opType(DocWriteRequest.OpType.CREATE);
-        } else {
-            indexRequest
-                    .source(payload, XContentType.JSON)
-                    .opType(DocWriteRequest.OpType.INDEX);
-        }
-        return docIdStrategy.updateRequest(indexRequest, record);
-    }
-
-    private String getPayload(final SinkRecord record) {
+    String buildPayload(final SinkRecord record) {
         if (record.value() == null) {
             return null;
         }
@@ -149,36 +70,13 @@ public class RecordConverter {
         return new String(rawJsonPayload, StandardCharsets.UTF_8);
     }
 
-    private String addTimestampToPayload(final String payload, final long timestamp) {
-        if (DATA_STREAM_TIMESTAMP_FIELD_DEFAULT.equals(config.dataStreamTimestampField())) {
-            try {
-                final var json = objectMapper.readTree(payload);
-                if (!json.isObject()) {
-                    throw new DataException(
-                            "JSON payload is a type of "
-                                    + json.getNodeType()
-                                    + ". Required is JSON Object.");
-                }
-                final var rootObject = (ObjectNode) json;
-                if (!rootObject.has(DATA_STREAM_TIMESTAMP_FIELD_DEFAULT)) {
-                    rootObject.put(DATA_STREAM_TIMESTAMP_FIELD_DEFAULT, timestamp);
-                }
-                return objectMapper.writeValueAsString(json);
-            } catch (final IOException e) {
-                throw new DataException("Could not parse payload", e);
-            }
-        } else {
-            return payload;
-        }
-    }
-
     // We need to pre process the Kafka Connect schema before converting to JSON as Elasticsearch
     // expects a different JSON format from the current JSON converter provides. Rather than
     // completely rewrite a converter for Elasticsearch, we will refactor the JSON converter to
     // support customized translation. The pre process is no longer needed once we have the JSON
     // converter refactored.
     // visible for testing
-    Schema preProcessSchema(final Schema schema) {
+    protected Schema preProcessSchema(final Schema schema) {
         if (schema == null) {
             return null;
         }
@@ -254,7 +152,7 @@ public class RecordConverter {
     }
 
     // visible for testing
-    Object preProcessValue(final Object value, final Schema schema, final Schema newSchema) {
+    protected Object preProcessValue(final Object value, final Schema schema, final Schema newSchema) {
         // Handle missing schemas and acceptable null values
         if (schema == null) {
             return value;
@@ -360,55 +258,5 @@ public class RecordConverter {
             newStruct.put(field.name(), converted);
         }
         return newStruct;
-    }
-
-    public enum BehaviorOnNullValues {
-        IGNORE,
-        DELETE,
-        FAIL;
-
-        public static final BehaviorOnNullValues DEFAULT = IGNORE;
-
-        // Want values for "behavior.on.null.values" property to be case-insensitive
-        public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
-            private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
-
-            @Override
-            public void ensureValid(final String name, final Object value) {
-                if (value instanceof String) {
-                    final String lowerStringValue = ((String) value).toLowerCase(Locale.ROOT);
-                    validator.ensureValid(name, lowerStringValue);
-                } else {
-                    validator.ensureValid(name, value);
-                }
-            }
-
-            // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
-            @Override
-            public String toString() {
-                return validator.toString();
-            }
-
-        };
-
-        public static String[] names() {
-            final BehaviorOnNullValues[] behaviors = values();
-            final String[] result = new String[behaviors.length];
-
-            for (int i = 0; i < behaviors.length; i++) {
-                result[i] = behaviors[i].toString();
-            }
-
-            return result;
-        }
-
-        public static BehaviorOnNullValues forValue(final String value) {
-            return valueOf(value.toUpperCase(Locale.ROOT));
-        }
-
-        @Override
-        public String toString() {
-            return name().toLowerCase(Locale.ROOT);
-        }
     }
 }

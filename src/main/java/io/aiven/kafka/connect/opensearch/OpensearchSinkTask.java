@@ -49,9 +49,9 @@ public class OpensearchSinkTask extends SinkTask {
 
     private final Set<String> indexMappingsCache = new HashSet<>();
 
-    private RecordConverter recordConverter;
-
     private Function<String, String> topicToIndexConverter;
+
+    private RequestBuilder requestBuilder;
 
     @Override
     public String version() {
@@ -64,7 +64,9 @@ public class OpensearchSinkTask extends SinkTask {
             LOGGER.info("Starting OpensearchSinkTask.");
 
             this.config = new OpensearchSinkConnectorConfig(props);
+            this.client = new OpensearchClient(config);
             this.topicToIndexConverter = config.topicToIndexNameConverter();
+            this.requestBuilder = config.createRequestBuilder();
             // Calculate the maximum possible backoff time ...
             final long maxRetryBackoffMs =
                     RetryUtil.computeRetryWaitTimeInMillis(config.maxRetry(), config.retryBackoffMs());
@@ -76,14 +78,8 @@ public class OpensearchSinkTask extends SinkTask {
                         OpensearchSinkConnectorConfig.RETRY_BACKOFF_MS_CONFIG, config.retryBackoffMs(),
                         TimeUnit.MILLISECONDS.toHours(maxRetryBackoffMs));
             }
-
-            this.client = new OpensearchClient(config);
-            this.recordConverter = new RecordConverter(config);
         } catch (final ConfigException e) {
-            throw new ConnectException(
-                    "Couldn't start OpensearchSinkTask due to configuration error:",
-                    e
-            );
+            throw new ConnectException("Couldn't start OpensearchSinkTask due to configuration error:", e);
         }
     }
 
@@ -105,7 +101,7 @@ public class OpensearchSinkTask extends SinkTask {
     }
 
     public boolean ignoreRecord(final SinkRecord record) {
-        return record.value() == null && config.behaviorOnNullValues() == RecordConverter.BehaviorOnNullValues.IGNORE;
+        return record.value() == null && config.behaviorOnNullValues() == BehaviorOnNullValues.IGNORE;
     }
 
     private void tryWriteRecord(final SinkRecord record) {
@@ -113,7 +109,7 @@ public class OpensearchSinkTask extends SinkTask {
         ensureIndexOrDataStreamExists(indexOrDataStreamName);
         checkMappingFor(indexOrDataStreamName, record);
         try {
-            final var indexRecord = recordConverter.convert(record, indexOrDataStreamName);
+            final var indexRecord = requestBuilder.build(indexOrDataStreamName, record);
             if (Objects.nonNull(indexRecord)) {
                 client.index(indexRecord);
             }
