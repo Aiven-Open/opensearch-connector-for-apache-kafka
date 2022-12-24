@@ -536,7 +536,7 @@ public class BulkProcessorTest {
 
         bulkProcessor.add(newIndexRequest(111), newSinkRecord(), 1);
 
-        final int flushTimeoutMs = 10000;
+        final int flushTimeoutMs = 1000;
         bulkProcessor.flush(flushTimeoutMs);
 
         assertTrue(clientAnswer.expectationsMet());
