@@ -384,10 +384,10 @@ public class BulkProcessor {
             try {
                 final var rsp = execute();
                 LOGGER.debug("Successfully executed batch {} of {} records", batchId, batch.size());
-                onBatchCompletion(batch.size());
                 if (errorToleranceType == ErrorToleranceType.ALL) {
                     reportMalformedRecords(null);
                 }
+                onBatchCompletion(batch.size());
                 return rsp;
             } catch (final Exception e) {
                 reportMalformedRecords(e);
