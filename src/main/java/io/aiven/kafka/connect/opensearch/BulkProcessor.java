@@ -400,6 +400,7 @@ public class BulkProcessor {
             if (reporter == null) {
                 return;
             }
+            int badRecords = 0;
             for (final DocWriteWrapper batchItem : batch) {
                 final BulkItemResponse itemResponse = batchItem.getBulkItemResponse();
                 if (exception != null || itemResponse == null || itemResponse.isFailed()) {
@@ -417,17 +418,22 @@ public class BulkProcessor {
                                     .orElse(new Exception("Unknown error occurred"));
                         }
                         LOGGER.debug("Reporting to DLQ, error message is: {}", exceptionToReport.getMessage());
+                        ++badRecords;
                         reporter.report(batchItem.getSinkRecord(), exceptionToReport);
                     } catch (final Exception e) {
                         LOGGER.error("An error occurred when reporting record failure with errant record reporter", e);
                     }
                 }
             }
+            LOGGER.info("### Sent batch of {} records, {} are bad. batchSize = {}. inFlightRecords = {}",
+                    batch.size(), badRecords, batchSize, inFlightRecords);
         }
 
         private BulkResponse execute() throws Exception {
             return callWithRetry("bulk processing", () -> {
                 try {
+                    LOGGER.info("### sending bulk of {} records. batchSize = {}, inFlightRecords = {}",
+                            batch.size(), batchSize, inFlightRecords);
                     final var response =
                             client.bulk(new BulkRequest().add(
                                             batch.stream().map(DocWriteWrapper::getDocWriteRequest)
