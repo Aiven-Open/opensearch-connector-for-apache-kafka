@@ -425,15 +425,11 @@ public class BulkProcessor {
                     }
                 }
             }
-            LOGGER.info("### Sent batch of {} records, {} are bad. batchSize = {}. inFlightRecords = {}",
-                    batch.size(), badRecords, batchSize, inFlightRecords);
         }
 
         private BulkResponse execute() throws Exception {
             return callWithRetry("bulk processing", () -> {
                 try {
-                    LOGGER.info("### sending bulk of {} records. batchSize = {}, inFlightRecords = {}",
-                            batch.size(), batchSize, inFlightRecords);
                     final var response =
                             client.bulk(new BulkRequest().add(
                                             batch.stream().map(DocWriteWrapper::getDocWriteRequest)
