@@ -158,6 +158,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         + "'none' is the default value and signals that any error will result in an immediate connector task failure;"
         + " 'all' changes the behavior to skip over problematic records.";
 
+    public static final String DLQ_TOPIC_NAME_CONFIG =  "errors.deadletterqueue.topic.name";
+
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
@@ -420,6 +422,20 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public OpensearchSinkConnectorConfig(final Map<String, String> props) {
         super(CONFIG, props);
+        validateDeadLetterQueueConfig(props);
+    }
+
+    private void validateDeadLetterQueueConfig(final Map<String, String> props) {
+        final String dqlTopicStr = props.get(DLQ_TOPIC_NAME_CONFIG);
+        final boolean dlqIsConfigured = dqlTopicStr != null && !dqlTopicStr.isEmpty();
+
+        if ((behaviorOnMalformedDoc() == BulkProcessor.BehaviorOnMalformedDoc.REPORT
+                || behaviorOnVersionConflict() == BulkProcessor.BehaviorOnVersionConflict.REPORT)
+                && !dlqIsConfigured) {
+            throw new ConfigException(String.format(
+                    "Dead letter queue must be configured when using 'report' option for %s or %s",
+                    BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
+        }
     }
 
     public HttpHost[] httpHosts() {

@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -56,6 +57,7 @@ import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BA
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.DLQ_TOPIC_NAME_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.LINGER_MS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
@@ -66,7 +68,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -503,7 +504,8 @@ public class BulkProcessorTest {
     }
 
     @Test
-    public void reportToDlqOnNonAbortedFailure(final @Mock RestHighLevelClient client) throws IOException {
+    public void reportToDlqWhenVersionConflictBehaviorIsReport(final @Mock RestHighLevelClient client)
+            throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
 
@@ -517,7 +519,50 @@ public class BulkProcessorTest {
                 MAX_RETRIES_CONFIG, "3",
                 READ_TIMEOUT_MS_CONFIG, "1",
                 ERRORS_TOLERANCE_CONFIG, "ALL",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString()
+                DLQ_TOPIC_NAME_CONFIG, "dlq_topic",
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
+        ));
+
+        final String errorInfo =
+                " [{\"type\":\"version_conflict_engine_exception\","
+                        + "\"reason\":\"[1]: version conflict, current version [3] is higher or"
+                        + " equal to the one provided [3]\""
+                        + "}]";
+
+        final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
+        clientAnswer.expect(
+                List.of(
+                        newIndexRequest(111)
+                ), failedResponse(errorInfo, false));
+
+        bulkProcessor.start();
+
+        bulkProcessor.add(newIndexRequest(111), newSinkRecord(), 1);
+
+        final int flushTimeoutMs = 1000;
+        bulkProcessor.flush(flushTimeoutMs);
+
+        assertTrue(clientAnswer.expectationsMet());
+        verify(dlqReporter, times(1)).report(any(SinkRecord.class), any(Throwable.class));
+    }
+
+    @Test
+    public void reportToDlqWhenMalformedDocBehaviorIsReport(final @Mock RestHighLevelClient client) throws IOException {
+        final var clientAnswer = new ClientAnswer();
+        when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
+
+        final var dlqReporter = mock(ErrantRecordReporter.class);
+        final var config = new OpensearchSinkConnectorConfig(Map.of(
+                CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100",
+                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
+                BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "1000",
+                MAX_RETRIES_CONFIG, "3",
+                READ_TIMEOUT_MS_CONFIG, "1",
+                ERRORS_TOLERANCE_CONFIG, "ALL",
+                DLQ_TOPIC_NAME_CONFIG, "dlq_topic",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
         ));
         final String errorInfo =
                 " [{\"type\":\"mapper_parsing_exception\",\"reason\":\"failed to parse\","
@@ -542,7 +587,7 @@ public class BulkProcessorTest {
     }
 
     @Test
-    public void doNotReportToDlqWhenToleranceIsNoneAndErrorIsNonAborted(final @Mock RestHighLevelClient client)
+    public void doNotReportToDlqWhenReportIsNotConfigured(final @Mock RestHighLevelClient client)
             throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
@@ -582,36 +627,23 @@ public class BulkProcessorTest {
     }
 
     @Test
-    public void reportToDlqOncePerRecordWhenExceptionOccurs(final @Mock RestHighLevelClient client) throws IOException {
-        final Exception exception = new RuntimeException("Failed to process request");
-        when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenThrow(exception);
+    public void failToStartWhenReportIsConfiguredAndDlqTopicIsMissing() {
 
-        final var dlqReporter = mock(ErrantRecordReporter.class);
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "1000",
-                MAX_RETRIES_CONFIG, "3",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString()
-        ));
+        final Exception exception = assertThrows(ConfigException.class, () -> {
+            new OpensearchSinkConnectorConfig(Map.of(
+                    CONNECTION_URL_CONFIG, "http://localhost",
+                    MAX_BUFFERED_RECORDS_CONFIG, "100",
+                    MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
+                    BATCH_SIZE_CONFIG, "2",
+                    LINGER_MS_CONFIG, "1000",
+                    MAX_RETRIES_CONFIG, "3",
+                    READ_TIMEOUT_MS_CONFIG, "1",
+                    ERRORS_TOLERANCE_CONFIG, "ALL",
+                    BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
+            ));
+        });
 
-        final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
-        final SinkRecord record1 = newSinkRecord();
-        final SinkRecord record2 = newSinkRecord();
-        bulkProcessor.start();
-        bulkProcessor.add(newIndexRequest(333), record1, 1);
-        bulkProcessor.add(newIndexRequest(4444), record2, 1);
-
-        final int flushTimeoutMs = 1000;
-        try {
-            bulkProcessor.flush(flushTimeoutMs);
-            fail("Should report to DLQ on each record and throw an exception");
-        } catch (final Exception e) {
-            verify(dlqReporter, times(2)).report(any(SinkRecord.class), any(Throwable.class));
-        }
+        assertTrue(exception.getMessage().contains("Dead letter queue must be configured"));
     }
 
     private SinkRecord newSinkRecord() {
