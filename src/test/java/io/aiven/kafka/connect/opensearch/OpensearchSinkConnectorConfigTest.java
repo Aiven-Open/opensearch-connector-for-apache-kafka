@@ -71,6 +71,7 @@ public class OpensearchSinkConnectorConfigTest {
 
     @Test
     public void testAddConfigDefs() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put("custom.property.1", "10");
         props.put("custom.property.2", "http://localhost:9000");
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
@@ -106,4 +107,109 @@ public class OpensearchSinkConnectorConfigTest {
                 );
         }
     }
+
+    @Test
+    public void docIdStrategyValidator() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, "something");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
+    @Test
+    public void docIdStrategies() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        for (final var strategy : DocumentIDStrategy.values()) {
+            props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, strategy.toString());
+            final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+            assertEquals(strategy, config.docIdStrategy("anyTopic"));
+        }
+    }
+
+    @Test
+    public void docIdStrategyWithoutKeyIgnoreIdStrategy() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString());
+        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+        assertEquals(DocumentIDStrategy.RECORD_KEY, config.docIdStrategy("anyTopic"));
+    }
+
+    @Test
+    public void docIdStrategyWithoutKeyIgnoreWithTopicKeyIgnore() {
+        final DocumentIDStrategy keyIgnoreStrategy = DocumentIDStrategy.NONE;
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
+        props.put(OpensearchSinkConnectorConfig.TOPIC_KEY_IGNORE_CONFIG, "topic1,topic2");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, keyIgnoreStrategy.toString());
+        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+        
+        assertEquals(keyIgnoreStrategy, config.docIdStrategy("topic1"));
+        assertEquals(keyIgnoreStrategy, config.docIdStrategy("topic2"));
+        assertEquals(DocumentIDStrategy.RECORD_KEY, config.docIdStrategy("otherTopic"));
+    }
+
+    @Test
+    public void dataStreamConfig() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaa");
+
+        final var defaultConfig = new OpensearchSinkConnectorConfig(props);
+
+        assertEquals("aaaa", defaultConfig.dataStreamPrefix().get());
+        assertEquals("@timestamp", defaultConfig.dataStreamTimestampField());
+
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "bbbb");
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "custom_timestamp");
+        final var customConfig = new OpensearchSinkConnectorConfig(props);
+        assertEquals("bbbb", customConfig.dataStreamPrefix().get());
+        assertEquals("custom_timestamp", customConfig.dataStreamTimestampField());
+    }
+
+    @Test
+    void convertTopicToIndexName() {
+        final var config = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200")
+        );
+        final var longTopicName = "a".repeat(260);
+        assertEquals("a".repeat(255), config.topicToIndexNameConverter().apply(longTopicName));
+
+        final var colonTopicName = "a:b:c";
+        assertEquals("a_b_c", config.topicToIndexNameConverter().apply(colonTopicName));
+
+        final var minusTopicName = "-minusTopicName";
+        assertEquals("minustopicname", config.topicToIndexNameConverter().apply(minusTopicName));
+
+        final var plusTopicName = "+plusTopicName";
+        assertEquals("plustopicname", config.topicToIndexNameConverter().apply(plusTopicName));
+
+        final var underscoreTopicName = "_underscoreTopicName";
+        assertEquals("underscoretopicname", config.topicToIndexNameConverter().apply(underscoreTopicName));
+
+        final var dotTopicName = ".";
+        assertEquals("dot", config.topicToIndexNameConverter().apply(dotTopicName));
+
+        final var dotDotTopicName = "..";
+        assertEquals("dotdot", config.topicToIndexNameConverter().apply(dotDotTopicName));
+
+    }
+
+    void convertTopicToDataStreamName() {
+        final var config = new OpensearchSinkConnectorConfig(
+                Map.of(
+                        OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                        OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                        OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaaa"
+                )
+        );
+        assertEquals("aaaaa-bbbbbb".repeat(255), config.topicToIndexNameConverter().apply("bbbbb"));
+
+        final var noDsPrefixConfig = new OpensearchSinkConnectorConfig(
+                Map.of(
+                        OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                        OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"
+                )
+        );
+        assertEquals("bbbbbb".repeat(255), noDsPrefixConfig.topicToIndexNameConverter().apply("bbbbb"));
+    }
+
 }

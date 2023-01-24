@@ -17,6 +17,7 @@
 
 package io.aiven.kafka.connect.opensearch;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -29,7 +30,6 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
@@ -47,7 +47,11 @@ import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.index.VersionType;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT;
 
 public class RecordConverter {
 
@@ -60,6 +64,8 @@ public class RecordConverter {
 
     private final OpensearchSinkConnectorConfig config;
 
+    private final ObjectMapper objectMapper;
+
     public RecordConverter(final Boolean useCompactMapEntries,
                            final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
         this(null);
@@ -67,38 +73,10 @@ public class RecordConverter {
 
     public RecordConverter(final OpensearchSinkConnectorConfig config) {
         this.config = config;
+        this.objectMapper = new ObjectMapper();
     }
 
-    private String convertKey(final Schema keySchema, final Object key) {
-        if (key == null) {
-            throw new DataException("Key is used as document id and can not be null.");
-        }
-
-        final Schema.Type schemaType;
-        if (keySchema == null) {
-            schemaType = ConnectSchema.schemaType(key.getClass());
-            if (schemaType == null) {
-                throw new DataException(
-                        String.format("Java class %s does not have corresponding schema type.", key.getClass())
-                );
-            }
-        } else {
-            schemaType = keySchema.type();
-        }
-
-        switch (schemaType) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-            case STRING:
-                return String.valueOf(key);
-            default:
-                throw new DataException(schemaType.name() + " is not supported as the document id.");
-        }
-    }
-
-    public DocWriteRequest<?> convert(final SinkRecord record, final String index) {
+    public DocWriteRequest<?> convert(final SinkRecord record, final String indexOrDataStreamName) {
         if (record.value() == null) {
             switch (config.behaviorOnNullValues()) {
                 case IGNORE:
@@ -132,28 +110,26 @@ public class RecordConverter {
                     ));
             }
         }
-
-        final var id = (config.ignoreKeyFor(record.topic()))
-                ? record.topic() + "+" + record.kafkaPartition() + "+" + record.kafkaOffset()
-                : convertKey(record.keySchema(), record.key());
-
-        if (Objects.isNull(record.value())) {
-            return addExternalVersionIfNeeded(new DeleteRequest(index).id(id), record);
-        }
-
-        final String payload = getPayload(record);
-        return addExternalVersionIfNeeded(new IndexRequest(index)
-                .id(id)
-                .source(payload, XContentType.JSON)
-                .opType(DocWriteRequest.OpType.INDEX), record);
+        return createDocWriteRequest(indexOrDataStreamName, record);
     }
 
-    private DocWriteRequest<?> addExternalVersionIfNeeded(final DocWriteRequest<?> request, final SinkRecord record) {
-        if (!config.ignoreKeyFor(record.topic())) {
-            request.versionType(VersionType.EXTERNAL);
-            request.version(record.kafkaOffset());
+    private DocWriteRequest<?> createDocWriteRequest(final String indexOrDataStreamName, final SinkRecord record) {
+        final var docIdStrategy = config.docIdStrategy(record.topic());
+        if (Objects.isNull(record.value())) {
+            return docIdStrategy.updateRequest(new DeleteRequest(indexOrDataStreamName), record);
         }
-        return request;
+        final var payload = getPayload(record);
+        final var indexRequest = new IndexRequest().index(indexOrDataStreamName);
+        if (config.dataStreamEnabled()) {
+            indexRequest
+                    .source(addTimestampToPayload(payload, record.timestamp()), XContentType.JSON)
+                    .opType(DocWriteRequest.OpType.CREATE);
+        } else {
+            indexRequest
+                    .source(payload, XContentType.JSON)
+                    .opType(DocWriteRequest.OpType.INDEX);
+        }
+        return docIdStrategy.updateRequest(indexRequest, record);
     }
 
     private String getPayload(final SinkRecord record) {
@@ -171,6 +147,29 @@ public class RecordConverter {
 
         final byte[] rawJsonPayload = JSON_CONVERTER.fromConnectData(record.topic(), schema, value);
         return new String(rawJsonPayload, StandardCharsets.UTF_8);
+    }
+
+    private String addTimestampToPayload(final String payload, final long timestamp) {
+        if (DATA_STREAM_TIMESTAMP_FIELD_DEFAULT.equals(config.dataStreamTimestampField())) {
+            try {
+                final var json = objectMapper.readTree(payload);
+                if (!json.isObject()) {
+                    throw new DataException(
+                            "JSON payload is a type of "
+                                    + json.getNodeType()
+                                    + ". Required is JSON Object.");
+                }
+                final var rootObject = (ObjectNode) json;
+                if (!rootObject.has(DATA_STREAM_TIMESTAMP_FIELD_DEFAULT)) {
+                    rootObject.put(DATA_STREAM_TIMESTAMP_FIELD_DEFAULT, timestamp);
+                }
+                return objectMapper.writeValueAsString(json);
+            } catch (final IOException e) {
+                throw new DataException("Could not parse payload", e);
+            }
+        } else {
+            return payload;
+        }
     }
 
     // We need to pre process the Kafka Connect schema before converting to JSON as Elasticsearch

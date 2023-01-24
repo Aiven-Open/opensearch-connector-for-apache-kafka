@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -51,6 +52,8 @@ public class OpensearchSinkTask extends SinkTask {
 
     private RecordConverter recordConverter;
 
+    private Function<String, String> topicToIndexConverter;
+
     @Override
     public String version() {
         return Version.getVersion();
@@ -62,7 +65,7 @@ public class OpensearchSinkTask extends SinkTask {
             LOGGER.info("Starting OpensearchSinkTask.");
 
             this.config = new OpensearchSinkConnectorConfig(props);
-
+            this.topicToIndexConverter = config.topicToIndexNameConverter();
             // Calculate the maximum possible backoff time ...
             final long maxRetryBackoffMs =
                     RetryUtil.computeRetryWaitTimeInMillis(config.maxRetry(), config.retryBackoffMs());
@@ -115,11 +118,11 @@ public class OpensearchSinkTask extends SinkTask {
     }
 
     private void tryWriteRecord(final SinkRecord record) {
-        final var index = convertTopicToIndexName(record.topic());
-        ensureIndexExists(index);
-        checkMappingFor(index, record);
+        final var indexOrDataStreamName = topicToIndexConverter.apply(record.topic());
+        ensureIndexOrDataStreamExists(indexOrDataStreamName);
+        checkMappingFor(indexOrDataStreamName, record);
         try {
-            final var indexRecord = recordConverter.convert(record, index);
+            final var indexRecord = recordConverter.convert(record, indexOrDataStreamName);
             if (Objects.nonNull(indexRecord)) {
                 client.index(indexRecord, record);
             }
@@ -138,37 +141,16 @@ public class OpensearchSinkTask extends SinkTask {
         }
     }
 
-    /**
-     * Converts topic name to index name according OS rules:
-     * https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html#indices-create-api-path-params
-     */
-    protected String convertTopicToIndexName(final String topic) {
-        var indexName = topic.toLowerCase();
-        if (indexName.length() > 255) {
-            indexName = indexName.substring(0, 255);
-            LOGGER.warn("Topic {} length is more than 255 bytes. The final index name is {}", topic, indexName);
-        }
-        if (indexName.contains(":")) {
-            indexName = indexName.replaceAll(":", "_");
-            LOGGER.warn("Topic {} contains :. The final index name is {}", topic, indexName);
-        }
-        if (indexName.startsWith("-") || indexName.startsWith("_") || indexName.startsWith("+")) {
-            indexName = indexName.substring(1);
-            LOGGER.warn("Topic {} starts with -, _ or +. The final index name is {}", topic, indexName);
-        }
-        if (indexName.equals(".") || indexName.equals("..")) {
-            indexName = indexName.replace(".", "dot");
-            LOGGER.warn("Topic {} name is . or .. . The final index name is {}", topic, indexName);
-        }
-        return indexName;
-    }
-
-
-    private void ensureIndexExists(final String index) {
+    private void ensureIndexOrDataStreamExists(final String index) {
         if (!indexCache.contains(index)) {
-            if (!client.indexExists(index)) {
-                LOGGER.info("Create index {}", index);
-                client.createIndex(index);
+            if (!client.indexOrDataStreamExists(index)) {
+                if (config.dataStreamEnabled()) {
+                    LOGGER.info("Create data stream {}", index);
+                    client.createIndexTemplateAndDataStream(index, config.dataStreamTimestampField());
+                } else {
+                    LOGGER.info("Create index {}", index);
+                    client.createIndex(index);
+                }
             }
             indexCache.add(index);
         }
