@@ -121,7 +121,7 @@ ext {
     kafkaVersion = "2.8.1"
     slf4jVersion = "1.7.36"
     openSearchVersion = "2.4.1"
-
+    niVersion = "1.0"
     testcontainersVersion = "1.17.6"
     confluentPlatformVersion = "4.1.4"
 }

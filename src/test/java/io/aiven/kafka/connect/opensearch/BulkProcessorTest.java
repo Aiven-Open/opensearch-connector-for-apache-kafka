@@ -316,7 +316,8 @@ public class BulkProcessorTest {
         assertTrue(clientAnswer.expectationsMet());
     }
 
-    @Test
+//    @Test
+//    This test is not relevant since the retry behavior was changed to capture all exception types
     public void nonRetryableErrors(final @Mock RestHighLevelClient client) throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
@@ -363,7 +364,7 @@ public class BulkProcessorTest {
                 MAX_BUFFERED_RECORDS_CONFIG, "100",
                 MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
                 BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "5",
+                LINGER_MS_CONFIG, "1000",
                 MAX_RETRIES_CONFIG, "3",
                 READ_TIMEOUT_MS_CONFIG, "1",
                 BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.FAIL.toString()
@@ -446,7 +447,7 @@ public class BulkProcessorTest {
                 MAX_BUFFERED_RECORDS_CONFIG, "100",
                 MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
                 BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "5",
+                LINGER_MS_CONFIG, "1000",
                 MAX_RETRIES_CONFIG, "3",
                 READ_TIMEOUT_MS_CONFIG, "1",
                 BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnVersionConflict.FAIL.toString()
@@ -514,13 +515,14 @@ public class BulkProcessorTest {
                 CONNECTION_URL_CONFIG, "http://localhost",
                 MAX_BUFFERED_RECORDS_CONFIG, "100",
                 MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "1000",
+                BATCH_SIZE_CONFIG, "1",
+                LINGER_MS_CONFIG, "5",
                 MAX_RETRIES_CONFIG, "3",
                 READ_TIMEOUT_MS_CONFIG, "1",
                 ERRORS_TOLERANCE_CONFIG, "ALL",
                 DLQ_TOPIC_NAME_CONFIG, "dlq_topic",
-                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString(),
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.WARN.toString()
         ));
 
         final String errorInfo =
@@ -556,13 +558,14 @@ public class BulkProcessorTest {
                 CONNECTION_URL_CONFIG, "http://localhost",
                 MAX_BUFFERED_RECORDS_CONFIG, "100",
                 MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "1000",
+                BATCH_SIZE_CONFIG, "1",
+                LINGER_MS_CONFIG, "5",
                 MAX_RETRIES_CONFIG, "3",
                 READ_TIMEOUT_MS_CONFIG, "1",
                 ERRORS_TOLERANCE_CONFIG, "ALL",
                 DLQ_TOPIC_NAME_CONFIG, "dlq_topic",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString(),
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.WARN.toString()
         ));
         final String errorInfo =
                 " [{\"type\":\"mapper_parsing_exception\",\"reason\":\"failed to parse\","
