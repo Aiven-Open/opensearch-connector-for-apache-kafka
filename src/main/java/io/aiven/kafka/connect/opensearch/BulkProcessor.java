@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -383,17 +384,47 @@ public class BulkProcessor {
             try {
                 final var rsp = execute();
                 LOGGER.debug("Successfully executed batch {} of {} records", batchId, batch.size());
+                if (errorToleranceType == ErrorToleranceType.ALL) {
+                    reportMalformedRecords(null);
+                }
                 onBatchCompletion(batch.size());
                 return rsp;
             } catch (final Exception e) {
+                reportMalformedRecords(e);
                 failAndStop(e);
                 throw e;
             }
         }
 
-        private void reportToDlq(final String errorMessage, final SinkRecord batchRecord) {
-            LOGGER.debug(errorMessage);
-            reporter.report(batchRecord, new Exception(errorMessage));
+        private void reportMalformedRecords(final Exception exception) {
+            if (reporter == null) {
+                return;
+            }
+            int badRecords = 0;
+            for (final DocWriteWrapper batchItem : batch) {
+                final BulkItemResponse itemResponse = batchItem.getBulkItemResponse();
+                if (exception != null || itemResponse == null || itemResponse.isFailed()) {
+                    try {
+                        final Exception exceptionToReport;
+                        if (itemResponse != null && itemResponse.isFailed()) {
+                            final String errorMsg = String.format("Encountered an error when executing request. "
+                                            + "Rest status: %s, Action id: %s, Error message: %s",
+                                    itemResponse.getFailure().getStatus(),
+                                    itemResponse.getFailure().getId(),
+                                    itemResponse.getFailureMessage());
+                            exceptionToReport = new Exception(errorMsg);
+                        } else {
+                            exceptionToReport = Optional.ofNullable(exception)
+                                    .orElse(new Exception("Unknown error occurred"));
+                        }
+                        LOGGER.debug("Reporting to DLQ, error message is: {}", exceptionToReport.getMessage());
+                        ++badRecords;
+                        reporter.report(batchItem.getSinkRecord(), exceptionToReport);
+                    } catch (final Exception e) {
+                        LOGGER.error("An error occurred when reporting record failure with errant record reporter", e);
+                    }
+                }
+            }
         }
 
         private BulkResponse execute() throws Exception {
@@ -404,6 +435,9 @@ public class BulkProcessor {
                                             batch.stream().map(DocWriteWrapper::getDocWriteRequest)
                                                     .collect(Collectors.toList())),
                                     RequestOptions.DEFAULT);
+                    for (final var itemResponse : response.getItems()) {
+                        batch.get(itemResponse.getItemId()).setBulkItemResponse(itemResponse);
+                    }
                     if (!response.hasFailures()) {
                         // We only logged failures, so log the success immediately after a failure ...
                         LOGGER.debug("Completed batch {} of {} records", batchId, batch.size());
@@ -446,15 +480,6 @@ public class BulkProcessor {
                                     + " records. Ignoring and will keep an existing record. Error was {}",
                             batchId, batch.size(), bulkItemResponse.getFailureMessage());
                     break;
-                case REPORT:
-                    final String errorMessage =
-                            String.format("Encountered a version conflict when executing batch %s of %s"
-                                            + " records. Reporting to DLQ and will keep an existing record."
-                                            + " Rest status: %s, Action id: %s, Error message: %s",
-                                    batchId, batch.size(), bulkItemResponse.getFailure().getStatus(),
-                                    bulkItemResponse.getFailure().getId(), bulkItemResponse.getFailureMessage());
-                    reportToDlq(errorMessage, batch.get(bulkItemResponse.getItemId()).getSinkRecord());
-                    break;
                 case WARN:
                     LOGGER.warn("Encountered a version conflict when executing batch {} of {}"
                                     + " records. Ignoring and will keep an existing record. Error was {}",
@@ -484,15 +509,6 @@ public class BulkProcessor {
                                     + " records. Ignoring and will not index record. Error was {}",
                             batchId, batch.size(), bulkItemResponse.getFailureMessage());
                     break;
-                case REPORT:
-                    final String errorMessage =
-                            String.format("Encountered a version conflict when executing batch %s of %s"
-                                            + " records. Reporting to DLQ and will not index record."
-                                            + " Rest status: %s, Action id: %s, Error message: %s",
-                                    batchId, batch.size(), bulkItemResponse.getFailure().getStatus(),
-                                    bulkItemResponse.getFailure().getId(), bulkItemResponse.getFailureMessage());
-                    reportToDlq(errorMessage, batch.get(bulkItemResponse.getItemId()).getSinkRecord());
-                    break;
                 case WARN:
                     LOGGER.warn("Encountered an illegal document error when executing batch {} of {}"
                                     + " records. Ignoring and will not index record. Error was {}",
@@ -516,6 +532,7 @@ public class BulkProcessor {
 
         private final DocWriteRequest<?> docWriteRequest;
         private final SinkRecord sinkRecord;
+        private BulkItemResponse bulkItemResponse;
 
         DocWriteWrapper(final DocWriteRequest<?> docWriteRequests, final SinkRecord sinkRecord) {
             this.docWriteRequest = docWriteRequests;
@@ -528,6 +545,14 @@ public class BulkProcessor {
 
         public SinkRecord getSinkRecord() {
             return sinkRecord;
+        }
+
+        public BulkItemResponse getBulkItemResponse() {
+            return bulkItemResponse;
+        }
+
+        public void setBulkItemResponse(final BulkItemResponse bulkItemResponse) {
+            this.bulkItemResponse = bulkItemResponse;
         }
     }
 
@@ -573,8 +598,7 @@ public class BulkProcessor {
     public enum BehaviorOnMalformedDoc {
         IGNORE,
         WARN,
-        FAIL,
-        REPORT;
+        FAIL;
 
         public static final BehaviorOnMalformedDoc DEFAULT = FAIL;
 
@@ -624,8 +648,7 @@ public class BulkProcessor {
     public enum BehaviorOnVersionConflict {
         IGNORE,
         WARN,
-        FAIL,
-        REPORT;
+        FAIL;
 
         public static final BehaviorOnVersionConflict DEFAULT = FAIL;
 
