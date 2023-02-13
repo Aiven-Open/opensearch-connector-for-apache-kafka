@@ -21,6 +21,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -150,19 +151,31 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public static final String BEHAVIOR_ON_NULL_VALUES_CONFIG = "behavior.on.null.values";
     private static final String BEHAVIOR_ON_NULL_VALUES_DOC = "How to handle records with a "
             + "non-null key and a null value (i.e. Kafka tombstone records). Valid options are "
-            + "'ignore', 'delete', and 'fail'.";
+            + "``ignore``, ``delete``, and ``fail``.";
 
     public static final String BEHAVIOR_ON_MALFORMED_DOCS_CONFIG = "behavior.on.malformed.documents";
     private static final String BEHAVIOR_ON_MALFORMED_DOCS_DOC = "How to handle records that "
             + "OpenSearch rejects due to some malformation of the document itself, such as an index"
             + " mapping conflict or a field name containing illegal characters. Valid options are "
-            + "'ignore', 'warn', and 'fail'.";
+            + "``ignore``, ``warn``, and ``fail``.";
     
     public static final String BEHAVIOR_ON_VERSION_CONFLICT_CONFIG = "behavior.on.version.conflict";
     private static final String BEHAVIOR_ON_VERSION_CONFLICT_DOC = "How to handle records that "
             + "OpenSearch rejects due to document's version conflicts. It may happen when offsets "
             + "were not committed or/and records have to be reprocessed. "
-            + "Valid options are 'ignore', 'warn', and 'fail'.";
+            + "Valid options are ``ignore``, ``warn``, and ``fail``.";
+
+    public static final String INDEX_WRITE_METHOD = "index.write.method";
+
+    public static final String INDEX_WRITE_METHOD_DOC = String.format(
+            "The method used to write data into OpenSearch index."
+                    + "The default value is ``%s`` which means that "
+                    + "the record with the same document id will be replaced. "
+                    + "The ``%s`` will create a new document if one does not exist or "
+                    + "will update the existing document.",
+            IndexWriteMethod.INSERT.name().toLowerCase(Locale.ROOT),
+            IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
+    );
 
     public static final String DATA_STREAM_ENABLED = "data.stream.enabled";
 
@@ -336,6 +349,17 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     private static void addConversionConfigs(final ConfigDef configDef) {
         int order = 0;
         configDef.define(
+                INDEX_WRITE_METHOD,
+                Type.STRING,
+                IndexWriteMethod.INSERT.toString().toLowerCase(Locale.ROOT),
+                IndexWriteMethod.VALIDATOR,
+                Importance.LOW,
+                INDEX_WRITE_METHOD_DOC,
+                DATA_CONVERSION_GROUP_NAME,
+                ++order,
+                Width.SHORT,
+                "Index write method"
+        ).define(
                 KEY_IGNORE_CONFIG,
                 Type.BOOLEAN,
                 false,
@@ -482,6 +506,28 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public OpensearchSinkConnectorConfig(final Map<String, String> props) {
         super(CONFIG, props);
+        validate();
+    }
+
+    private void validate() {
+        if (dataStreamEnabled() && indexWriteMethod() == IndexWriteMethod.UPSERT) {
+            throw new ConfigException("Data streams do not support upsert index write method");
+        }
+        if (!dataStreamEnabled() && dataStreamPrefix().isPresent()) {
+            LOGGER.warn("The property data.stream.prefix was set but data streams are not enabled");
+        }
+        if (indexWriteMethod() == IndexWriteMethod.UPSERT
+                && ignoreKey()
+                && documentIdStrategy() != DocumentIDStrategy.RECORD_KEY) {
+            throw new ConfigException(
+                    KEY_IGNORE_ID_STRATEGY_CONFIG, documentIdStrategy().toString(),
+                    String.format(
+                            "%s is not supported for index upsert. Supported is: %s",
+                            documentIdStrategy().toString(),
+                            DocumentIDStrategy.RECORD_KEY
+                    )
+            );
+        }
     }
 
     public HttpHost[] httpHosts() {
@@ -519,6 +565,10 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public boolean useCompactMapEntries() {
         return getBoolean(OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG);
+    }
+
+    protected IndexWriteMethod indexWriteMethod() {
+        return IndexWriteMethod.valueOf(getString(INDEX_WRITE_METHOD).toUpperCase(Locale.ROOT));
     }
 
     public boolean dataStreamEnabled() {
@@ -573,10 +623,13 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
     }
 
-    public DocumentIDStrategy docIdStrategy(final String topic) {
+    private DocumentIDStrategy documentIdStrategy() {
+        return DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG));
+    }
+
+    public DocumentIDStrategy documentIdStrategy(final String topic) {
         return (ignoreKey() || topicIgnoreKey().contains(topic))
-            ? DocumentIDStrategy.fromString(getString(KEY_IGNORE_ID_STRATEGY_CONFIG))
-                : DocumentIDStrategy.RECORD_KEY;
+            ? documentIdStrategy() : DocumentIDStrategy.RECORD_KEY;
     }
 
     public Function<String, String> topicToIndexNameConverter() {

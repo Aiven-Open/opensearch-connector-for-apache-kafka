@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.SCHEMA_IGNORE_CONFIG;
 import static org.apache.kafka.connect.json.JsonConverterConfig.SCHEMAS_ENABLE_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.CONNECTOR_CLASS_CONFIG;
@@ -115,6 +116,7 @@ public class AbstractKafkaConnectIT extends AbstractIT {
         props.put("value.converter." + SCHEMAS_ENABLE_CONFIG, "false");
         props.put(KEY_IGNORE_CONFIG, "true");
         props.put(SCHEMA_IGNORE_CONFIG, "true");
+        props.put(MAX_BUFFERED_RECORDS_CONFIG, "1");
         return props;
     }
 

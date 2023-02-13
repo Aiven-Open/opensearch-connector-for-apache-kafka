@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Aiven Oy
+ * Copyright 2023 Aiven Oy
  * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,96 +19,108 @@ package io.aiven.kafka.connect.opensearch;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.delete.DeleteRequest;
-import org.opensearch.action.index.IndexRequest;
-import org.opensearch.index.VersionType;
-
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class DocumentIDStrategyTest {
 
-    private String key;
-    private String topic;
-    private int partition;
-    private long offset;
-    private String index;
-    private Schema schema;
-    private String value;
-
-    @BeforeEach
-    public void setUp() {
-        key = "key";
-        topic = "topic";
-        partition = 5;
-        offset = 15;
-        index = "index";
-        value = "value";
-        schema = SchemaBuilder
-                .struct()
-                .name("struct")
-                .field("string", Schema.STRING_SCHEMA)
-                .build();
-    }
-    
     @Test
-    public void docIdStrategyNoneWithNullRecord() {
-        final DocumentIDStrategy strategy = DocumentIDStrategy.NONE;
-        final SinkRecord record = createSinkRecordWithValue(null);
-        final DocWriteRequest<?> req = strategy.updateRequest(new IndexRequest(index), record);
-        assertNull(req);
+    void noneTypeAlwaysWithoutKey() {
+        final var documentId = DocumentIDStrategy.NONE.documentId(createRecord());
+        assertNull(documentId);
     }
 
     @Test
-    public void docIdStrategyNone() {
-        final DocumentIDStrategy strategy = DocumentIDStrategy.NONE;
-        final SinkRecord record = createSinkRecordWithValue(value);
-        final DocWriteRequest<?> req = strategy.updateRequest(new IndexRequest(index), record);
-        assertNotNull(req);
-        assertNull(req.id());
-        assertEquals(VersionType.INTERNAL, req.versionType());
+    void topicPartitionOffsetTypeKey() {
+        final var documentId = DocumentIDStrategy.TOPIC_PARTITION_OFFSET.documentId(createRecord());
+        assertEquals(String.format("%s+%s+%s", "a", 1, 13), documentId);
     }
 
     @Test
-    public void docIdStrategyRecordKey() {
-        final DocumentIDStrategy strategy = DocumentIDStrategy.RECORD_KEY;
-        final SinkRecord record = createSinkRecordWithValue(value);
-        final DocWriteRequest<?> req = strategy.updateRequest(new IndexRequest(index), record);
-        assertNotNull(req);
-        assertEquals(key, req.id());
-        assertEquals(VersionType.EXTERNAL, req.versionType());
-        assertEquals(record.kafkaOffset(), req.version());
+    void recordKeyTypeKey() {
+        final var stringKeySchemaDocumentId = DocumentIDStrategy.RECORD_KEY.documentId(createRecord());
+        assertEquals("a", stringKeySchemaDocumentId);
+
+        final var int8KeySchemaDocumentId =
+                DocumentIDStrategy.RECORD_KEY.documentId(createRecord(Schema.INT8_SCHEMA, (byte) 10));
+        assertEquals("10", int8KeySchemaDocumentId);
+
+        final var int8KWithoutKeySchemaDocumentId =
+                DocumentIDStrategy.RECORD_KEY.documentId(createRecord(null, (byte) 10));
+        assertEquals("10", int8KWithoutKeySchemaDocumentId);
+
+        final var int16KeySchemaDocumentId =
+                DocumentIDStrategy.RECORD_KEY.documentId(createRecord(Schema.INT8_SCHEMA, (short) 11));
+        assertEquals("11", int16KeySchemaDocumentId);
+
+        final var int16WithoutKeySchemaDocumentId =
+                DocumentIDStrategy.RECORD_KEY.documentId(createRecord(null, (short) 11));
+        assertEquals("11", int16WithoutKeySchemaDocumentId);
+
+        final var int32KeySchemaDocumentId =
+                DocumentIDStrategy.RECORD_KEY.documentId(createRecord(Schema.INT8_SCHEMA, 12));
+        assertEquals("12", int32KeySchemaDocumentId);
+
+        final var int32WithoutKeySchemaDocumentId =
+                DocumentIDStrategy.RECORD_KEY.documentId(createRecord(null, 12));
+        assertEquals("12", int32WithoutKeySchemaDocumentId);
+
+        final var int64KeySchemaDocumentId =
+                DocumentIDStrategy.RECORD_KEY.documentId(createRecord(Schema.INT64_SCHEMA, (long) 13));
+        assertEquals("13", int64KeySchemaDocumentId);
+
+        final var int64WithoutKeySchemaDocumentId =
+                DocumentIDStrategy.RECORD_KEY.documentId(createRecord(null, (long) 13));
+        assertEquals("13", int64WithoutKeySchemaDocumentId);
     }
 
     @Test
-    public void docIdStrategyRecordKeyDelete() {
-        final DocumentIDStrategy strategy = DocumentIDStrategy.RECORD_KEY;
-        final SinkRecord record = createSinkRecordWithValue(value);
-        final DocWriteRequest<?> req = strategy.updateRequest(new DeleteRequest(index), record);
-        assertNotNull(req);
-        assertEquals(key, req.id());
-        assertEquals(VersionType.EXTERNAL, req.versionType());
-        assertEquals(record.kafkaOffset(), req.version());
+    void recordKeyTypeThrowsDataException() {
+        //unsupported schema type
+        assertThrows(
+                DataException.class,
+                () -> DocumentIDStrategy.RECORD_KEY.documentId(createRecord(Schema.FLOAT64_SCHEMA, 1f))
+        );
+        //unknown type without Key schema
+        assertThrows(
+                DataException.class,
+                () -> DocumentIDStrategy.RECORD_KEY.documentId(createRecord(Schema.FLOAT64_SCHEMA, 1f))
+        );
     }
 
     @Test
-    public void docIdStrategyTopicPartitionOffset() {
-        final DocumentIDStrategy strategy = DocumentIDStrategy.TOPIC_PARTITION_OFFSET;
-        final SinkRecord record = createSinkRecordWithValue(value);
-        final DocWriteRequest<?> req = strategy.updateRequest(new IndexRequest(index), record);
-        assertNotNull(req);
-        assertEquals(record.topic() + "+" + record.kafkaPartition() + "+" + record.kafkaOffset(), req.id());
-        assertEquals(VersionType.INTERNAL, req.versionType());
+    void recordKeyTypeThrowsDataExceptionForNoKeyValue() {
+        assertThrows(
+                DataException.class,
+                () -> DocumentIDStrategy.RECORD_KEY.documentId(createRecord(Schema.FLOAT64_SCHEMA, null))
+        );
     }
 
-    public SinkRecord createSinkRecordWithValue(final Object value) {
-        return new SinkRecord(topic, partition, Schema.STRING_SCHEMA, key, schema, value, offset);
+    SinkRecord createRecord() {
+        return createRecord(Schema.STRING_SCHEMA, "a");
     }
+
+
+    SinkRecord createRecord(final Schema keySchema, final Object keyValue) {
+        return new SinkRecord(
+                "a",
+                1,
+                keySchema,
+                keyValue,
+                SchemaBuilder
+                        .struct()
+                        .name("struct")
+                        .field("string", Schema.STRING_SCHEMA)
+                        .build(),
+                null,
+                13
+        );
+    }
+
 }

@@ -18,6 +18,7 @@
 package io.aiven.kafka.connect.opensearch;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.kafka.common.config.ConfigDef;
@@ -64,6 +65,38 @@ public class OpensearchSinkConnectorConfigTest {
     }
 
     @Test
+    void testWrongIndexWriteMethod() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD, "aaa");
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true");
+        props.put(
+                OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG,
+                DocumentIDStrategy.RECORD_KEY.toString()
+        );
+
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        props.put(
+                OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
+        );
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+
+        props.remove(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED);
+        props.remove(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD);
+        final var defaultIndexWriteMethod = new OpensearchSinkConnectorConfig(props);
+        assertEquals(IndexWriteMethod.INSERT, defaultIndexWriteMethod.indexWriteMethod());
+
+        props.put(
+                OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
+        );
+        final var upsertIndexWriteMethod = new OpensearchSinkConnectorConfig(props);
+        assertEquals(IndexWriteMethod.INSERT, defaultIndexWriteMethod.indexWriteMethod());
+    }
+
+    @Test
     public void testThrowsConfigExceptionForWrongUrls() {
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "ttp://asdsad");
         assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
@@ -78,12 +111,23 @@ public class OpensearchSinkConnectorConfigTest {
         assertEquals(config.getInt("custom.property.1"), 10);
         assertEquals(config.getString("custom.property.2"), "http://localhost:9000");
     }
-    
+
+    @Test
+    void testWrongKeyIgnoreIdStrategyConfigSettingsForIndexWriteMethodUspert() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(
+                OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
+        );
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.name());
+
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
     public static class CustomConfigDefContributor implements ConfigDefContributor {
         @Override
         public void addConfig(final ConfigDef config) {
-            config
-                .define(
+            config.define(
                     "custom.property.1",
                     Type.INT,
                     null,
@@ -93,8 +137,7 @@ public class OpensearchSinkConnectorConfigTest {
                     0,
                     Width.SHORT,
                     "Custom string property 1"
-                )
-                .define(
+            ).define(
                     "custom.property.2",
                     Type.STRING,
                     null,
@@ -104,7 +147,7 @@ public class OpensearchSinkConnectorConfigTest {
                     1,
                     Width.SHORT,
                     "Custom string property 2"
-                );
+            );
         }
     }
 
@@ -121,7 +164,7 @@ public class OpensearchSinkConnectorConfigTest {
         for (final var strategy : DocumentIDStrategy.values()) {
             props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, strategy.toString());
             final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-            assertEquals(strategy, config.docIdStrategy("anyTopic"));
+            assertEquals(strategy, config.documentIdStrategy("anyTopic"));
         }
     }
 
@@ -131,7 +174,7 @@ public class OpensearchSinkConnectorConfigTest {
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString());
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        assertEquals(DocumentIDStrategy.RECORD_KEY, config.docIdStrategy("anyTopic"));
+        assertEquals(DocumentIDStrategy.RECORD_KEY, config.documentIdStrategy("anyTopic"));
     }
 
     @Test
@@ -142,10 +185,10 @@ public class OpensearchSinkConnectorConfigTest {
         props.put(OpensearchSinkConnectorConfig.TOPIC_KEY_IGNORE_CONFIG, "topic1,topic2");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, keyIgnoreStrategy.toString());
         final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        
-        assertEquals(keyIgnoreStrategy, config.docIdStrategy("topic1"));
-        assertEquals(keyIgnoreStrategy, config.docIdStrategy("topic2"));
-        assertEquals(DocumentIDStrategy.RECORD_KEY, config.docIdStrategy("otherTopic"));
+
+        assertEquals(keyIgnoreStrategy, config.documentIdStrategy("topic1"));
+        assertEquals(keyIgnoreStrategy, config.documentIdStrategy("topic2"));
+        assertEquals(DocumentIDStrategy.RECORD_KEY, config.documentIdStrategy("otherTopic"));
     }
 
     @Test
@@ -193,6 +236,7 @@ public class OpensearchSinkConnectorConfigTest {
 
     }
 
+    @Test
     void convertTopicToDataStreamName() {
         final var config = new OpensearchSinkConnectorConfig(
                 Map.of(
@@ -201,7 +245,7 @@ public class OpensearchSinkConnectorConfigTest {
                         OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaaa"
                 )
         );
-        assertEquals("aaaaa-bbbbbb".repeat(255), config.topicToIndexNameConverter().apply("bbbbb"));
+        assertEquals("aaaaa-bbbbb", config.topicToIndexNameConverter().apply("bbbbb"));
 
         final var noDsPrefixConfig = new OpensearchSinkConnectorConfig(
                 Map.of(
@@ -209,7 +253,7 @@ public class OpensearchSinkConnectorConfigTest {
                         OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"
                 )
         );
-        assertEquals("bbbbbb".repeat(255), noDsPrefixConfig.topicToIndexNameConverter().apply("bbbbb"));
+        assertEquals("bbbbb", noDsPrefixConfig.topicToIndexNameConverter().apply("bbbbb"));
     }
 
 }

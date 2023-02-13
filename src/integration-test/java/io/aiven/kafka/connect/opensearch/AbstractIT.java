@@ -84,7 +84,7 @@ public abstract class AbstractIT {
                         throw new UncheckedIOException(e);
                     }
                 },
-                TimeUnit.MINUTES.toMillis(1),
+                TimeUnit.MINUTES.toMillis(1L),
                 String.format("Could not find expected documents (%d) in time.", expectedRecords)
         );
     }
