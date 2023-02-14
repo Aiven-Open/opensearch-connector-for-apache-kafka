@@ -80,6 +80,14 @@ Connector
 Data Conversion
 ^^^^^^^^^^^^^^^
 
+``index.write.method``
+  The method used to write data into OpenSearch index.The default value is ``insert`` which means that the record with the same document id will be replaced. The ``upsert`` will create a new document if one does not exist or will update the existing document.
+
+  * Type: string
+  * Default: insert
+  * Valid Values: ``insert``, ``upsert``
+  * Importance: low
+
 ``key.ignore``
   Whether to ignore the record key for the purpose of forming the OpenSearch document ID. When this is set to ``true``, document IDs will be generated according to the ``key.ignore.id.strategy`` strategy.
 
@@ -135,7 +143,7 @@ Data Conversion
   * Importance: low
 
 ``behavior.on.null.values``
-  How to handle records with a non-null key and a null value (i.e. Kafka tombstone records). Valid options are 'ignore', 'delete', and 'fail'.
+  How to handle records with a non-null key and a null value (i.e. Kafka tombstone records). Valid options are ``ignore``, ``delete``, and ``fail``.
 
   * Type: string
   * Default: ignore
@@ -143,7 +151,7 @@ Data Conversion
   * Importance: low
 
 ``behavior.on.malformed.documents``
-  How to handle records that OpenSearch rejects due to some malformation of the document itself, such as an index mapping conflict or a field name containing illegal characters. Valid options are 'ignore', 'warn', and 'fail'.
+  How to handle records that OpenSearch rejects due to some malformation of the document itself, such as an index mapping conflict or a field name containing illegal characters. Valid options are ``ignore``, ``warn``, and ``fail``.
 
   * Type: string
   * Default: fail
@@ -151,7 +159,7 @@ Data Conversion
   * Importance: low
 
 ``behavior.on.version.conflict``
-  How to handle records that OpenSearch rejects due to document's version conflicts. It may happen when offsets were not committed or/and records have to be reprocessed. Valid options are 'ignore', 'warn', and 'fail'.
+  How to handle records that OpenSearch rejects due to document's version conflicts. It may happen when offsets were not committed or/and records have to be reprocessed. Valid options are ``ignore``, ``warn``, and ``fail``.
 
   * Type: string
   * Default: fail

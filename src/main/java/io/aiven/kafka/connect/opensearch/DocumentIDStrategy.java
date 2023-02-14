@@ -18,9 +18,8 @@
 package io.aiven.kafka.connect.opensearch;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -30,48 +29,34 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.delete.DeleteRequest;
-import org.opensearch.action.index.IndexRequest;
-import org.opensearch.index.VersionType;
-
 public enum DocumentIDStrategy {
 
-    NONE("none", "No Doc ID is added",
-         record -> null,
-         (request, record) -> Objects.isNull(record.value()) ? null : request
-    ),
-    
+    NONE("none", "No Doc ID is added", record -> null),
+
     RECORD_KEY("record.key", "Generated from the record's key",
-        record -> convertKey(record.keySchema(), record.key()),
-        (request, record) ->  {
-            request.versionType(VersionType.EXTERNAL);
-            request.version(record.kafkaOffset());
-            return request;
-        }
+            record -> convertKey(record.keySchema(), record.key())
     ),
 
-    TOPIC_PARTITION_OFFSET("topic.partition.offset", "Generated as record's ``topic+partition+offset``",
-        record ->  record.topic() + "+" + record.kafkaPartition() + "+" + record.kafkaOffset(),
-        (request, record) -> request
+    TOPIC_PARTITION_OFFSET("topic.partition.offset",
+            "Generated as record's ``topic+partition+offset``",
+            record -> String.format("%s+%s+%s", record.topic(), record.kafkaPartition(), record.kafkaOffset())
     );
 
-            
     private final String name;
 
     private final String description;
 
     private final Function<SinkRecord, String> docIdGenerator;
 
-    private final BiFunction<DocWriteRequest<?>, SinkRecord, DocWriteRequest<?>> requestUpdater;
-
-    private DocumentIDStrategy(final String name, final String description, 
-                               final Function<SinkRecord, String> docIdGenerator,
-                               final BiFunction<DocWriteRequest<?>, SinkRecord, DocWriteRequest<?>> requestUpdater) {
+    private DocumentIDStrategy(final String name, final String description,
+                               final Function<SinkRecord, String> docIdGenerator) {
         this.name = name.toLowerCase(Locale.ROOT);
         this.description = description;
         this.docIdGenerator = docIdGenerator;
-        this.requestUpdater = requestUpdater;
+    }
+
+    public String documentId(final SinkRecord record) {
+        return docIdGenerator.apply(record);
     }
 
     @Override
@@ -91,39 +76,6 @@ public enum DocumentIDStrategy {
     public static String describe() {
         return Arrays.stream(values()).map(v -> v.toString() + " : " + v.description)
                 .collect(Collectors.joining(", ", "{", "}"));
-    }
-
-    /**
-     * Return the DOC ID for a record using this Strategy
-     * @param record The record for which to generate the DOC ID
-     * @return Doc ID
-     */
-    public String docId(final SinkRecord record) {
-        return docIdGenerator.apply(record);
-    }
-
-    /**
-     * Update an IndexRequest for a record to include its DOC ID and External
-     * Version if applicable based on this Strategy.
-     * @param request The IndexRequest to be updated
-     * @param record The record for which to update the IndexRequest
-     * @return Updated IndexRequest
-     */
-    public DocWriteRequest<?> updateRequest(final IndexRequest request,
-                                            final SinkRecord record) {
-        return requestUpdater.apply(request.id(docId(record)), record);
-    }
-
-    /**
-     * Update a DeleteRequest for a record to include its DOC ID and External
-     * Version if applicable based on this Strategy.
-     * @param request The DeleteRequest to be updated
-     * @param record The record for which to update the DeleteRequest
-     * @return Updated DeleteRequest
-     */
-    public DocWriteRequest<?> updateRequest(final DeleteRequest request,
-                                            final SinkRecord record) {
-        return requestUpdater.apply(request.id(docId(record)), record);
     }
 
     public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
@@ -172,7 +124,19 @@ public enum DocumentIDStrategy {
             case STRING:
                 return String.valueOf(key);
             default:
-                throw new DataException(schemaType.name() + " is not supported as the document id.");
+                throw new DataException(
+                        String.format(
+                                "%s is not supported as the document id. Supported are: %s",
+                                schemaType.name(),
+                                List.of(
+                                        Schema.INT8_SCHEMA,
+                                        Schema.INT16_SCHEMA,
+                                        Schema.INT32_SCHEMA,
+                                        Schema.INT64_SCHEMA,
+                                        Schema.STRING_SCHEMA
+                                )
+                        )
+                );
         }
     }
 }
