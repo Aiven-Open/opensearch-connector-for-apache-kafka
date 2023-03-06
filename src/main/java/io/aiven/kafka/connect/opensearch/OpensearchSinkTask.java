@@ -31,11 +31,15 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
 
 public class OpensearchSinkTask extends SinkTask {
 
@@ -64,6 +68,13 @@ public class OpensearchSinkTask extends SinkTask {
             LOGGER.info("Starting OpensearchSinkTask.");
 
             this.config = new OpensearchSinkConnectorConfig(props);
+
+            if (config.requiresErrantRecordReporter() && getErrantRecordReporter() == null) {
+                throw new ConfigException(String.format(
+                        "Errant record reporter must be configured when using 'report' option for %s or %s",
+                        BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
+            }
+
             this.topicToIndexConverter = config.topicToIndexNameConverter();
             // Calculate the maximum possible backoff time ...
             final long maxRetryBackoffMs =
@@ -77,13 +88,21 @@ public class OpensearchSinkTask extends SinkTask {
                         TimeUnit.MILLISECONDS.toHours(maxRetryBackoffMs));
             }
 
-            this.client = new OpensearchClient(config);
+            this.client = new OpensearchClient(config, getErrantRecordReporter());
             this.recordConverter = new RecordConverter(config);
         } catch (final ConfigException e) {
             throw new ConnectException(
                     "Couldn't start OpensearchSinkTask due to configuration error:",
                     e
             );
+        }
+    }
+
+    private ErrantRecordReporter getErrantRecordReporter() {
+        try {
+            return context.errantRecordReporter();
+        } catch (NoSuchMethodError | NoClassDefFoundError e) {
+            return null;
         }
     }
 
@@ -115,7 +134,7 @@ public class OpensearchSinkTask extends SinkTask {
         try {
             final var indexRecord = recordConverter.convert(record, indexOrDataStreamName);
             if (Objects.nonNull(indexRecord)) {
-                client.index(indexRecord);
+                client.index(indexRecord, record);
             }
         } catch (final DataException e) {
             if (config.dropInvalidMessage()) {

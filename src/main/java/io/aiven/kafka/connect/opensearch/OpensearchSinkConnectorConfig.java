@@ -157,13 +157,16 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     private static final String BEHAVIOR_ON_MALFORMED_DOCS_DOC = "How to handle records that "
             + "OpenSearch rejects due to some malformation of the document itself, such as an index"
             + " mapping conflict or a field name containing illegal characters. Valid options are "
-            + "``ignore``, ``warn``, and ``fail``.";
+            + "``ignore`` - do not index the record, ``warn`` - log a warning message and do not index the record, "
+            + "``report`` - report to errant record reporter and do not index the record, ``fail`` - fail the task.";
     
     public static final String BEHAVIOR_ON_VERSION_CONFLICT_CONFIG = "behavior.on.version.conflict";
     private static final String BEHAVIOR_ON_VERSION_CONFLICT_DOC = "How to handle records that "
             + "OpenSearch rejects due to document's version conflicts. It may happen when offsets "
             + "were not committed or/and records have to be reprocessed. "
-            + "Valid options are ``ignore``, ``warn``, and ``fail``.";
+            + "Valid options are ``ignore`` - ignore and keep the existing record, "
+            + "``warn`` - log a warning message and keep the existing record, "
+            + "``report`` - report to errant record reporter and keep the existing record, ``fail`` - fail the task.";
 
     public static final String INDEX_WRITE_METHOD = "index.write.method";
 
@@ -507,6 +510,11 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public OpensearchSinkConnectorConfig(final Map<String, String> props) {
         super(CONFIG, props);
         validate();
+    }
+
+    public boolean requiresErrantRecordReporter() {
+        return behaviorOnMalformedDoc() == BulkProcessor.BehaviorOnMalformedDoc.REPORT
+                || behaviorOnVersionConflict() == BulkProcessor.BehaviorOnVersionConflict.REPORT;
     }
 
     private void validate() {
