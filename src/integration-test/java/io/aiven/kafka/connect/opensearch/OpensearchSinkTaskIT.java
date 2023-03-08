@@ -33,6 +33,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.apache.kafka.test.TestUtils;
 
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -50,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 public class OpensearchSinkTaskIT extends AbstractIT {
 
@@ -133,6 +135,8 @@ public class OpensearchSinkTaskIT extends AbstractIT {
 
         final var opensearchSinkTask = new OpensearchSinkTask();
         try {
+            final var mockContext = mock(SinkTaskContext.class);
+            opensearchSinkTask.initialize(mockContext);
             opensearchSinkTask.start(getDefaultTaskProperties(true, RecordConverter.BehaviorOnNullValues.DEFAULT));
             opensearchSinkTask.put(
                     List.of(
@@ -363,6 +367,8 @@ public class OpensearchSinkTaskIT extends AbstractIT {
 
     private void runTask(final Map<String, String> props, final List<SinkRecord> records) {
         final var opensearchSinkTask = new OpensearchSinkTask();
+        final var mockContext = mock(SinkTaskContext.class);
+        opensearchSinkTask.initialize(mockContext);
         try {
             opensearchSinkTask.start(props);
             opensearchSinkTask.put(records);

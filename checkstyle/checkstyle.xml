@@ -289,7 +289,8 @@
 
         <!-- See http://checkstyle.sourceforge.net/config_metrics.html#ClassFanOutComplexity -->
         <module name="ClassFanOutComplexity">
-            <property name="max" value="21"/>
+            <property name="max" value="23"/>
+            <property name="excludedPackages" value="java.io,java.util,org.slf4j"/>
         </module>
 
         <!-- See http://checkstyle.sourceforge.net/config_metrics.html#CyclomaticComplexity -->
