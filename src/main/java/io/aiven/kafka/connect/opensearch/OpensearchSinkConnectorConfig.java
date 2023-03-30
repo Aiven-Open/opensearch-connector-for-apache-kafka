@@ -180,6 +180,9 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
     );
 
+    public static final String INDEX_NAME_OVERRIDE = "index.name.override";
+    public static final String INDEX_NAME_OVERRIDE_DOC = "When defined, will override other index name logic and used as the index name to write documents to";
+
     public static final String DATA_STREAM_ENABLED = "data.stream.enabled";
 
     public static final String DATA_STREAM_ENABLED_DOC = "Enable use of data streams. "
@@ -362,6 +365,16 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 ++order,
                 Width.SHORT,
                 "Index write method"
+        ).define(
+            INDEX_NAME_OVERRIDE,
+            Type.STRING,
+            "",
+            Importance.LOW,
+            INDEX_NAME_OVERRIDE_DOC,
+            DATA_CONVERSION_GROUP_NAME,
+            ++order,
+            Width.SHORT,
+            "Index Name"
         ).define(
                 KEY_IGNORE_CONFIG,
                 Type.BOOLEAN,
@@ -583,6 +596,10 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(DATA_STREAM_ENABLED);
     }
 
+    public String indexNameOverride() {
+        return getString(INDEX_NAME_OVERRIDE);
+    }
+
     public Optional<String> dataStreamPrefix() {
         return Optional.ofNullable(getString(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX));
     }
@@ -641,9 +658,14 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     }
 
     public Function<String, String> topicToIndexNameConverter() {
-        return dataStreamEnabled()
-                ? this::convertTopicToDataStreamName
-                : OpensearchSinkConnectorConfig::convertTopicToIndexName;
+        if (indexNameOverride() != null && !indexNameOverride().equalsIgnoreCase("")){
+            final String indexNameOverride = indexNameOverride();
+            return s -> indexNameOverride;
+        }
+        if (dataStreamEnabled()) {
+            return this::convertTopicToDataStreamName;
+        }
+        return OpensearchSinkConnectorConfig::convertTopicToIndexName;
     }
 
     private static String convertTopicToIndexName(final String topic) {
