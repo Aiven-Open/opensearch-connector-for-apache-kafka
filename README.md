@@ -11,6 +11,68 @@ The code was forked and all classes were renamed.
 
 # Documentation
 
+## How to install
+
+1. Connector plugins are packaged in zip/tar format to be released
+2. Users download plugins from GitHub releases or build binaries from source
+3. Users place connector plugins on Connect worker instances and add them via configuration
+4. Start creating connectors using installed plugins
+
+### Download binaries
+
+Binaries are included on every release as zip/tar files: https://github.com/aiven/opensearch-connector-for-apache-kafka/releases/latest
+
+### Build from Source
+
+Execute gradle task to build binaries:
+
+```shell
+./gradlew installDist
+# or ./gradlew assembleDist to package binaries
+```
+
+This produces an output on `build/install` directory with the plugin binaries to add into Connect cluster.
+
+### Add plugin to Connect worker
+
+Place unpacked binaries into a directory on each Connect worker node, e.g. `/kafka-connect-plugins`.
+
+In this case, place `opensearch-connector-for-kafka` into `/kafka-connect-plugins`:
+
+```
+/kafka-connect-plugins
+└── opensearch-connector-for-apache-kafka
+```
+
+Then, on each connect worker configuration make sure to add `/kafka-connect-plugins` to the `plugin.path` configuration:
+
+```properties
+plugin.path=/kafka-connect-plugins
+```
+
+### Validate Connector plugin installation
+
+Once placed on each worker node, start the workers and check the plugins installed
+and check the plugin (with the correct version) is included:
+
+```shell
+# Go to connector rest api
+curl http://localhost:8083/connector-plugins | jq .
+```
+```json
+[
+  ...
+  {
+    "class": "io.aiven.kafka.connect.opensearch.OpensearchSinkConnector",
+    "type": "sink",
+    "version": "3.0.0"
+  },
+  ...
+]
+```
+
+## Connector Configuration
+
 [OpenSearch® Sink Connector Configuration Options](docs/opensearch-sink-connector-config-options.rst)
 
 # Contribute
