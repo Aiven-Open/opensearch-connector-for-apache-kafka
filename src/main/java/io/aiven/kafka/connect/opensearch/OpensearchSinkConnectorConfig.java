@@ -156,17 +156,22 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public static final String BEHAVIOR_ON_MALFORMED_DOCS_CONFIG = "behavior.on.malformed.documents";
     private static final String BEHAVIOR_ON_MALFORMED_DOCS_DOC = "How to handle records that "
             + "OpenSearch rejects due to some malformation of the document itself, such as an index"
-            + " mapping conflict or a field name containing illegal characters. Valid options are "
-            + "``ignore`` - do not index the record, ``warn`` - log a warning message and do not index the record, "
-            + "``report`` - report to errant record reporter and do not index the record, ``fail`` - fail the task.";
+            + " mapping conflict or a field name containing illegal characters. \n"
+            + "Valid options are:\n"
+            + "- ``ignore`` - do not index the record\n"
+            + "- ``warn`` - log a warning message and do not index the record\n"
+            + "- ``report`` - report to errant record reporter and do not index the record\n"
+            + "- ``fail`` - fail the task.\n\n";
     
     public static final String BEHAVIOR_ON_VERSION_CONFLICT_CONFIG = "behavior.on.version.conflict";
     private static final String BEHAVIOR_ON_VERSION_CONFLICT_DOC = "How to handle records that "
-            + "OpenSearch rejects due to document's version conflicts. It may happen when offsets "
-            + "were not committed or/and records have to be reprocessed. "
-            + "Valid options are ``ignore`` - ignore and keep the existing record, "
-            + "``warn`` - log a warning message and keep the existing record, "
-            + "``report`` - report to errant record reporter and keep the existing record, ``fail`` - fail the task.";
+            + "OpenSearch rejects due to document's version conflicts.\n"
+            + "It may happen when offsets were not committed or/and records have to be reprocessed.\n"
+            + "Valid options are:\n"
+            + "- ``ignore`` - ignore and keep the existing record\n"
+            + "- ``warn`` - log a warning message and keep the existing record\n"
+            + "- ``report`` - report to errant record reporter and keep the existing record\n"
+            + "- ``fail`` - fail the task.\n\n";
 
     public static final String INDEX_WRITE_METHOD = "index.write.method";
 

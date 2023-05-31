@@ -151,19 +151,41 @@ Data Conversion
   * Importance: low
 
 ``behavior.on.malformed.documents``
-  How to handle records that OpenSearch rejects due to some malformation of the document itself, such as an index mapping conflict or a field name containing illegal characters. Valid options are ``ignore``, ``warn``, and ``fail``.
+  How to handle records that OpenSearch rejects due to some malformation of the document itself, such as an index mapping conflict or a field name containing illegal characters. 
+
+  Valid options are:
+
+  - ``ignore`` - do not index the record
+
+  - ``warn`` - log a warning message and do not index the record
+
+  - ``report`` - report to errant record reporter and do not index the record
+
+  - ``fail`` - fail the task.
 
   * Type: string
   * Default: fail
-  * Valid Values: [ignore, warn, fail]
+  * Valid Values: [ignore, warn, fail, report]
   * Importance: low
 
 ``behavior.on.version.conflict``
-  How to handle records that OpenSearch rejects due to document's version conflicts. It may happen when offsets were not committed or/and records have to be reprocessed. Valid options are ``ignore``, ``warn``, and ``fail``.
+  How to handle records that OpenSearch rejects due to document's version conflicts.
+
+  It may happen when offsets were not committed or/and records have to be reprocessed.
+
+  Valid options are:
+
+  - ``ignore`` - ignore and keep the existing record
+
+  - ``warn`` - log a warning message and keep the existing record
+
+  - ``report`` - report to errant record reporter and keep the existing record
+
+  - ``fail`` - fail the task.
 
   * Type: string
   * Default: fail
-  * Valid Values: [ignore, warn, fail]
+  * Valid Values: [ignore, warn, fail, report]
   * Importance: low
 
 Data Stream
