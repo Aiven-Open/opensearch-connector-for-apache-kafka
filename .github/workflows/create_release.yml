@@ -39,14 +39,17 @@ jobs:
 
       - name: Build
         run: |
-          ./gradlew distTar distZip
+          ./gradlew distTar distTarGz distZip
 
           export tar_file=$(ls ./build/distributions/ | grep tar)
+          export tar_gz_file=$(ls ./build/distributions/ | grep tar.gz)
           export zip_file=$(ls ./build/distributions/ | grep zip)
           echo tar_file=${tar_file} >> $GITHUB_ENV
+          echo tar_gz_file=${tar_gz_file} >> $GITHUB_ENV
           echo zip_file=${zip_file} >> $GITHUB_ENV
 
           echo tar_path=`realpath ./build/distributions/${tar_file}` >> $GITHUB_ENV
+          echo tar_gz_path=`realpath ./build/distributions/${tar_gz_file}` >> $GITHUB_ENV
           echo zip_path=`realpath ./build/distributions/${zip_file}` >> $GITHUB_ENV
 
       - name: Create tag
@@ -79,6 +82,16 @@ jobs:
           asset_path: ${{ env.tar_path }}
           asset_name: ${{ env.tar_file }}
           asset_content_type: application/tar
+
+      - name: Upload tar gzip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.tar_gz_path }}
+          asset_name: ${{ env.tar_gz_file }}
+          asset_content_type: application/gzip
 
       - name: Upload zip
         uses: actions/upload-release-asset@v1

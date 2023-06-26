@@ -13,7 +13,7 @@ The code was forked and all classes were renamed.
 
 ## How to install
 
-1. Connector plugins are packaged in zip/tar format to be released
+1. Connector plugins are packaged in zip/tar/tar.gz format to be released
 2. Users download plugins from GitHub releases or build binaries from source
 3. Users place connector plugins on Connect worker instances and add them via configuration
 4. Start creating connectors using installed plugins
