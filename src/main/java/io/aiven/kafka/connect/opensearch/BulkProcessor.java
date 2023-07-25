@@ -383,6 +383,16 @@ public class BulkProcessor {
         }
 
         private BulkResponse execute() throws Exception {
+            class RetriableError extends RuntimeException {
+                public RetriableError(final String errorMessage) {
+                    super(errorMessage);
+                }
+
+                public RetriableError(final Throwable cause) {
+                    super(cause);
+                }
+            }
+
             return callWithRetry("bulk processing", () -> {
                 try {
                     final var response =
@@ -403,7 +413,7 @@ public class BulkProcessor {
                                 } else if (responseContainsVersionConflict(itemResponse)) {
                                     handleVersionConflict(itemResponse);
                                 } else {
-                                    throw new RuntimeException(
+                                    throw new RetriableError(
                                             "One of the item in the bulk response failed. Reason: "
                                             + itemResponse.getFailureMessage());
                                 }
@@ -418,9 +428,9 @@ public class BulkProcessor {
                 } catch (final IOException e) {
                     LOGGER.error(
                             "Failed to send bulk request from batch {} of {} records", batchId, batch.size(), e);
-                    throw new ConnectException(e);
+                    throw new RetriableError(e);
                 }
-            }, maxRetries, retryBackoffMs, RuntimeException.class);
+            }, maxRetries, retryBackoffMs, RetriableError.class);
         }
 
         private void handleVersionConflict(final BulkItemResponse bulkItemResponse) {
