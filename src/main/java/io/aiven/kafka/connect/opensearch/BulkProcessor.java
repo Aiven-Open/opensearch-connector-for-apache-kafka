@@ -384,43 +384,37 @@ public class BulkProcessor {
 
         private BulkResponse execute() throws Exception {
             return callWithRetry("bulk processing", () -> {
-                try {
-                    final var response =
-                            client.bulk(new BulkRequest().add(
-                                            batch.stream().map(DocWriteWrapper::getDocWriteRequest)
-                                                    .collect(Collectors.toList())),
-                                    RequestOptions.DEFAULT);
-                    if (!response.hasFailures()) {
-                        // We only logged failures, so log the success immediately after a failure ...
-                        LOGGER.debug("Completed batch {} of {} records", batchId, batch.size());
-                        return response;
-                    }
-                    for (final var itemResponse : response.getItems()) {
-                        if (itemResponse.isFailed()) {
-                            if (!itemResponse.getFailure().isAborted()) {
-                                if (responseContainsMalformedDocError(itemResponse)) {
-                                    handleMalformedDoc(itemResponse);
-                                } else if (responseContainsVersionConflict(itemResponse)) {
-                                    handleVersionConflict(itemResponse);
-                                } else {
-                                    throw new RuntimeException(
-                                            "One of the item in the bulk response failed. Reason: "
-                                            + itemResponse.getFailureMessage());
-                                }
+                final var response =
+                        client.bulk(new BulkRequest().add(
+                                        batch.stream().map(DocWriteWrapper::getDocWriteRequest)
+                                                .collect(Collectors.toList())),
+                                RequestOptions.DEFAULT);
+                if (!response.hasFailures()) {
+                    // We only logged failures, so log the success immediately after a failure ...
+                    LOGGER.debug("Completed batch {} of {} records", batchId, batch.size());
+                    return response;
+                }
+                for (final var itemResponse : response.getItems()) {
+                    if (itemResponse.isFailed()) {
+                        if (!itemResponse.getFailure().isAborted()) {
+                            if (responseContainsMalformedDocError(itemResponse)) {
+                                handleMalformedDoc(itemResponse);
+                            } else if (responseContainsVersionConflict(itemResponse)) {
+                                handleVersionConflict(itemResponse);
                             } else {
-                                throw new ConnectException(
-                                        "One of the item in the bulk response aborted. Reason: "
+                                throw new IOException(
+                                        "One of the item in the bulk response failed. Reason: "
                                         + itemResponse.getFailureMessage());
                             }
+                        } else {
+                            throw new ConnectException(
+                                    "One of the item in the bulk response aborted. Reason: "
+                                    + itemResponse.getFailureMessage());
                         }
                     }
-                    return response;
-                } catch (final IOException e) {
-                    LOGGER.error(
-                            "Failed to send bulk request from batch {} of {} records", batchId, batch.size(), e);
-                    throw new ConnectException(e);
                 }
-            }, maxRetries, retryBackoffMs, RuntimeException.class);
+                return response;
+            }, maxRetries, retryBackoffMs, IOException.class);
         }
 
         private void handleVersionConflict(final BulkItemResponse bulkItemResponse) {
