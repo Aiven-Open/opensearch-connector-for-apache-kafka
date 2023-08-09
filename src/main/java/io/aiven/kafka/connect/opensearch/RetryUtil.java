@@ -118,7 +118,14 @@ public class RetryUtil {
                 LOGGER.trace("Try {} with attempt {}/{}", callName, attempts, maxAttempts);
                 return callable.call();
             } catch (final Exception e) {
-                if (attempts < maxAttempts && e.getClass().equals(repeatableException)) {
+                if (!repeatableException.isAssignableFrom(e.getClass())) {
+                    final var msg = String.format(
+                            "Non-repeatable exception trown by %s",
+                            callName
+                    );
+                    LOGGER.error(msg, e);
+                    throw new ConnectException(msg, e);
+                } else if (attempts < maxAttempts) {
                     final long sleepTimeMs = computeRandomRetryWaitTimeInMillis(retryAttempts, retryBackoffMs);
                     final var msg =
                             String.format(
