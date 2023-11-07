@@ -88,6 +88,13 @@ Data Conversion
   * Valid Values: ``insert``, ``upsert``
   * Importance: low
 
+``index.name.override``
+  When defined, will override other index name logic and used as the index name to write documents to
+
+  * Type: string
+  * Default: ""
+  * Importance: low
+
 ``key.ignore``
   Whether to ignore the record key for the purpose of forming the OpenSearch document ID. When this is set to ``true``, document IDs will be generated according to the ``key.ignore.id.strategy`` strategy.
 
