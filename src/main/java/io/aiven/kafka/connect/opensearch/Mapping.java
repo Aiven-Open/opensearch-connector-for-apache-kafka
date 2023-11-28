@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
@@ -88,40 +86,37 @@ public class Mapping {
         }
     }
 
-    private static XContentBuilder buildMapping(
-            final Schema schema,
-            final XContentBuilder builder) throws IOException {
+    private static XContentBuilder buildMapping(final Schema schema, final XContentBuilder builder) throws IOException {
         final var logicalConversion = logicalMapping(schema, builder);
         if (Objects.nonNull(logicalConversion)) {
             return builder;
         }
 
         switch (schema.type()) {
-            case ARRAY:
+            case ARRAY :
                 return buildMapping(schema.valueSchema(), builder);
-            case MAP:
+            case MAP :
                 return buildMap(schema, builder);
-            case STRUCT:
+            case STRUCT :
                 return buildStruct(schema, builder);
-            default:
+            default :
                 return buildPrimitive(builder, schemaTypeToOsType(schema.type()), schema.defaultValue());
         }
     }
 
-    private static XContentBuilder logicalMapping(
-            final Schema schema,
-            final XContentBuilder builder) throws IOException {
+    private static XContentBuilder logicalMapping(final Schema schema, final XContentBuilder builder)
+            throws IOException {
         if (Objects.isNull(schema.name())) {
             return null;
         }
         switch (schema.name()) {
-            case Date.LOGICAL_NAME:
-            case Time.LOGICAL_NAME:
-            case Timestamp.LOGICAL_NAME:
+            case Date.LOGICAL_NAME :
+            case Time.LOGICAL_NAME :
+            case Timestamp.LOGICAL_NAME :
                 return buildPrimitive(builder, DATE_TYPE, schema.defaultValue());
-            case Decimal.LOGICAL_NAME:
+            case Decimal.LOGICAL_NAME :
                 return buildPrimitive(builder, DOUBLE_TYPE, schema.defaultValue());
-            default:
+            default :
                 // User-defined type or unknown built-in
                 return null;
         }
@@ -141,8 +136,7 @@ public class Mapping {
         return builder.endObject();
     }
 
-    private static XContentBuilder buildStruct(
-            final Schema schema, final XContentBuilder builder) throws IOException {
+    private static XContentBuilder buildStruct(final Schema schema, final XContentBuilder builder) throws IOException {
         builder.startObject(PROPERTIES_FIELD);
         for (final var field : schema.fields()) {
             builder.startObject(field.name());
@@ -155,32 +149,30 @@ public class Mapping {
     // visible for testing
     protected static String schemaTypeToOsType(final Schema.Type schemaType) {
         switch (schemaType) {
-            case BOOLEAN:
+            case BOOLEAN :
                 return BOOLEAN_TYPE;
-            case INT8:
+            case INT8 :
                 return BYTE_TYPE;
-            case INT16:
+            case INT16 :
                 return SHORT_TYPE;
-            case INT32:
+            case INT32 :
                 return INTEGER_TYPE;
-            case INT64:
+            case INT64 :
                 return LONG_TYPE;
-            case FLOAT32:
+            case FLOAT32 :
                 return FLOAT_TYPE;
-            case FLOAT64:
+            case FLOAT64 :
                 return DOUBLE_TYPE;
-            case STRING:
+            case STRING :
                 return TEXT_TYPE;
-            case BYTES:
+            case BYTES :
                 return BINARY_TYPE;
-            default:
+            default :
                 return null;
         }
     }
 
-    private static XContentBuilder buildPrimitive(
-            final XContentBuilder builder,
-            final String type,
+    private static XContentBuilder buildPrimitive(final XContentBuilder builder, final String type,
             final Object defaultValue) throws IOException {
         if (type == null) {
             throw new DataException("Invalid primitive type");
@@ -196,28 +188,28 @@ public class Mapping {
         }
 
         switch (type) {
-            case BYTE_TYPE:
+            case BYTE_TYPE :
                 return builder.field(DEFAULT_VALUE_FIELD, (byte) defaultValue);
-            case SHORT_TYPE:
+            case SHORT_TYPE :
                 return builder.field(DEFAULT_VALUE_FIELD, (short) defaultValue);
-            case INTEGER_TYPE:
+            case INTEGER_TYPE :
                 return builder.field(DEFAULT_VALUE_FIELD, (int) defaultValue);
-            case LONG_TYPE:
+            case LONG_TYPE :
                 return builder.field(DEFAULT_VALUE_FIELD, (long) defaultValue);
-            case FLOAT_TYPE:
+            case FLOAT_TYPE :
                 return builder.field(DEFAULT_VALUE_FIELD, (float) defaultValue);
-            case DOUBLE_TYPE:
+            case DOUBLE_TYPE :
                 return builder.field(DEFAULT_VALUE_FIELD, (double) defaultValue);
-            case BOOLEAN_TYPE:
+            case BOOLEAN_TYPE :
                 return builder.field(DEFAULT_VALUE_FIELD, (boolean) defaultValue);
-            case DATE_TYPE:
+            case DATE_TYPE :
                 return builder.field(DEFAULT_VALUE_FIELD, ((java.util.Date) defaultValue).getTime());
-            case STRING_TYPE:
-            case TEXT_TYPE:
-            case BINARY_TYPE:
+            case STRING_TYPE :
+            case TEXT_TYPE :
+            case BINARY_TYPE :
                 // IGNORE default values for text and binary types as this is not supported by OS side.
                 return builder;
-            default:
+            default :
                 throw new DataException("Invalid primitive type " + type);
         }
     }

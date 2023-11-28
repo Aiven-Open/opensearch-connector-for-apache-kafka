@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static io.aiven.kafka.connect.opensearch.Mapping.KEYWORD_TYPE;
+import static io.aiven.kafka.connect.opensearch.Mapping.TEXT_TYPE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.Map;
@@ -33,13 +38,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 
-import static io.aiven.kafka.connect.opensearch.Mapping.KEYWORD_TYPE;
-import static io.aiven.kafka.connect.opensearch.Mapping.TEXT_TYPE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 public class MappingTest {
 
     @Test
@@ -55,9 +53,7 @@ public class MappingTest {
 
     @Test
     void buildMappingForStringSchema() throws IOException {
-        final var schema = SchemaBuilder.struct().name("record")
-                .field("string", Schema.STRING_SCHEMA)
-                .build();
+        final var schema = SchemaBuilder.struct().name("record").field("string", Schema.STRING_SCHEMA).build();
         final var result = convertSchema(schema);
         final var string = result.getAsJsonObject("properties").getAsJsonObject("string");
         final var keyword = string.getAsJsonObject("fields").getAsJsonObject("keyword");
@@ -70,8 +66,7 @@ public class MappingTest {
     @Test
     void buildMappingAndSetDefaultValues() throws IOException {
         final var expectedDate = new java.util.Date();
-        final var schema = SchemaBuilder
-                .struct()
+        final var schema = SchemaBuilder.struct()
                 .name("record")
                 .field("boolean", SchemaBuilder.bool().defaultValue(true).build())
                 .field("int8", SchemaBuilder.int8().defaultValue((byte) 1).build())
@@ -98,7 +93,8 @@ public class MappingTest {
 
     @Test
     void buildMappingAndDoNotSetDefaultsForStrings() throws IOException {
-        final var schema = SchemaBuilder.struct().name("record")
+        final var schema = SchemaBuilder.struct()
+                .name("record")
                 .field("string", Schema.STRING_SCHEMA)
                 .field("bytes", Schema.BYTES_SCHEMA)
                 .build();
@@ -116,7 +112,8 @@ public class MappingTest {
     }
 
     protected Schema createSchema() {
-        return SchemaBuilder.struct().name("record")
+        return SchemaBuilder.struct()
+                .name("record")
                 .field("boolean", Schema.BOOLEAN_SCHEMA)
                 .field("bytes", Schema.BYTES_SCHEMA)
                 .field("int8", Schema.INT8_SCHEMA)
@@ -137,7 +134,8 @@ public class MappingTest {
     }
 
     private Schema createInnerSchema() {
-        return SchemaBuilder.struct().name("inner")
+        return SchemaBuilder.struct()
+                .name("inner")
                 .field("boolean", Schema.BOOLEAN_SCHEMA)
                 .field("bytes", Schema.BYTES_SCHEMA)
                 .field("int8", Schema.INT8_SCHEMA)
@@ -162,49 +160,41 @@ public class MappingTest {
         final Object type = mapping.get("type");
         if (schemaName != null) {
             switch (schemaName) {
-                case Date.LOGICAL_NAME:
-                case Time.LOGICAL_NAME:
-                case Timestamp.LOGICAL_NAME:
+                case Date.LOGICAL_NAME :
+                case Time.LOGICAL_NAME :
+                case Timestamp.LOGICAL_NAME :
                     assertEquals("\"" + Mapping.DATE_TYPE + "\"", type.toString());
                     return;
-                case Decimal.LOGICAL_NAME:
+                case Decimal.LOGICAL_NAME :
                     assertEquals("\"" + Mapping.DOUBLE_TYPE + "\"", type.toString());
                     return;
-                default:
+                default :
             }
         }
 
-        final var props = Map.of(
-                OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+        final var props = Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
                 OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
                 RecordConverter.BehaviorOnNullValues.IGNORE.toString(),
-                OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, "true"
-        );
+                OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, "true");
         final RecordConverter converter = new RecordConverter(new OpensearchSinkConnectorConfig(props));
         final Schema.Type schemaType = schema.type();
         switch (schemaType) {
-            case ARRAY:
+            case ARRAY :
                 verifyMapping(schema.valueSchema(), mapping);
                 break;
-            case MAP:
+            case MAP :
                 final Schema newSchema = converter.preProcessSchema(schema);
                 final JsonObject mapProperties = mapping.get("properties").getAsJsonObject();
-                verifyMapping(
-                        newSchema.keySchema(),
-                        mapProperties.get(Mapping.KEY_FIELD).getAsJsonObject()
-                );
-                verifyMapping(
-                        newSchema.valueSchema(),
-                        mapProperties.get(Mapping.VALUE_FIELD).getAsJsonObject()
-                );
+                verifyMapping(newSchema.keySchema(), mapProperties.get(Mapping.KEY_FIELD).getAsJsonObject());
+                verifyMapping(newSchema.valueSchema(), mapProperties.get(Mapping.VALUE_FIELD).getAsJsonObject());
                 break;
-            case STRUCT:
+            case STRUCT :
                 final JsonObject properties = mapping.get("properties").getAsJsonObject();
                 for (final Field field : schema.fields()) {
                     verifyMapping(field.schema(), properties.get(field.name()).getAsJsonObject());
                 }
                 break;
-            default:
+            default :
                 assertEquals("\"" + Mapping.schemaTypeToOsType(schemaType) + "\"", type.toString());
         }
     }

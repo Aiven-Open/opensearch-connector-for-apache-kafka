@@ -1,6 +1,5 @@
 /*
  * Copyright 2021 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class OpensearchSinkConnectorIT extends AbstractKafkaConnectIT {
 
@@ -58,15 +56,10 @@ public class OpensearchSinkConnectorIT extends AbstractKafkaConnectIT {
 
     @Test
     public void testConnectorConfig() throws Exception {
-        assertEquals(
-                connect.validateConnectorConfig(
-                        "io.aiven.kafka.connect.opensearch.OpensearchSinkConnector",
-                        Map.of("connector.class", "io.aiven.kafka.connect.opensearch.OpensearchSinkConnector",
-                                "topics", "example-topic-name", "name", "test-connector-name")
-                ).errorCount(), 1
-        );
+        assertEquals(connect.validateConnectorConfig("io.aiven.kafka.connect.opensearch.OpensearchSinkConnector",
+                Map.of("connector.class", "io.aiven.kafka.connect.opensearch.OpensearchSinkConnector", "topics",
+                        "example-topic-name", "name", "test-connector-name"))
+                .errorCount(), 1);
     }
-
-
 
 }

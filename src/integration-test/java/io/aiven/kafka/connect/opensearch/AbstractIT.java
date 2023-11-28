@@ -1,6 +1,5 @@
 /*
  * Copyright 2021 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static io.aiven.kafka.connect.opensearch.OpensearchBasicAuthConfigurator.CONNECTION_PASSWORD_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchBasicAuthConfigurator.CONNECTION_USERNAME_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -36,10 +38,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import static io.aiven.kafka.connect.opensearch.OpensearchBasicAuthConfigurator.CONNECTION_PASSWORD_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchBasicAuthConfigurator.CONNECTION_USERNAME_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
-
 @Testcontainers
 public abstract class AbstractIT {
 
@@ -55,11 +53,8 @@ public abstract class AbstractIT {
     }
 
     protected Map<String, String> getDefaultProperties() {
-        return Map.of(
-                CONNECTION_URL_CONFIG, opensearchContainer.getHttpHostAddress(),
-                CONNECTION_USERNAME_CONFIG, "admin",
-                CONNECTION_PASSWORD_CONFIG, "admin"
-        );
+        return Map.of(CONNECTION_URL_CONFIG, opensearchContainer.getHttpHostAddress(), CONNECTION_USERNAME_CONFIG,
+                "admin", CONNECTION_PASSWORD_CONFIG, "admin");
     }
 
     @AfterEach
@@ -70,23 +65,20 @@ public abstract class AbstractIT {
     }
 
     protected SearchHits search(final String indexName) throws IOException {
-        return opensearchClient.client
-                .search(new SearchRequest(indexName), RequestOptions.DEFAULT).getHits();
+        return opensearchClient.client.search(new SearchRequest(indexName), RequestOptions.DEFAULT).getHits();
     }
 
     protected void waitForRecords(final String indexName, final int expectedRecords) throws InterruptedException {
-        TestUtils.waitForCondition(
-                () -> {
-                    try {
-                        return expectedRecords == opensearchClient.client
-                                .count(new CountRequest(indexName), RequestOptions.DEFAULT).getCount();
-                    } catch (final IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                },
-                TimeUnit.MINUTES.toMillis(1L),
-                String.format("Could not find expected documents (%d) in time.", expectedRecords)
-        );
+        TestUtils.waitForCondition(() -> {
+            try {
+                return expectedRecords == opensearchClient.client
+                        .count(new CountRequest(indexName), RequestOptions.DEFAULT)
+                        .getCount();
+            } catch (final IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }, TimeUnit.MINUTES.toMillis(1L),
+                String.format("Could not find expected documents (%d) in time.", expectedRecords));
     }
 
     private static String getOpenSearchImage() {

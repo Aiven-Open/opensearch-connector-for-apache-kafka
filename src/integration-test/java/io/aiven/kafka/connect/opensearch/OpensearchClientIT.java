@@ -1,6 +1,5 @@
 /*
  * Copyright 2021 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -37,13 +40,7 @@ import org.opensearch.cluster.metadata.ComposableIndexTemplate.DataStreamTemplat
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 public class OpensearchClientIT extends AbstractIT {
-
 
     @Test
     void getsVersion() {
@@ -81,10 +78,8 @@ public class OpensearchClientIT extends AbstractIT {
         final OpensearchClient tmpClient = new OpensearchClient(config);
 
         try {
-            tmpClient.client.indices().create(
-                new CreateIndexRequest("index_6").alias(new Alias("alias_1")),
-                RequestOptions.DEFAULT
-            );
+            tmpClient.client.indices()
+                    .create(new CreateIndexRequest("index_6").alias(new Alias("alias_1")), RequestOptions.DEFAULT);
         } catch (final OpenSearchStatusException | IOException e) {
             throw e;
         }
@@ -98,18 +93,14 @@ public class OpensearchClientIT extends AbstractIT {
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "some_data_stream");
         final var config = new OpensearchSinkConnectorConfig(props);
 
-        opensearchClient.createIndexTemplateAndDataStream(
-                config.dataStreamPrefix().get(), config.dataStreamTimestampField());
+        opensearchClient.createIndexTemplateAndDataStream(config.dataStreamPrefix().get(),
+                config.dataStreamTimestampField());
 
-        assertTrue(
-                opensearchClient.dataStreamIndexTemplateExists(
-                        String.format(OpensearchClient.DATA_STREAM_TEMPLATE_NAME_PATTERN, "some_data_stream")
-                )
-        );
-        final var dataStreams = opensearchClient.client.indices().getDataStream(
-                new GetDataStreamRequest("some_data_stream"),
-                RequestOptions.DEFAULT
-        ).getDataStreams();
+        assertTrue(opensearchClient.dataStreamIndexTemplateExists(
+                String.format(OpensearchClient.DATA_STREAM_TEMPLATE_NAME_PATTERN, "some_data_stream")));
+        final var dataStreams = opensearchClient.client.indices()
+                .getDataStream(new GetDataStreamRequest("some_data_stream"), RequestOptions.DEFAULT)
+                .getDataStreams();
         assertFalse(dataStreams.isEmpty());
         assertEquals(1, dataStreams.size());
         assertEquals("some_data_stream", dataStreams.get(0).getName());
@@ -122,22 +113,15 @@ public class OpensearchClientIT extends AbstractIT {
 
         try {
             final ComposableIndexTemplate template = new ComposableIndexTemplate(
-                    Arrays.asList("data_stream_1", "index-logs-*"),
-                    null,
-                    null,
-                    100L,
-                    null,
-                    null,
+                    Arrays.asList("data_stream_1", "index-logs-*"), null, null, 100L, null, null,
                     new DataStreamTemplate());
             final PutComposableIndexTemplateRequest request = new PutComposableIndexTemplateRequest();
             request.name("data-stream-template");
             request.indexTemplate(template);
 
             tmpClient.client.indices().putIndexTemplate(request, RequestOptions.DEFAULT);
-            tmpClient.client.indices().createDataStream(
-                new CreateDataStreamRequest("data_stream_1"),
-                RequestOptions.DEFAULT
-            );
+            tmpClient.client.indices()
+                    .createDataStream(new CreateDataStreamRequest("data_stream_1"), RequestOptions.DEFAULT);
         } catch (final OpenSearchStatusException | IOException e) {
             throw e;
         }
@@ -149,12 +133,11 @@ public class OpensearchClientIT extends AbstractIT {
     void createMapping() throws IOException {
         assertTrue(opensearchClient.createIndex("index_4"));
 
-        final var schema =
-                SchemaBuilder.struct()
-                        .name("record")
-                        .field("name", SchemaBuilder.string().defaultValue("<default_name>").build())
-                        .field("value", SchemaBuilder.int32().defaultValue(0).build())
-                        .build();
+        final var schema = SchemaBuilder.struct()
+                .name("record")
+                .field("name", SchemaBuilder.string().defaultValue("<default_name>").build())
+                .field("value", SchemaBuilder.int32().defaultValue(0).build())
+                .build();
 
         opensearchClient.createMapping("index_4", schema);
         assertTrue(opensearchClient.hasMapping("index_4"));
@@ -162,19 +145,23 @@ public class OpensearchClientIT extends AbstractIT {
         final var response = opensearchClient.client.indices()
                 .getMapping(new GetMappingsRequest().indices("index_4"), RequestOptions.DEFAULT)
                 .mappings()
-                .get("index_4").getSourceAsMap();
+                .get("index_4")
+                .getSourceAsMap();
 
         assertTrue(response.containsKey("properties"));
 
-        @SuppressWarnings("unchecked") final var properties = (Map<String, Object>) response.get("properties");
+        @SuppressWarnings("unchecked")
+        final var properties = (Map<String, Object>) response.get("properties");
         assertTrue(properties.containsKey("name"));
         assertTrue(properties.containsKey("value"));
 
-        @SuppressWarnings("unchecked") final var nameProperty = (Map<String, Object>) properties.get("name");
+        @SuppressWarnings("unchecked")
+        final var nameProperty = (Map<String, Object>) properties.get("name");
         assertEquals("text", nameProperty.get("type"));
         assertNull(nameProperty.get("null_value"));
 
-        @SuppressWarnings("unchecked") final var valueProperty = (Map<String, Object>) properties.get("value");
+        @SuppressWarnings("unchecked")
+        final var valueProperty = (Map<String, Object>) properties.get("value");
         assertEquals("integer", valueProperty.get("type"));
         assertEquals(0, valueProperty.get("null_value"));
     }
