@@ -1,6 +1,5 @@
 /*
  * Copyright 2019 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
 
 import java.util.Arrays;
@@ -33,14 +31,10 @@ public enum DocumentIDStrategy {
 
     NONE("none", "No Doc ID is added", record -> null),
 
-    RECORD_KEY("record.key", "Generated from the record's key",
-            record -> convertKey(record.keySchema(), record.key())
-    ),
+    RECORD_KEY("record.key", "Generated from the record's key", record -> convertKey(record.keySchema(), record.key())),
 
-    TOPIC_PARTITION_OFFSET("topic.partition.offset",
-            "Generated as record's ``topic+partition+offset``",
-            record -> String.format("%s+%s+%s", record.topic(), record.kafkaPartition(), record.kafkaOffset())
-    );
+    TOPIC_PARTITION_OFFSET("topic.partition.offset", "Generated as record's ``topic+partition+offset``",
+            record -> String.format("%s+%s+%s", record.topic(), record.kafkaPartition(), record.kafkaOffset()));
 
     private final String name;
 
@@ -49,7 +43,7 @@ public enum DocumentIDStrategy {
     private final Function<SinkRecord, String> docIdGenerator;
 
     private DocumentIDStrategy(final String name, final String description,
-                               final Function<SinkRecord, String> docIdGenerator) {
+            final Function<SinkRecord, String> docIdGenerator) {
         this.name = name.toLowerCase(Locale.ROOT);
         this.description = description;
         this.docIdGenerator = docIdGenerator;
@@ -74,7 +68,8 @@ public enum DocumentIDStrategy {
     }
 
     public static String describe() {
-        return Arrays.stream(values()).map(v -> v.toString() + " : " + v.description)
+        return Arrays.stream(values())
+                .map(v -> v.toString() + " : " + v.description)
                 .collect(Collectors.joining(", ", "{", "}"));
     }
 
@@ -109,34 +104,23 @@ public enum DocumentIDStrategy {
             schemaType = ConnectSchema.schemaType(key.getClass());
             if (schemaType == null) {
                 throw new DataException(
-                        String.format("Java class %s does not have corresponding schema type.", key.getClass())
-                );
+                        String.format("Java class %s does not have corresponding schema type.", key.getClass()));
             }
         } else {
             schemaType = keySchema.type();
         }
 
         switch (schemaType) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-            case STRING:
+            case INT8 :
+            case INT16 :
+            case INT32 :
+            case INT64 :
+            case STRING :
                 return String.valueOf(key);
-            default:
-                throw new DataException(
-                        String.format(
-                                "%s is not supported as the document id. Supported are: %s",
-                                schemaType.name(),
-                                List.of(
-                                        Schema.INT8_SCHEMA,
-                                        Schema.INT16_SCHEMA,
-                                        Schema.INT32_SCHEMA,
-                                        Schema.INT64_SCHEMA,
-                                        Schema.STRING_SCHEMA
-                                )
-                        )
-                );
+            default :
+                throw new DataException(String.format("%s is not supported as the document id. Supported are: %s",
+                        schemaType.name(), List.of(Schema.INT8_SCHEMA, Schema.INT16_SCHEMA, Schema.INT32_SCHEMA,
+                                Schema.INT64_SCHEMA, Schema.STRING_SCHEMA)));
         }
     }
 }

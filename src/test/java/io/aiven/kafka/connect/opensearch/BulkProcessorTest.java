@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static io.aiven.kafka.connect.opensearch.BulkProcessor.BehaviorOnMalformedDoc;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BATCH_SIZE_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.LINGER_MS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_RETRIES_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -51,28 +71,6 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
 
-import static io.aiven.kafka.connect.opensearch.BulkProcessor.BehaviorOnMalformedDoc;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BATCH_SIZE_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.LINGER_MS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_RETRIES_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 public class BulkProcessorTest {
 
@@ -95,22 +93,20 @@ public class BulkProcessorTest {
             final Expectation expectation;
             try {
                 final var request = invocation.getArgument(0, BulkRequest.class);
-                final var bulkRequestSources =
-                        request.requests().stream()
-                                .map(r -> (IndexRequest) r).map(IndexRequest::source)
-                                .map(BytesReference::toBytes)
-                                .map(String::new)
-                                .collect(Collectors.toList());
+                final var bulkRequestSources = request.requests()
+                        .stream()
+                        .map(r -> (IndexRequest) r)
+                        .map(IndexRequest::source)
+                        .map(BytesReference::toBytes)
+                        .map(String::new)
+                        .collect(Collectors.toList());
                 expectation = expectQ.remove();
                 assertEquals(request.requests().size(), expectation.requests.size());
-                assertEquals(
-                        expectation.requests.stream()
-                                .map(IndexRequest::source)
-                                .map(BytesReference::toBytes)
-                                .map(String::new)
-                                .collect(Collectors.toList()),
-                        bulkRequestSources
-                );
+                assertEquals(expectation.requests.stream()
+                        .map(IndexRequest::source)
+                        .map(BytesReference::toBytes)
+                        .map(String::new)
+                        .collect(Collectors.toList()), bulkRequestSources);
             } catch (final Throwable t) {
                 throw t;
             }
@@ -127,22 +123,15 @@ public class BulkProcessorTest {
 
     }
 
-
     @Test
     public void batchingAndLingering(final @Mock RestHighLevelClient client)
             throws IOException, InterruptedException, ExecutionException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "5",
-                LINGER_MS_CONFIG, "5",
-                MAX_RETRIES_CONFIG, "0",
-                READ_TIMEOUT_MS_CONFIG, "0",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()
-        ));
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "5",
+                LINGER_MS_CONFIG, "5", MAX_RETRIES_CONFIG, "0", READ_TIMEOUT_MS_CONFIG, "0",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()));
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
 
         final int addTimeoutMs = 10;
@@ -159,27 +148,11 @@ public class BulkProcessorTest {
         bulkProcessor.add(newIndexRequest(11), newSinkRecord(), addTimeoutMs);
         bulkProcessor.add(newIndexRequest(12), newSinkRecord(), addTimeoutMs);
 
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(1),
-                        newIndexRequest(2),
-                        newIndexRequest(3),
-                        newIndexRequest(4),
-                        newIndexRequest(5)
-                ), successResponse());
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(6),
-                        newIndexRequest(7),
-                        newIndexRequest(8),
-                        newIndexRequest(9),
-                        newIndexRequest(10)
-                ), successResponse());
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(11),
-                        newIndexRequest(12)
-                ), successResponse());
+        clientAnswer.expect(List.of(newIndexRequest(1), newIndexRequest(2), newIndexRequest(3), newIndexRequest(4),
+                newIndexRequest(5)), successResponse());
+        clientAnswer.expect(List.of(newIndexRequest(6), newIndexRequest(7), newIndexRequest(8), newIndexRequest(9),
+                newIndexRequest(10)), successResponse());
+        clientAnswer.expect(List.of(newIndexRequest(11), newIndexRequest(12)), successResponse());
 
         // batch not full, but upon linger timeout
         assertFalse(bulkProcessor.submitBatchWhenReady().get().hasFailures());
@@ -194,25 +167,14 @@ public class BulkProcessorTest {
     public void flushing(final @Mock RestHighLevelClient client) throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "5",
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "5",
                 // super high on purpose to make sure flush is what's causing the request
-                LINGER_MS_CONFIG, "100000",
-                MAX_RETRIES_CONFIG, "0",
-                READ_TIMEOUT_MS_CONFIG, "0",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()
-        ));
+                LINGER_MS_CONFIG, "100000", MAX_RETRIES_CONFIG, "0", READ_TIMEOUT_MS_CONFIG, "0",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()));
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
 
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(1),
-                        newIndexRequest(2),
-                        newIndexRequest(3)),
-                successResponse());
+        clientAnswer.expect(List.of(newIndexRequest(1), newIndexRequest(2), newIndexRequest(3)), successResponse());
 
         bulkProcessor.start();
 
@@ -232,16 +194,10 @@ public class BulkProcessorTest {
 
     @Test
     public void addBlocksWhenBufferFull(final @Mock RestHighLevelClient client) {
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "1",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "1",
-                BATCH_SIZE_CONFIG, "1",
-                LINGER_MS_CONFIG, "10",
-                MAX_RETRIES_CONFIG, "0",
-                READ_TIMEOUT_MS_CONFIG, "0",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()
-        ));
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "1", MAX_IN_FLIGHT_REQUESTS_CONFIG, "1", BATCH_SIZE_CONFIG, "1",
+                LINGER_MS_CONFIG, "10", MAX_RETRIES_CONFIG, "0", READ_TIMEOUT_MS_CONFIG, "0",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()));
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
 
         final int addTimeoutMs = 10;
@@ -257,16 +213,10 @@ public class BulkProcessorTest {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
 
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "3",
-                LINGER_MS_CONFIG, "5",
-                MAX_RETRIES_CONFIG, "3",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()
-        ));
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "3",
+                LINGER_MS_CONFIG, "5", MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()));
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
 
         clientAnswer.expect(List.of(newIndexRequest(42), newIndexRequest(43)), failedResponse());
@@ -288,16 +238,10 @@ public class BulkProcessorTest {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
 
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "5",
-                MAX_RETRIES_CONFIG, "2",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()
-        ));
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "5", MAX_RETRIES_CONFIG, "2", READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()));
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
 
         clientAnswer.expect(List.of(newIndexRequest(42), newIndexRequest(43)), failedResponse());
@@ -318,21 +262,12 @@ public class BulkProcessorTest {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
 
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "5",
-                MAX_RETRIES_CONFIG, "3",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()
-        ));
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "5", MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.DEFAULT.toString()));
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
-        clientAnswer.expect(
-                List.of(newIndexRequest(42), newIndexRequest(43)),
-                failedResponse(true)
-        );
+        clientAnswer.expect(List.of(newIndexRequest(42), newIndexRequest(43)), failedResponse(true));
 
         final int addTimeoutMs = 10;
         bulkProcessor.add(newIndexRequest(42), newSinkRecord(), addTimeoutMs);
@@ -347,30 +282,16 @@ public class BulkProcessorTest {
     public void failOnMalformedDoc(final @Mock RestHighLevelClient client) throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
-        final String errorInfo =
-                " [{\"type\":\"mapper_parsing_exception\","
-                        + "\"reason\":\"failed to parse\","
-                        + "\"caused_by\":{\"type\":\"illegal_argument_exception\","
-                        + "\"reason\":\"object\n"
-                        + " field starting or ending with a [.] "
-                        + "makes object resolution "
-                        + "ambiguous: [avjpz{{.}}wjzse{{..}}gal9d]\"}}]";
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "5",
-                MAX_RETRIES_CONFIG, "3",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.FAIL.toString()
-        ));
+        final String errorInfo = " [{\"type\":\"mapper_parsing_exception\"," + "\"reason\":\"failed to parse\","
+                + "\"caused_by\":{\"type\":\"illegal_argument_exception\"," + "\"reason\":\"object\n"
+                + " field starting or ending with a [.] " + "makes object resolution "
+                + "ambiguous: [avjpz{{.}}wjzse{{..}}gal9d]\"}}]";
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "5", MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.FAIL.toString()));
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(42),
-                        newIndexRequest(43)
-                ), failedResponse(errorInfo));
+        clientAnswer.expect(List.of(newIndexRequest(42), newIndexRequest(43)), failedResponse(errorInfo));
 
         bulkProcessor.start();
 
@@ -390,32 +311,19 @@ public class BulkProcessorTest {
         // Test both IGNORE and WARN options
         // There is no difference in logic between IGNORE and WARN, except for the logging.
         // Test to ensure they both work the same logically
-        final List<BehaviorOnMalformedDoc> behaviorsToTest = List.of(
-                BehaviorOnMalformedDoc.WARN,
-                BehaviorOnMalformedDoc.IGNORE
-        );
+        final List<BehaviorOnMalformedDoc> behaviorsToTest = List.of(BehaviorOnMalformedDoc.WARN,
+                BehaviorOnMalformedDoc.IGNORE);
         for (final BehaviorOnMalformedDoc behaviorOnMalformedDoc : behaviorsToTest) {
-            final var config = new OpensearchSinkConnectorConfig(Map.of(
-                    CONNECTION_URL_CONFIG, "http://localhost",
-                    MAX_BUFFERED_RECORDS_CONFIG, "100",
-                    MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                    BATCH_SIZE_CONFIG, "2",
-                    LINGER_MS_CONFIG, "5",
-                    MAX_RETRIES_CONFIG, "3",
-                    READ_TIMEOUT_MS_CONFIG, "1",
-                    BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, behaviorOnMalformedDoc.toString()
-            ));
-            final String errorInfo =
-                    " [{\"type\":\"mapper_parsing_exception\",\"reason\":\"failed to parse\","
-                            + "\"caused_by\":{\"type\":\"illegal_argument_exception\",\"reason\":\"object\n"
-                            + " field starting or ending with a [.] "
-                            + "makes object resolution ambiguous: [avjpz{{.}}wjzse{{..}}gal9d]\"}}]";
+            final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                    MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                    LINGER_MS_CONFIG, "5", MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1",
+                    BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, behaviorOnMalformedDoc.toString()));
+            final String errorInfo = " [{\"type\":\"mapper_parsing_exception\",\"reason\":\"failed to parse\","
+                    + "\"caused_by\":{\"type\":\"illegal_argument_exception\",\"reason\":\"object\n"
+                    + " field starting or ending with a [.] "
+                    + "makes object resolution ambiguous: [avjpz{{.}}wjzse{{..}}gal9d]\"}}]";
             final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
-            clientAnswer.expect(
-                    List.of(
-                            newIndexRequest(42),
-                            newIndexRequest(43)
-                    ), failedResponse(errorInfo));
+            clientAnswer.expect(List.of(newIndexRequest(42), newIndexRequest(43)), failedResponse(errorInfo));
 
             bulkProcessor.start();
 
@@ -433,27 +341,15 @@ public class BulkProcessorTest {
     public void failOnVersionConfict(final @Mock RestHighLevelClient client) throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
-        final String errorInfo =
-                " [{\"type\":\"version_conflict_engine_exception\","
-                        + "\"reason\":\"[1]: version conflict, current version [3] is higher or"
-                        + " equal to the one provided [3]\""
-                        + "}]";
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "5",
-                MAX_RETRIES_CONFIG, "3",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnVersionConflict.FAIL.toString()
-        ));
+        final String errorInfo = " [{\"type\":\"version_conflict_engine_exception\","
+                + "\"reason\":\"[1]: version conflict, current version [3] is higher or"
+                + " equal to the one provided [3]\"" + "}]";
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "5", MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnVersionConflict.FAIL.toString()));
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(42),
-                        newIndexRequest(43)
-                ), failedResponse(errorInfo));
+        clientAnswer.expect(List.of(newIndexRequest(42), newIndexRequest(43)), failedResponse(errorInfo));
 
         bulkProcessor.start();
 
@@ -469,27 +365,15 @@ public class BulkProcessorTest {
     public void ignoreOnVersionConfict(final @Mock RestHighLevelClient client) throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
-        final String errorInfo =
-                " [{\"type\":\"version_conflict_engine_exception\","
-                        + "\"reason\":\"[1]: version conflict, current version [3] is higher or"
-                        + " equal to the one provided [3]\""
-                        + "}]";
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "5",
-                MAX_RETRIES_CONFIG, "3",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnVersionConflict.IGNORE.toString()
-        ));
+        final String errorInfo = " [{\"type\":\"version_conflict_engine_exception\","
+                + "\"reason\":\"[1]: version conflict, current version [3] is higher or"
+                + " equal to the one provided [3]\"" + "}]";
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "5", MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnVersionConflict.IGNORE.toString()));
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config);
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(42),
-                        newIndexRequest(43)
-                ), failedResponse(errorInfo));
+        clientAnswer.expect(List.of(newIndexRequest(42), newIndexRequest(43)), failedResponse(errorInfo));
 
         bulkProcessor.start();
 
@@ -507,25 +391,16 @@ public class BulkProcessorTest {
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
 
         final var dlqReporter = mock(ErrantRecordReporter.class);
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
-        ));
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()));
 
-        final String errorInfo =
-                " [{\"type\":\"version_conflict_engine_exception\","
-                        + "\"reason\":\"[1]: version conflict, current version [3] is higher or"
-                        + " equal to the one provided [3]\""
-                        + "}]";
+        final String errorInfo = " [{\"type\":\"version_conflict_engine_exception\","
+                + "\"reason\":\"[1]: version conflict, current version [3] is higher or"
+                + " equal to the one provided [3]\"" + "}]";
 
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(111)
-                ), failedResponse(errorInfo, false));
+        clientAnswer.expect(List.of(newIndexRequest(111)), failedResponse(errorInfo, false));
 
         bulkProcessor.start();
 
@@ -544,23 +419,15 @@ public class BulkProcessorTest {
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
 
         final var dlqReporter = mock(ErrantRecordReporter.class);
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()
-        ));
-        final String errorInfo =
-                " [{\"type\":\"mapper_parsing_exception\",\"reason\":\"failed to parse\","
-                        + "\"caused_by\":{\"type\":\"illegal_argument_exception\",\"reason\":\"object\n"
-                        + " field starting or ending with a [.] "
-                        + "makes object resolution ambiguous: [avjpz{{.}}wjzse{{..}}gal9d]\"}}]";
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()));
+        final String errorInfo = " [{\"type\":\"mapper_parsing_exception\",\"reason\":\"failed to parse\","
+                + "\"caused_by\":{\"type\":\"illegal_argument_exception\",\"reason\":\"object\n"
+                + " field starting or ending with a [.] "
+                + "makes object resolution ambiguous: [avjpz{{.}}wjzse{{..}}gal9d]\"}}]";
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(111)
-                 ), failedResponse(errorInfo, false));
+        clientAnswer.expect(List.of(newIndexRequest(111)), failedResponse(errorInfo, false));
 
         bulkProcessor.start();
 
@@ -574,32 +441,21 @@ public class BulkProcessorTest {
     }
 
     @Test
-    public void doNotReportToDlqWhenReportIsNotConfigured(final @Mock RestHighLevelClient client)
-            throws IOException {
+    public void doNotReportToDlqWhenReportIsNotConfigured(final @Mock RestHighLevelClient client) throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(clientAnswer);
 
         final var dlqReporter = mock(ErrantRecordReporter.class);
-        final var config = new OpensearchSinkConnectorConfig(Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "1000",
-                MAX_RETRIES_CONFIG, "3",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString()
-        ));
-        final String errorInfo =
-                " [{\"type\":\"mapper_parsing_exception\",\"reason\":\"failed to parse\","
-                        + "\"caused_by\":{\"type\":\"illegal_argument_exception\",\"reason\":\"object\n"
-                        + " field starting or ending with a [.] "
-                        + "makes object resolution ambiguous: [avjpz{{.}}wjzse{{..}}gal9d]\"}}]";
+        final var config = new OpensearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                LINGER_MS_CONFIG, "1000", MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.WARN.toString()));
+        final String errorInfo = " [{\"type\":\"mapper_parsing_exception\",\"reason\":\"failed to parse\","
+                + "\"caused_by\":{\"type\":\"illegal_argument_exception\",\"reason\":\"object\n"
+                + " field starting or ending with a [.] "
+                + "makes object resolution ambiguous: [avjpz{{.}}wjzse{{..}}gal9d]\"}}]";
         final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
-        clientAnswer.expect(
-                List.of(
-                        newIndexRequest(222)
-                 ), failedResponse(errorInfo, false));
+        clientAnswer.expect(List.of(newIndexRequest(222)), failedResponse(errorInfo, false));
 
         bulkProcessor.start();
 
@@ -615,8 +471,8 @@ public class BulkProcessorTest {
     private SinkRecord newSinkRecord() {
         final Map<String, Object> valueMap = new HashMap<>();
         valueMap.put("test_field", ThreadLocalRandom.current().nextInt());
-        return new SinkRecord("test_topic", 0, Schema.STRING_SCHEMA,
-                ThreadLocalRandom.current().nextLong(), null, valueMap, ThreadLocalRandom.current().nextInt());
+        return new SinkRecord("test_topic", 0, Schema.STRING_SCHEMA, ThreadLocalRandom.current().nextLong(), null,
+                valueMap, ThreadLocalRandom.current().nextInt());
     }
 
     IndexRequest newIndexRequest(final int body) {
@@ -624,7 +480,7 @@ public class BulkProcessorTest {
     }
 
     private BulkResponse successResponse() {
-        return new BulkResponse(new BulkItemResponse[]{}, 0);
+        return new BulkResponse(new BulkItemResponse[] {}, 0);
     }
 
     private BulkResponse failedResponse() {
@@ -651,7 +507,7 @@ public class BulkProcessorTest {
             when(failedResponse.getFailure()).thenReturn(failure);
         }
         when(failedResponse.getFailureMessage()).thenReturn(failureMessage);
-        return new BulkResponse(new BulkItemResponse[]{failedResponse}, 0);
+        return new BulkResponse(new BulkItemResponse[] { failedResponse }, 0);
     }
 
 }

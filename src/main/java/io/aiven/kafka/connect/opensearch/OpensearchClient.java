@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 Aiven Oy
- * Copyright 2018 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
 
 import java.io.IOException;
@@ -78,8 +76,7 @@ public class OpensearchClient implements AutoCloseable {
 
     private static final String RESOURCE_ALREADY_EXISTS_AS_ALIAS = "already exists as alias";
 
-    private static final String RESOURCE_ALREADY_EXISTS_AS_DATASTREAM =
-            "creates data streams only, use create data stream api instead";
+    private static final String RESOURCE_ALREADY_EXISTS_AS_DATASTREAM = "creates data streams only, use create data stream api instead";
 
     private static final String DEFAULT_OS_VERSION = "1.0.0";
 
@@ -95,20 +92,12 @@ public class OpensearchClient implements AutoCloseable {
     }
 
     public OpensearchClient(final OpensearchSinkConnectorConfig config, final ErrantRecordReporter reporter) {
-        this(
-                new RestHighLevelClient(
-                        RestClient.builder(config.httpHosts())
-                                .setHttpClientConfigCallback(
-                                        new HttpClientConfigCallback(config)
-                                )
-                ),
-                config,
-                reporter
-        );
+        this(new RestHighLevelClient(RestClient.builder(config.httpHosts())
+                .setHttpClientConfigCallback(new HttpClientConfigCallback(config))), config, reporter);
     }
 
     protected OpensearchClient(final RestHighLevelClient client, final OpensearchSinkConnectorConfig config,
-                               final ErrantRecordReporter reporter) {
+            final ErrantRecordReporter reporter) {
         this.client = client;
         this.config = config;
         this.bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, reporter);
@@ -130,122 +119,91 @@ public class OpensearchClient implements AutoCloseable {
     }
 
     public boolean indexOrDataStreamExists(final String index) {
-        return withRetry(
-                String.format("check index %s exists", index),
-                () -> client.indices().exists(new GetIndexRequest(index), RequestOptions.DEFAULT)
-        );
+        return withRetry(String.format("check index %s exists", index),
+                () -> client.indices().exists(new GetIndexRequest(index), RequestOptions.DEFAULT));
     }
 
     protected boolean dataStreamIndexTemplateExists(final String dataStreamIndexTemplate) {
-        return withRetry(
-                String.format("check index template exists %s", dataStreamIndexTemplate),
-                () -> client.indices().existsIndexTemplate(
-                        new ComposableIndexTemplateExistRequest(dataStreamIndexTemplate),
-                        RequestOptions.DEFAULT
-                )
-        );
+        return withRetry(String.format("check index template exists %s", dataStreamIndexTemplate),
+                () -> client.indices()
+                        .existsIndexTemplate(new ComposableIndexTemplateExistRequest(dataStreamIndexTemplate),
+                                RequestOptions.DEFAULT));
     }
 
-    protected boolean createDataStreamIndexTemplate(
-            final String dataStreamName,
+    protected boolean createDataStreamIndexTemplate(final String dataStreamName,
             final String dataStreamTimestampField) {
         final var dataStreamIndexTemplate = String.format(DATA_STREAM_TEMPLATE_NAME_PATTERN, dataStreamName);
         if (!dataStreamIndexTemplateExists(dataStreamIndexTemplate)) {
-            return withRetry(
-                    String.format("create index template %s", dataStreamIndexTemplate),
-                    () -> {
-                        try {
-                            client.indices().putIndexTemplate(
-                                    new PutComposableIndexTemplateRequest()
-                                            .name(dataStreamIndexTemplate)
-                                            .indexTemplate(
-                                                    new ComposableIndexTemplate(
-                                                            List.of(dataStreamName),
-                                                            null,
-                                                            null,
-                                                            200L,
-                                                            null,
-                                                            null,
-                                                            new DataStreamTemplate(
-                                                                    new TimestampField(dataStreamTimestampField)
-                                                            )
-                                                    )
-                                            ),
-                                    RequestOptions.DEFAULT
-                            );
-                        } catch (final OpenSearchStatusException | IOException e) {
-                            if (!(e.getMessage().contains(RESOURCE_ALREADY_EXISTS_EXCEPTION))) {
-                                throw e;
-                            }
-                            return false;
-                        }
-                        return true;
-                    });
+            return withRetry(String.format("create index template %s", dataStreamIndexTemplate), () -> {
+                try {
+                    client.indices()
+                            .putIndexTemplate(
+                                    new PutComposableIndexTemplateRequest().name(dataStreamIndexTemplate)
+                                            .indexTemplate(new ComposableIndexTemplate(List.of(dataStreamName), null,
+                                                    null, 200L, null, null,
+                                                    new DataStreamTemplate(
+                                                            new TimestampField(dataStreamTimestampField)))),
+                                    RequestOptions.DEFAULT);
+                } catch (final OpenSearchStatusException | IOException e) {
+                    if (!(e.getMessage().contains(RESOURCE_ALREADY_EXISTS_EXCEPTION))) {
+                        throw e;
+                    }
+                    return false;
+                }
+                return true;
+            });
         }
         return true;
     }
 
-    public boolean createIndexTemplateAndDataStream(
-            final String dataStreamName,
+    public boolean createIndexTemplateAndDataStream(final String dataStreamName,
             final String dataStreamTimestampField) {
         if (createDataStreamIndexTemplate(dataStreamName, dataStreamTimestampField)) {
-            return withRetry(
-                    String.format("create data stream %s", dataStreamName),
-                    () -> {
-                        try {
-                            client.indices().createDataStream(
-                                    new CreateDataStreamRequest(dataStreamName),
-                                    RequestOptions.DEFAULT
-                            );
-                            return true;
-                        } catch (final OpenSearchStatusException | IOException e) {
-                            if (!(e.getMessage().contains(RESOURCE_ALREADY_EXISTS_EXCEPTION)
-                                    || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_ALIAS)
-                                    || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_DATASTREAM))) {
-                                throw e;
-                            }
-                            return false;
-                        }
-                    });
+            return withRetry(String.format("create data stream %s", dataStreamName), () -> {
+                try {
+                    client.indices()
+                            .createDataStream(new CreateDataStreamRequest(dataStreamName), RequestOptions.DEFAULT);
+                    return true;
+                } catch (final OpenSearchStatusException | IOException e) {
+                    if (!(e.getMessage().contains(RESOURCE_ALREADY_EXISTS_EXCEPTION)
+                            || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_ALIAS)
+                            || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_DATASTREAM))) {
+                        throw e;
+                    }
+                    return false;
+                }
+            });
         }
         return false;
     }
 
     public boolean createIndex(final String index) {
-        return withRetry(
-                String.format("create index %s", index),
-                () -> {
-                    try {
-                        client.indices().create(new CreateIndexRequest(index), RequestOptions.DEFAULT);
-                        return true;
-                    } catch (final OpenSearchStatusException | IOException e) {
-                        if (!(e.getMessage().contains(RESOURCE_ALREADY_EXISTS_EXCEPTION)
-                                || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_ALIAS)
-                                || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_DATASTREAM))) {
-                            throw e;
-                        }
-                        return false;
-                    }
-                });
+        return withRetry(String.format("create index %s", index), () -> {
+            try {
+                client.indices().create(new CreateIndexRequest(index), RequestOptions.DEFAULT);
+                return true;
+            } catch (final OpenSearchStatusException | IOException e) {
+                if (!(e.getMessage().contains(RESOURCE_ALREADY_EXISTS_EXCEPTION)
+                        || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_ALIAS)
+                        || e.getMessage().contains(RESOURCE_ALREADY_EXISTS_AS_DATASTREAM))) {
+                    throw e;
+                }
+                return false;
+            }
+        });
     }
 
     public void createMapping(final String index, final Schema schema) {
         final var request = new PutMappingRequest(index).source(Mapping.buildMappingFor(schema));
-        withRetry(
-                String.format("create mapping for index %s with schema %s", index, schema),
-                () -> client.indices().putMapping(request, RequestOptions.DEFAULT)
-        );
+        withRetry(String.format("create mapping for index %s with schema %s", index, schema),
+                () -> client.indices().putMapping(request, RequestOptions.DEFAULT));
     }
 
     public boolean hasMapping(final String index) {
         final var request = new GetMappingsRequest().indices(index);
-        final var response = withRetry(
-                "",
-                () -> client.indices().getMapping(request, RequestOptions.DEFAULT)
-        );
+        final var response = withRetry("", () -> client.indices().getMapping(request, RequestOptions.DEFAULT));
         final var mappings = response.mappings().get(index);
-        return Objects.nonNull(mappings)
-                && Objects.nonNull(mappings.sourceAsMap())
+        return Objects.nonNull(mappings) && Objects.nonNull(mappings.sourceAsMap())
                 && !mappings.sourceAsMap().isEmpty();
     }
 
@@ -295,9 +253,7 @@ public class OpensearchClient implements AutoCloseable {
                 }
             });
 
-            httpClientBuilder
-                    .setConnectionManager(createConnectionManager())
-                    .setDefaultRequestConfig(requestConfig);
+            httpClientBuilder.setConnectionManager(createConnectionManager()).setDefaultRequestConfig(requestConfig);
 
             return httpClientBuilder;
         }
@@ -316,19 +272,14 @@ public class OpensearchClient implements AutoCloseable {
                         .register("http", NoopIOSessionStrategy.INSTANCE)
                         .register("https", sslStrategy)
                         .build();
-                final var connectionManager =
-                        new PoolingNHttpClientConnectionManager(
-                                new DefaultConnectingIOReactor(ioReactorConfig),
-                                registry
-                        );
+                final var connectionManager = new PoolingNHttpClientConnectionManager(
+                        new DefaultConnectingIOReactor(ioReactorConfig), registry);
                 final var maxPerRoute = Math.max(10, config.maxInFlightRequests() * 2);
                 connectionManager.setDefaultMaxPerRoute(maxPerRoute);
                 connectionManager.setMaxTotal(maxPerRoute * config.httpHosts().length);
                 return connectionManager;
-            } catch (final IOReactorException
-                           | NoSuchAlgorithmException
-                           | KeyStoreException
-                           | KeyManagementException e) {
+            } catch (final IOReactorException | NoSuchAlgorithmException | KeyStoreException
+                    | KeyManagementException e) {
                 throw new ConnectException("Unable to open ElasticsearchClient.", e);
             }
         }
@@ -338,6 +289,5 @@ public class OpensearchClient implements AutoCloseable {
     public <T> T withRetry(final String callName, final Callable<T> callable) {
         return RetryUtil.callWithRetry(callName, callable, config.maxRetry(), config.retryBackoffMs());
     }
-
 
 }

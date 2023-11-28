@@ -1,6 +1,5 @@
 /*
  * Copyright 2021 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.SCHEMA_IGNORE_CONFIG;
+import static org.apache.kafka.connect.json.JsonConverterConfig.SCHEMAS_ENABLE_CONFIG;
+import static org.apache.kafka.connect.runtime.ConnectorConfig.CONNECTOR_CLASS_CONFIG;
+import static org.apache.kafka.connect.runtime.ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG;
+import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
+import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG;
+import static org.apache.kafka.connect.runtime.SinkConnectorConfig.TOPICS_CONFIG;
 
 import java.util.HashMap;
 import java.util.List;
@@ -34,17 +42,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.SCHEMA_IGNORE_CONFIG;
-import static org.apache.kafka.connect.json.JsonConverterConfig.SCHEMAS_ENABLE_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.CONNECTOR_CLASS_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG;
-import static org.apache.kafka.connect.runtime.SinkConnectorConfig.TOPICS_CONFIG;
-
 
 public class AbstractKafkaConnectIT extends AbstractIT {
 
@@ -65,9 +62,7 @@ public class AbstractKafkaConnectIT extends AbstractIT {
 
     @BeforeEach
     void startConnect() {
-        connect = new EmbeddedConnectCluster.Builder()
-                .name("elasticsearch-it-connect-cluster")
-                .build();
+        connect = new EmbeddedConnectCluster.Builder().name("elasticsearch-it-connect-cluster").build();
         connect.start();
         connect.kafka().createTopic(topicName);
     }
@@ -84,19 +79,15 @@ public class AbstractKafkaConnectIT extends AbstractIT {
     }
 
     long waitForConnectorToStart(final String name, final int numTasks) throws InterruptedException {
-        TestUtils.waitForCondition(
-                () -> assertConnectorAndTasksRunning(name, numTasks).orElse(false),
-                CONNECTOR_STARTUP_DURATION_MS,
-                "Connector tasks did not start in time."
-        );
+        TestUtils.waitForCondition(() -> assertConnectorAndTasksRunning(name, numTasks).orElse(false),
+                CONNECTOR_STARTUP_DURATION_MS, "Connector tasks did not start in time.");
         return System.currentTimeMillis();
     }
 
     Optional<Boolean> assertConnectorAndTasksRunning(final String connectorName, final int numTasks) {
         try {
             final var info = connect.connectorStatus(connectorName);
-            final boolean result = info != null
-                    && info.tasks().size() >= numTasks
+            final boolean result = info != null && info.tasks().size() >= numTasks
                     && info.connector().state().equals(AbstractStatus.State.RUNNING.toString())
                     && info.tasks().stream().allMatch(s -> s.state().equals(AbstractStatus.State.RUNNING.toString()));
             return Optional.of(result);
@@ -122,11 +113,7 @@ public class AbstractKafkaConnectIT extends AbstractIT {
 
     void writeRecords(final int numRecords) {
         for (int i = 0; i < numRecords; i++) {
-            connect.kafka().produce(
-                    topicName,
-                    String.valueOf(i),
-                    String.format("{\"doc_num\":%d}", i)
-            );
+            connect.kafka().produce(topicName, String.valueOf(i), String.format("{\"doc_num\":%d}", i));
         }
     }
 

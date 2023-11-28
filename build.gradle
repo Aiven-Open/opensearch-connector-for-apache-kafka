@@ -19,9 +19,6 @@ plugins {
     // https://docs.gradle.org/current/userguide/java_library_plugin.html
     id "java-library"
 
-    // https://docs.gradle.org/current/userguide/checkstyle_plugin.html
-    id "checkstyle"
-
     // https://docs.gradle.org/current/userguide/jacoco_plugin.html
     id "jacoco"
 
@@ -33,6 +30,9 @@ plugins {
 
     // https://docs.gradle.org/current/userguide/idea_plugin.html
     id 'idea'
+
+    // https://plugins.gradle.org/plugin/com.diffplug.spotless
+    id "com.diffplug.spotless" version "6.23.0"
 }
 
 wrapper {
@@ -49,6 +49,30 @@ repositories {
     mavenCentral()
 }
 
+spotless {
+    format 'misc', {
+        // define the files to apply `misc` to
+        target '*.gradle', '*.md', '.gitignore'
+        targetExclude ".*/**", "**/build/**", "**/.gradle/**"
+
+        // define the steps to apply to those files
+        trimTrailingWhitespace()
+        indentWithSpaces()
+        endWithNewline()
+    }
+
+    java {
+        licenseHeaderFile file("${rootDir}/gradle-config/java.header")
+        importOrder("javax", "java", "org.apache.kafka","org.opensearch","io.aiven","")
+        removeUnusedImports()
+        replaceRegex("No wildcard imports.", "import(?:\\s+static)?\\s+[^\\*\\s]+\\*;(\r\n|\r|\n)", '$1')
+        eclipse().configFile("${rootDir}/gradle-config/aiven-eclipse-formatter.xml")
+        indentWithSpaces()
+        endWithNewline()
+        trimTrailingWhitespace()
+    }
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -56,11 +80,6 @@ java {
 
 compileJava {
     options.compilerArgs = ['-Xlint:all']
-}
-
-checkstyle {
-    toolVersion "9.0.1"
-    configDirectory.set(rootProject.file("checkstyle/"))
 }
 
 jacoco {
@@ -72,12 +91,6 @@ distributions {
         contents {
             from jar
             from configurations.runtimeClasspath
-
-            into("/") {
-                from projectDir
-                include "version.txt", "README*", "LICENSE*", "NOTICE*", "licenses/"
-                include "config/"
-            }
         }
     }
 }
@@ -204,7 +217,7 @@ task integrationTest(type: Test) {
 
     // Pass the distribution file path to the tests.
     systemProperty("integration-test.distribution.file.path", distTar.archiveFile.get().asFile.path)
-    systemProperty("opensearch.testcontainers.image-version", 
+    systemProperty("opensearch.testcontainers.image-version",
         project.findProperty("opensearch.testcontainers.image-version") ? project.getProperty("opensearch.testcontainers.image-version") : "2.0.0")
 }
 

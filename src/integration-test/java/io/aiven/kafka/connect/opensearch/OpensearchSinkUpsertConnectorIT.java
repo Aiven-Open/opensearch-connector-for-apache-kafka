@@ -1,6 +1,5 @@
 /*
  * Copyright 2021 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,10 +29,6 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 public class OpensearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
 
@@ -47,10 +45,8 @@ public class OpensearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
     @Test
     public void testConnector() throws Exception {
         final var props = connectorProperties();
-        props.put(
-                OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
-                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
-        );
+        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
         connect.configureConnector(CONNECTOR_NAME, props);
         waitForConnectorToStart(CONNECTOR_NAME, 1);
@@ -68,23 +64,11 @@ public class OpensearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
         for (var i = 0; i < messages.size(); i++) {
             final var m = messages.get(i);
             m.getRight().put("another_key", "another_value_" + i);
-            connect.kafka().produce(
-                    TOPIC_NAME,
-                    m.getLeft(),
-                    objectMapper.writeValueAsString(m.getRight())
-            );
+            connect.kafka().produce(TOPIC_NAME, m.getLeft(), objectMapper.writeValueAsString(m.getRight()));
         }
 
-        connect.kafka().produce(
-                TOPIC_NAME,
-                String.valueOf(11),
-                String.format("{\"doc_num\":%d}", 11)
-        );
-        connect.kafka().produce(
-                TOPIC_NAME,
-                String.valueOf(12),
-                String.format("{\"doc_num\":%d}", 12)
-        );
+        connect.kafka().produce(TOPIC_NAME, String.valueOf(11), String.format("{\"doc_num\":%d}", 11));
+        connect.kafka().produce(TOPIC_NAME, String.valueOf(12), String.format("{\"doc_num\":%d}", 12));
 
         waitForRecords(TOPIC_NAME, 5);
 
@@ -95,10 +79,8 @@ public class OpensearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
             foundDocs.put(id, hit.getSourceAsMap());
         }
 
-        assertIterableEquals(
-                List.of(0, 1, 2, 11, 12),
-                foundDocs.keySet().stream().sorted().collect(Collectors.toList())
-        );
+        assertIterableEquals(List.of(0, 1, 2, 11, 12),
+                foundDocs.keySet().stream().sorted().collect(Collectors.toList()));
 
         for (var i = 0; i < 3; i++) {
             assertEquals(i, foundDocs.get(i).get("doc_num"));

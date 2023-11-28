@@ -1,6 +1,5 @@
 /*
  * Copyright 2021 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.TimeUnit;
 
@@ -25,10 +27,6 @@ import org.opensearch.client.indices.DataStreamsStatsRequest;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT {
 
@@ -44,8 +42,8 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
 
     static final String DATA_STREAM_WITH_PREFIX_INDEX_NAME = String.format("%s-%s", DATA_STREAM_PREFIX, TOPIC_NAME);
 
-    static final String DATA_STREAM_PREFIX_WITH_TIMESTAMP_INDEX_NAME =
-            String.format("%s-%s", DATA_STREAM_PREFIX_WITH_TIMESTAMP, TOPIC_NAME);
+    static final String DATA_STREAM_PREFIX_WITH_TIMESTAMP_INDEX_NAME = String.format("%s-%s",
+            DATA_STREAM_PREFIX_WITH_TIMESTAMP, TOPIC_NAME);
     static final String CONNECTOR_NAME = "os-ds-sink-connector";
 
     public OpensearchSinkDataStreamConnectorIT() {
@@ -79,11 +77,9 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
 
         for (int i = 0; i < 10; i++) {
-            connect.kafka().produce(
-                    topicName,
-                    String.valueOf(i),
-                    String.format("{\"doc_num\":%d, \"custom_timestamp\": %s}", i, System.currentTimeMillis())
-            );
+            connect.kafka()
+                    .produce(topicName, String.valueOf(i),
+                            String.format("{\"doc_num\":%d, \"custom_timestamp\": %s}", i, System.currentTimeMillis()));
         }
 
         waitForRecords(DATA_STREAM_PREFIX_WITH_TIMESTAMP_INDEX_NAME, 10);
@@ -104,17 +100,13 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         waitForRecords(DATA_STREAM_WITH_PREFIX_INDEX_NAME, 10);
 
         assertDataStream(DATA_STREAM_WITH_PREFIX_INDEX_NAME);
-        assertDocs(
-                DATA_STREAM_WITH_PREFIX_INDEX_NAME,
-                OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT
-        );
+        assertDocs(DATA_STREAM_WITH_PREFIX_INDEX_NAME,
+                OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT);
     }
 
     void assertDataStream(final String dataStreamName) throws Exception {
         final var dsStats = opensearchClient.client.indices()
-                .dataStreamsStats(
-                        new DataStreamsStatsRequest(dataStreamName), RequestOptions.DEFAULT
-                );
+                .dataStreamsStats(new DataStreamsStatsRequest(dataStreamName), RequestOptions.DEFAULT);
 
         assertEquals(1, dsStats.getDataStreamCount());
         assertEquals(1, dsStats.getBackingIndices());

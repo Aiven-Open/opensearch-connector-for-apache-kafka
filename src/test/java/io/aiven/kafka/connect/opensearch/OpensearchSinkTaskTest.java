@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
-
-import java.util.Map;
-
-import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.sink.SinkTaskContext;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BATCH_SIZE_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
@@ -39,22 +27,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
+import java.util.Map;
+
+import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.sink.SinkTaskContext;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 @ExtendWith(MockitoExtension.class)
 public class OpensearchSinkTaskTest {
 
     @Test
     void failToStartWhenReportIsConfiguredAndErrantRecordReporterIsMissing(final @Mock SinkTaskContext context) {
 
-        final var props = Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "1000",
-                MAX_RETRIES_CONFIG, "3",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BulkProcessor.BehaviorOnMalformedDoc.REPORT.toString()
-        );
+        final var props = Map.of(CONNECTION_URL_CONFIG, "http://localhost", MAX_BUFFERED_RECORDS_CONFIG, "100",
+                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2", LINGER_MS_CONFIG, "1000",
+                MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1", BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
+                BulkProcessor.BehaviorOnMalformedDoc.REPORT.toString());
         when(context.errantRecordReporter()).thenReturn(null);
         final var task = new OpensearchSinkTask();
         task.initialize(context);
@@ -65,16 +57,10 @@ public class OpensearchSinkTaskTest {
     @Test
     void failToStartWhenReportIsConfiguredAndErrantRecordReporterIsNotSupported(final @Mock SinkTaskContext context) {
 
-        final var props = Map.of(
-                CONNECTION_URL_CONFIG, "http://localhost",
-                MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5",
-                BATCH_SIZE_CONFIG, "2",
-                LINGER_MS_CONFIG, "1000",
-                MAX_RETRIES_CONFIG, "3",
-                READ_TIMEOUT_MS_CONFIG, "1",
-                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BulkProcessor.BehaviorOnMalformedDoc.REPORT.toString()
-        );
+        final var props = Map.of(CONNECTION_URL_CONFIG, "http://localhost", MAX_BUFFERED_RECORDS_CONFIG, "100",
+                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2", LINGER_MS_CONFIG, "1000",
+                MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1", BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
+                BulkProcessor.BehaviorOnMalformedDoc.REPORT.toString());
         when(context.errantRecordReporter()).thenThrow(new NoSuchMethodError());
         final var task = new OpensearchSinkTask();
         task.initialize(context);
