@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-rootProject.name = "opensearch-connector-for-apache-kafka"
 
-include "kafka-connect"
-include "libs:client-configuration-spi"
-include "libs:client-basic-auth-configuration"
+archivesBaseName = "opensearch-client-basic-auth-configuration"
+
+dependencies {
+    implementation project(":libs:client-configuration-spi")
+    compileOnly "org.apache.kafka:connect-api:$kafkaVersion"
+}

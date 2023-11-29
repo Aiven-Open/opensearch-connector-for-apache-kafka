@@ -15,38 +15,9 @@
  */
 
 plugins {
-
-    // https://docs.gradle.org/current/userguide/java_library_plugin.html
-    id "java-library"
-
-    // https://docs.gradle.org/current/userguide/jacoco_plugin.html
-    id "jacoco"
-
+    id "com.diffplug.spotless" version "6.23.0"
     // https://docs.gradle.org/current/userguide/distribution_plugin.html
     id "distribution"
-
-    // https://docs.gradle.org/current/userguide/publishing_maven.html
-    id "maven-publish"
-
-    // https://docs.gradle.org/current/userguide/idea_plugin.html
-    id 'idea'
-
-    // https://plugins.gradle.org/plugin/com.diffplug.spotless
-    id "com.diffplug.spotless" version "6.23.0"
-}
-
-wrapper {
-    distributionType = 'ALL'
-    doLast {
-        final URI sha256Uri = new URI(wrapper.getDistributionUrl() + ".sha256")
-        final String sha256Sum = new String(sha256Uri.toURL().bytes)
-        wrapper.getPropertiesFile() << "distributionSha256Sum=${sha256Sum}\n"
-        println "Added checksum to wrapper properties"
-    }
-}
-
-repositories {
-    mavenCentral()
 }
 
 spotless {
@@ -63,7 +34,7 @@ spotless {
 
     java {
         licenseHeaderFile file("${rootDir}/gradle-config/java.header")
-        importOrder("javax", "java", "org.apache.kafka","org.opensearch","io.aiven","")
+        importOrder("javax", "java", "org.apache.kafka", "org.opensearch", "io.aiven", "")
         removeUnusedImports()
         replaceRegex("No wildcard imports.", "import(?:\\s+static)?\\s+[^\\*\\s]+\\*;(\r\n|\r|\n)", '$1')
         eclipse().configFile("${rootDir}/gradle-config/aiven-eclipse-formatter.xml")
@@ -73,168 +44,93 @@ spotless {
     }
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-
-compileJava {
-    options.compilerArgs = ['-Xlint:all']
-}
-
-jacoco {
-    toolVersion = "0.8.9"
+wrapper {
+    distributionType = 'ALL'
+    doLast {
+        final URI sha256Uri = new URI(wrapper.getDistributionUrl() + ".sha256")
+        final String sha256Sum = new String(sha256Uri.toURL().bytes)
+        wrapper.getPropertiesFile() << "distributionSha256Sum=${sha256Sum}\n"
+        println "Added checksum to wrapper properties"
+    }
 }
 
 distributions {
     main {
         contents {
-            from jar
-            from configurations.runtimeClasspath
-        }
-    }
-}
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            // Defaults, for clarity
-            groupId = getGroup()
-            artifactId = getName()
-            version = getVersion()
-
-            pom {
-                name = "Aiven's OpenSearch Connector for Apache Kafka"
-                description = "Aiven's OpenSearch Connector for Apache Kafka"
-                url = "https://aiven.io"
-                organization {
-                    name = "Aiven Oy"
-                    url = "https://aiven.io"
-                }
-                licenses {
-                    license {
-                        name = "Apache License 2.0"
-                        url = "http://www.apache.org/licenses/LICENSE-2.0.html"
-                        distribution = "repo"
-
-                    }
-                }
-                scm {
-                    connection = "scm:git:git://github.com/aiven/aiven-kafka-connect-opensearch.git"
-                    developerConnection = "scm:git:git@github.com:aiven/aiven-kafka-connect-opensearch.git"
-                    url = "https://github.com/aiven/aiven-kafka-connect-opensearch.git"
-                    tag = "HEAD"
-                }
+            from {
+                subprojects.findAll { it.getSubprojects().isEmpty() }.
+                        collect { it.configurations.runtimeClasspath }
             }
         }
     }
 }
 
-ext {
-    kafkaVersion = "2.8.1"
-    slf4jVersion = "1.7.36"
-    openSearchVersion = "2.11.0"
+allprojects {
 
-    testcontainersVersion = "1.19.0"
-    confluentPlatformVersion = "4.1.4"
-}
+    // https://docs.gradle.org/current/userguide/java_library_plugin.html
+    apply plugin: "java-library"
 
-sourceSets {
-    integrationTest {
-        java.srcDir file('src/integration-test/java')
-        resources.srcDir file('src/integration-test/resources')
-        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
-        runtimeClasspath += output + compileClasspath
+    // https://docs.gradle.org/current/userguide/jacoco_plugin.html
+    apply plugin: "jacoco"
+
+    // https://docs.gradle.org/current/userguide/distribution_plugin.html
+    apply plugin: "distribution"
+
+    // https://docs.gradle.org/current/userguide/publishing_maven.html
+    apply plugin: "maven-publish"
+
+    // https://docs.gradle.org/current/userguide/idea_plugin.html
+    apply plugin: 'idea'
+
+    ext {
+        kafkaVersion = "2.8.1"
+        slf4jVersion = "1.7.36"
+        openSearchVersion = "2.11.0"
+
+        testcontainersVersion = "1.19.0"
+        confluentPlatformVersion = "4.1.4"
     }
-}
 
-idea {
-    module {
-        testSourceDirs += project.sourceSets.integrationTest.java.srcDirs
-        testSourceDirs += project.sourceSets.integrationTest.resources.srcDirs
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
-}
 
-configurations {
-    integrationTestImplementation.extendsFrom testImplementation
-    integrationTestRuntime.extendsFrom testRuntime
-}
-
-processResources {
-    filesMatching('aiven-kafka-connect-opensearch-version.properties') {
-        expand(version: version)
+    compileJava {
+        options.compilerArgs = ['-Xlint:all']
     }
-}
 
-dependencies {
-    compileOnly "org.apache.kafka:connect-api:$kafkaVersion"
-    compileOnly "org.apache.kafka:connect-json:$kafkaVersion"
-
-    implementation "org.slf4j:slf4j-api:$slf4jVersion"
-    implementation "com.google.code.gson:gson:2.10.1"
-    implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
-
-    testImplementation "org.junit.jupiter:junit-jupiter:5.10.0"
-    testImplementation "org.mockito:mockito-core:5.5.0"
-    testImplementation "org.mockito:mockito-inline:5.2.0"
-    testImplementation "org.mockito:mockito-junit-jupiter:5.5.0"
-
-    testImplementation "org.apache.kafka:connect-api:$kafkaVersion"
-    testImplementation "org.apache.kafka:connect-json:$kafkaVersion"
-    testImplementation "com.fasterxml.jackson.core:jackson-core:2.15.3"
-    testImplementation "com.fasterxml.jackson.core:jackson-databind:2.15.3"
-    testImplementation "com.fasterxml.jackson.core:jackson-annotations:2.15.3"
-    testRuntimeOnly "org.slf4j:slf4j-log4j12:$slf4jVersion"
-
-    integrationTestImplementation "org.testcontainers:junit-jupiter:$testcontainersVersion"
-    integrationTestImplementation "org.testcontainers:kafka:$testcontainersVersion" // this is not Kafka version
-    integrationTestImplementation "org.opensearch:opensearch-testcontainers:2.0.0"
-    integrationTestImplementation "org.apache.kafka:kafka-clients:$kafkaVersion:test"
-    integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}"
-    integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}:test"
-    integrationTestImplementation "org.apache.kafka:kafka_2.13:${kafkaVersion}"
-    integrationTestImplementation "org.apache.kafka:kafka_2.13:${kafkaVersion}:test"
-}
-
-test {
-    useJUnitPlatform {
-        includeEngines 'junit-jupiter'
+    repositories {
+        mavenLocal()
+        mavenCentral()
     }
-}
 
-task integrationTest(type: Test) {
-    description = 'Runs the integration tests.'
-    group = 'verification'
-    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    classpath = sourceSets.integrationTest.runtimeClasspath
+    jacoco {
+        toolVersion = "0.8.9"
+    }
 
-    dependsOn test, distTar
-
-    useJUnitPlatform()
-
-    // Run always.
-    outputs.upToDateWhen { false }
-
-    // Pass the distribution file path to the tests.
-    systemProperty("integration-test.distribution.file.path", distTar.archiveFile.get().asFile.path)
-    systemProperty("opensearch.testcontainers.image-version",
-        project.findProperty("opensearch.testcontainers.image-version") ? project.getProperty("opensearch.testcontainers.image-version") : "2.0.0")
-}
-
-task connectorConfigDoc {
-    description = "Generates the connector's configuration documentation."
-    group = "documentation"
-    dependsOn "classes"
-
-    doLast {
-        javaexec {
-            main = "io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig"
-            classpath = sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
-            standardOutput = new FileOutputStream("$projectDir/docs/opensearch-sink-connector-config-options.rst")
+    test {
+        useJUnitPlatform {
+            includeEngines 'junit-jupiter'
         }
     }
-}
 
-tasks.named(JavaBasePlugin.CHECK_TASK_NAME) {
-  dependsOn tasks.named('integrationTest')
+    dependencies {
+        implementation "org.slf4j:slf4j-api:$slf4jVersion"
+        implementation "org.opensearch.client:opensearch-rest-client:$openSearchVersion"
+
+        testImplementation "org.junit.jupiter:junit-jupiter:5.10.0"
+        testImplementation "org.mockito:mockito-core:5.5.0"
+        testImplementation "org.mockito:mockito-inline:5.2.0"
+        testImplementation "org.mockito:mockito-junit-jupiter:5.5.0"
+
+        testImplementation "org.apache.kafka:connect-api:$kafkaVersion"
+        testImplementation "org.apache.kafka:connect-json:$kafkaVersion"
+        testImplementation "com.fasterxml.jackson.core:jackson-core:2.15.3"
+        testImplementation "com.fasterxml.jackson.core:jackson-databind:2.15.3"
+        testImplementation "com.fasterxml.jackson.core:jackson-annotations:2.15.3"
+        testRuntimeOnly "org.slf4j:slf4j-log4j12:$slf4jVersion"
+    }
+
 }
