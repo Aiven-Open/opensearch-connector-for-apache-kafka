@@ -9,11 +9,11 @@ jobs:
     strategy:
       matrix:
         entry:
-          - { opensearch-version: 1.3.13, java-version: 11 }
-          - { opensearch-version: 1.3.13, java-version: 17 }
-          - { opensearch-version: 2.11.0, java-version: 11 }
-          - { opensearch-version: 2.11.0, java-version: 17 }
-          - { opensearch-version: 2.11.0, java-version: 21 }
+          - { opensearch-version: 1.3.16, java-version: 11 }
+          - { opensearch-version: 1.3.16, java-version: 17 }
+          - { opensearch-version: 2.13.0, java-version: 11 }
+          - { opensearch-version: 2.13.0, java-version: 17 }
+          - { opensearch-version: 2.13.0, java-version: 21 }
         runs-on: [ubuntu-latest]
     name: Check on ${{ matrix.runs-on }} (JDK-${{ matrix.entry.java-version }}, OpenSearch ${{ matrix.entry.opensearch-version }})
     runs-on: ${{ matrix.runs-on }}
