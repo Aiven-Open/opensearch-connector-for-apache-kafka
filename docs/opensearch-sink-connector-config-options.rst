@@ -231,4 +231,28 @@ Authentication
   * Default: null
   * Importance: medium
 
+AWS Authentication SigV4
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+``aws.access_key_id``
+  AWS Access key id, this field is required to enable AWS SigV4 request signing
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``aws.region``
+  AWS Region, eg us-east-1. This field is required to enable AWS SigV4 request signing
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``aws.secret_access_key``
+  AWS secret access key, this field is required to enable AWS SigV4 request signing
+
+  * Type: password
+  * Default: null
+  * Importance: medium
+
 
