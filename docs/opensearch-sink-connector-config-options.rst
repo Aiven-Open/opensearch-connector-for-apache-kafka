@@ -231,4 +231,78 @@ Authentication
   * Default: null
   * Importance: medium
 
+SSL Client Settings
+^^^^^^^^^^^^^^^^^^^
+
+``connection.ssl.protocol.type``
+  SSL protocol type. Default value is TLSv1.3, supported are: TLSv1.2, TLSv1.3
+
+  * Type: string
+  * Default: TLSv1.3
+  * Valid Values: TLSv1.2, TLSv1.3
+  * Importance: medium
+
+``connection.ssl.access.key.password``
+  User access key password
+
+  * Type: password
+  * Default: null
+  * Importance: medium
+
+``connection.ssl.ca.certificate.location``
+  Path to X.509 root CAs file (PEM format)
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``connection.ssl.access.certificate.location``
+  Path to X.509 user access certificate file (PEM format)
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``connection.ssl.access.key.location``
+  Path to the user certificate’s keys (PKCS #8) file (PEM format)
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``connection.ssl.truststore.location``
+  Path to the Truststore file (JKS format)
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``connection.ssl.truststore.password``
+  Truststore password
+
+  * Type: password
+  * Default: null
+  * Importance: medium
+
+``connection.ssl.keystore.location``
+  Path to the Keystore file (PKCS12/PFX format)
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``connection.ssl.keystore.type``
+  Keystore type. The default is JKS. Supported values are: JKS, PKCS12 or PFX
+
+  * Type: string
+  * Default: JKS
+  * Importance: medium
+
+``connection.ssl.keystore.password``
+  Keystore password
+
+  * Type: password
+  * Default: null
+  * Importance: medium
+
 
