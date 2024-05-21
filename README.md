@@ -11,7 +11,14 @@ The code was forked and all classes were renamed.
 
 # Documentation
 
-## How to install
+## Install and configure required software:
+1. Install and Run Kafka (https://kafka.apache.org/quickstart)
+2. Install and Run Kafka Connect (https://kafka.apache.org/documentation/#connect_running)
+3. Install and Run OpenSearch (https://opensearch.org/docs/latest/install-and-configure/install-opensearch/index/)
+    - If OpenSearch is running on SSL, make sure to copy the credentials and copy them to woker properties as mentioned in Quickstart guide below
+4. Install Aiven's OpenSearch® Sink Connector (see below)
+
+## How to install Aiven's OpenSearch® Sink Connector
 
 1. Connector plugins are packaged in zip/tar format to be released
 2. Users download plugins from GitHub releases or build binaries from source
@@ -81,13 +88,14 @@ curl http://localhost:8083/connector-plugins | jq .
 2. Run Kafka Connect: Make sure Kafka Connect is up and running.
 3. Add OpenSearch Sink to Kafka Connect: Follow the 'How to install' instructions to add the OpenSearch sink connector to Kafka Connect. Example worker config is located here https://github.com/Aiven-Open/opensearch-connector-for-apache-kafka/blob/main/config/quickstart-opensearch.properties
 4. Verify plugin installation : Visit http://localhost:8083/connectors to confirm that the OpenSearch sink connector is listed
-5. Check ACLs (If Enabled): If ACLs are enabled on Kafka, ensure there are no authorization exceptions for the topic and group resources.
-6. Install and Run OpenSearch: Ensure OpenSearch is installed and running. If SSL is enabled, configure the credentials in the connector worker properties.
-7. Produce Events: Produce JSON-formatted events to the Kafka topic specified in the worker properties.
-8. Index Creation: An index will be created in OpenSearch with the same name as the Kafka topic.
-9. Create Index Pattern: Create an index pattern in OpenSearch.
-10. Discover Events: Events produced to the Kafka topic can now be discovered in OpenSearch.
-11. Trouble shooting: If there are any deserialization errors in the connector logs, try setting schema.ignore to true.
+5. Check ACLs (If Enabled): If ACLs are enabled on Kafka, ensure there are no authorization exceptions for the topic and group resources. Example of adding acls : https://kafka.apache.org/documentation/#security_authz_examples
+6. Install and Run OpenSearch: Ensure OpenSearch is installed and running.
+7. If SSL is enabled on OpenSearch, configure the credentials in the connector worker properties connection.username & connection.password.
+8. Produce Events: Produce JSON-formatted events to the Kafka topic specified in the worker properties.
+9. Index Creation: An index will be created in OpenSearch with the same name as the Kafka topic.
+10. Create Index Pattern: Create an index pattern in OpenSearch.
+11. Discover Events: Events produced to the Kafka topic can now be discovered in OpenSearch.
+12. Trouble shooting: If there are any deserialization errors in the connector logs, try setting schema.ignore to true.
 
 # Contribute
 
