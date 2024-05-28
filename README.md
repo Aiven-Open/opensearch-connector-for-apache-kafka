@@ -72,7 +72,7 @@ curl http://localhost:8083/connector-plugins | jq .
   {
     "class": "io.aiven.kafka.connect.opensearch.OpensearchSinkConnector",
     "type": "sink",
-    "version": "3.0.0"
+    "version": "3.3.0"
   },
   ...
 ]
