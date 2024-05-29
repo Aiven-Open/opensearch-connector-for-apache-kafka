@@ -131,12 +131,12 @@ publishing {
 }
 
 ext {
-    kafkaVersion = "2.8.1"
+    kafkaVersion = "3.5.0"
+    apacheCommonsLangVersion = "3.14.0"
     slf4jVersion = "1.7.36"
-    openSearchVersion = "2.13.0"
+    openSearchVersion = "2.14.0"
 
-    testcontainersVersion = "1.19.7"
-    confluentPlatformVersion = "4.1.4"
+    testcontainersVersion = "1.19.8"
 }
 
 sourceSets {
@@ -173,6 +173,7 @@ dependencies {
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
     implementation "com.google.code.gson:gson:2.10.1"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
+    implementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
     testImplementation "org.mockito:mockito-core:5.11.0"
