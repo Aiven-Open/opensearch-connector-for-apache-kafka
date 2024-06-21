@@ -19,10 +19,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.DataStreamsStatsRequest;
+import org.opensearch.client.indices.PutComposableIndexTemplateRequest;
+import org.opensearch.cluster.metadata.ComposableIndexTemplate;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -104,6 +108,53 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
                 OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT);
     }
 
+    /*
+     * As DATA_STREAM_CREATE_INDEX_TEMPLATE is set to false, but DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME doesn't exist,
+     * index template (topic name) will be created
+     */
+    @Test
+    void testConnectorWithDataStreamExistingTemplateDoesNotExist() throws Exception {
+        final var props = connectorProperties();
+        String existingTemplate = "test-template";
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_CREATE_INDEX_TEMPLATE, "false");
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME, existingTemplate);
+        connect.configureConnector(CONNECTOR_NAME, props);
+
+        waitForConnectorToStart(CONNECTOR_NAME, 1);
+
+        writeRecords(10);
+        waitForRecords(TOPIC_NAME, 10);
+
+        // Search for datastreams with topic name, and it should exist
+        final var dsStats = opensearchClient.client.indices()
+                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME), RequestOptions.DEFAULT);
+        assertEquals(1, dsStats.getDataStreamCount());
+    }
+
+    @Test
+    void testConnectorWithDataStreamExistingTemplateDoesExists() throws Exception {
+        final var props = connectorProperties();
+        String existingTemplate = "test-template";
+        String dataStream = "test-data-stream_1";
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_CREATE_INDEX_TEMPLATE, "false");
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME, existingTemplate);
+        connect.configureConnector(CONNECTOR_NAME, props);
+
+        waitForConnectorToStart(CONNECTOR_NAME, 1);
+        // make sure index template exists
+        createDataStreamAndTemplate(dataStream, existingTemplate);
+
+        writeRecords(10);
+        waitForRecords(TOPIC_NAME, 10);
+
+        // Search for datastreams with topic name, and it shouldn't exist
+        final var dsStats = opensearchClient.client.indices()
+                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME), RequestOptions.DEFAULT);
+        assertEquals(0, dsStats.getDataStreamCount());
+    }
+
     void assertDataStream(final String dataStreamName) throws Exception {
         final var dsStats = opensearchClient.client.indices()
                 .dataStreamsStats(new DataStreamsStatsRequest(dataStreamName), RequestOptions.DEFAULT);
@@ -122,6 +173,16 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
             assertNotNull(timestamp);
             assertTrue(id < 10);
         }
+    }
+
+    void createDataStreamAndTemplate(String dataStream, String dataStreamTemplate) throws IOException {
+        final ComposableIndexTemplate template = new ComposableIndexTemplate(Arrays.asList(dataStream, "index-logs-*"),
+                null, null, 100L, null, null, new ComposableIndexTemplate.DataStreamTemplate());
+        final PutComposableIndexTemplateRequest request = new PutComposableIndexTemplateRequest();
+        request.name(dataStreamTemplate);
+        request.indexTemplate(template);
+
+        opensearchClient.client.indices().putIndexTemplate(request, RequestOptions.DEFAULT);
     }
 
 }
