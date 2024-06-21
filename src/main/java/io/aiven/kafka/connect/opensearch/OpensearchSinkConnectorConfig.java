@@ -164,10 +164,18 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
 
     public static final String DATA_STREAM_ENABLED = "data.stream.enabled";
+    public static final String DATA_STREAM_CREATE_INDEX_TEMPLATE = "data.streams.create.index.template";
+    public static final String DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME = "data.streams.existing.index.template.name";
 
     public static final String DATA_STREAM_ENABLED_DOC = "Enable use of data streams. "
             + "If set to true the connector will write to data streams instead of regular indices. "
             + "Default is false.";
+
+    public static final String DATA_STREAM_CREATE_INDEX_TEMPLATE_DOC = "If data streams is enabled and this is set to" +
+            " false, an existing template has to be provided. By default this is true.";
+
+    public static final String DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME_DOC = "If data streams is enabled and " +
+            "data.streams.create.index.template is set to false, this existing template has to be provided.";
 
     public static final String DATA_STREAM_PREFIX = "data.stream.prefix";
 
@@ -298,7 +306,13 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                         DATA_STREAM_NAME_DOC, DATA_STREAM_GROUP_NAME, ++order, Width.LONG, "Data stream name")
                 .define(DATA_STREAM_TIMESTAMP_FIELD, Type.STRING, DATA_STREAM_TIMESTAMP_FIELD_DEFAULT,
                         new ConfigDef.NonEmptyString(), Importance.MEDIUM, DATA_STREAM_TIMESTAMP_FIELD_DOC,
-                        DATA_STREAM_GROUP_NAME, ++order, Width.LONG, "Data stream timestamp field");
+                        DATA_STREAM_GROUP_NAME, ++order, Width.LONG, "Data stream timestamp field")
+                .define(DATA_STREAM_CREATE_INDEX_TEMPLATE, Type.BOOLEAN, true, Importance.MEDIUM,
+                        DATA_STREAM_CREATE_INDEX_TEMPLATE_DOC, DATA_STREAM_GROUP_NAME, ++order, Width.LONG,
+                        "Data stream name")
+                .define(DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME, Type.STRING, null, Importance.MEDIUM,
+                        DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME_DOC, DATA_STREAM_GROUP_NAME, ++order, Width.LONG,
+                        "Data stream name");
     }
 
     public static final ConfigDef CONFIG = baseConfigDef();
@@ -371,6 +385,14 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public boolean dataStreamEnabled() {
         return getBoolean(DATA_STREAM_ENABLED);
+    }
+
+    public boolean dataStreamCreateIndexTemplate() {
+        return getBoolean(DATA_STREAM_CREATE_INDEX_TEMPLATE);
+    }
+
+    public String dataStreamExistingIndexTemplateName() {
+        return getString(OpensearchSinkConnectorConfig.DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME);
     }
 
     public Optional<String> dataStreamPrefix() {
