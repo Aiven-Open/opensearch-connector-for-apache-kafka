@@ -21,7 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.DataStreamsStatsRequest;
@@ -29,16 +30,14 @@ import org.opensearch.client.indices.PutComposableIndexTemplateRequest;
 import org.opensearch.cluster.metadata.ComposableIndexTemplate;
 
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT {
 
-    static final Logger LOGGER = LoggerFactory.getLogger(OpensearchSinkConnectorIT.class);
-
-    static final long CONNECTOR_STARTUP_DURATION_MS = TimeUnit.MINUTES.toMillis(60);
-
     static final String TOPIC_NAME = "ds-topic";
+
+    static final String TOPIC_NAME1 = "ds-topic1";
+
+    static final String TOPIC_NAME2 = "ds-topic2";
 
     static final String DATA_STREAM_PREFIX = "os-data-stream";
 
@@ -56,13 +55,13 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
 
     @Test
     void testConnector() throws Exception {
-        final var props = connectorProperties();
+        final var props = connectorProperties(TOPIC_NAME);
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
         connect.configureConnector(CONNECTOR_NAME, props);
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
 
-        writeRecords(10);
+        writeRecords(10, TOPIC_NAME);
 
         waitForRecords(TOPIC_NAME, 10);
 
@@ -72,7 +71,7 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
 
     @Test
     void testConnectorWithDataStreamCustomTimestamp() throws Exception {
-        final var props = connectorProperties();
+        final var props = connectorProperties(topicName);
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, DATA_STREAM_PREFIX_WITH_TIMESTAMP);
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "custom_timestamp");
@@ -94,13 +93,13 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
 
     @Test
     void testConnectorWithDataStreamPrefix() throws Exception {
-        final var props = connectorProperties();
+        final var props = connectorProperties(TOPIC_NAME);
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, DATA_STREAM_PREFIX);
         connect.configureConnector(CONNECTOR_NAME, props);
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
-        writeRecords(10);
+        writeRecords(10, TOPIC_NAME);
         waitForRecords(DATA_STREAM_WITH_PREFIX_INDEX_NAME, 10);
 
         assertDataStream(DATA_STREAM_WITH_PREFIX_INDEX_NAME);
@@ -114,8 +113,9 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
      */
     @Test
     void testConnectorWithDataStreamExistingTemplateDoesNotExist() throws Exception {
-        final var props = connectorProperties();
-        String existingTemplate = "test-template";
+        final var props = connectorProperties(TOPIC_NAME1);
+        connect.kafka().createTopic(TOPIC_NAME1);
+        String existingTemplate = "test-template1";
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_CREATE_INDEX_TEMPLATE, "false");
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME, existingTemplate);
@@ -123,19 +123,21 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
 
-        writeRecords(10);
-        waitForRecords(TOPIC_NAME, 10);
+        writeRecords(10, TOPIC_NAME1);
+        waitForRecords(TOPIC_NAME1, 10);
 
         // Search for datastreams with topic name, and it should exist
         final var dsStats = opensearchClient.client.indices()
-                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME), RequestOptions.DEFAULT);
+                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME1), RequestOptions.DEFAULT);
         assertEquals(1, dsStats.getDataStreamCount());
+        deleteTopic(TOPIC_NAME1);
     }
 
     @Test
-    void testConnectorWithDataStreamExistingTemplateDoesExists() throws Exception {
-        final var props = connectorProperties();
-        String existingTemplate = "test-template";
+    void testConnectorWithDataStreamExistingTemplateExists() throws Exception {
+        final var props = connectorProperties(TOPIC_NAME2);
+        connect.kafka().createTopic(TOPIC_NAME2);
+        String existingTemplate = "test-template2";
         String dataStream = "test-data-stream_1";
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_CREATE_INDEX_TEMPLATE, "false");
@@ -146,13 +148,14 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         // make sure index template exists
         createDataStreamAndTemplate(dataStream, existingTemplate);
 
-        writeRecords(10);
-        waitForRecords(TOPIC_NAME, 10);
+        writeRecords(10, TOPIC_NAME2);
+        waitForRecords(TOPIC_NAME2, 10);
 
         // Search for datastreams with topic name, and it shouldn't exist
         final var dsStats = opensearchClient.client.indices()
-                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME), RequestOptions.DEFAULT);
+                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME2), RequestOptions.DEFAULT);
         assertEquals(0, dsStats.getDataStreamCount());
+        deleteTopic(TOPIC_NAME2);
     }
 
     void assertDataStream(final String dataStreamName) throws Exception {
@@ -185,4 +188,12 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         opensearchClient.client.indices().putIndexTemplate(request, RequestOptions.DEFAULT);
     }
 
+    void deleteTopic(String topicName) {
+        try (final var admin = connect.kafka().createAdminClient()) {
+            final var result = admin.deleteTopics(List.of(topicName));
+            result.all().get();
+        } catch (final ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
