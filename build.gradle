@@ -171,7 +171,7 @@ dependencies {
     compileOnly "org.apache.kafka:connect-json:$kafkaVersion"
 
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
-    implementation "com.google.code.gson:gson:2.10.1"
+    implementation "com.google.code.gson:gson:2.11.0"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
     implementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
 
