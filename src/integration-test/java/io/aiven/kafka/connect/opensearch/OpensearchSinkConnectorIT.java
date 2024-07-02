@@ -39,10 +39,10 @@ public class OpensearchSinkConnectorIT extends AbstractKafkaConnectIT {
 
     @Test
     public void testConnector() throws Exception {
-        connect.configureConnector(CONNECTOR_NAME, connectorProperties());
+        connect.configureConnector(CONNECTOR_NAME, connectorProperties(TOPIC_NAME));
         waitForConnectorToStart(CONNECTOR_NAME, 1);
 
-        writeRecords(10);
+        writeRecords(10, TOPIC_NAME);
 
         waitForRecords(TOPIC_NAME, 10);
 

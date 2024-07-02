@@ -214,6 +214,20 @@ Data Stream
   * Valid Values: non-empty string
   * Importance: medium
 
+``data.streams.create.index.template``
+  If data streams is enabled and this is set to false, data stream and index template are not created, rather this value data.streams.existing.index.template.name is verified if it exists. If not datastream and template are created.
+
+  * Type: boolean
+  * Default: true
+  * Importance: medium
+
+``data.streams.existing.index.template.name``
+  If data streams is enabled and data.streams.create.index.template is set to false, data stream and index template are not created, rather this value is verified if it exists. If not datastream and template are created.
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
 Authentication
 ^^^^^^^^^^^^^^
 

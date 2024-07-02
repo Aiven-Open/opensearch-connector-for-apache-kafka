@@ -97,7 +97,7 @@ public class AbstractKafkaConnectIT extends AbstractIT {
         }
     }
 
-    Map<String, String> connectorProperties() {
+    Map<String, String> connectorProperties(String topicName) {
         final var props = new HashMap<>(getDefaultProperties());
         props.put(CONNECTOR_CLASS_CONFIG, OpensearchSinkConnector.class.getName());
         props.put(TOPICS_CONFIG, topicName);
@@ -111,7 +111,7 @@ public class AbstractKafkaConnectIT extends AbstractIT {
         return props;
     }
 
-    void writeRecords(final int numRecords) {
+    void writeRecords(final int numRecords, String topicName) {
         for (int i = 0; i < numRecords; i++) {
             connect.kafka().produce(topicName, String.valueOf(i), String.format("{\"doc_num\":%d}", i));
         }
