@@ -131,7 +131,7 @@ publishing {
 }
 
 ext {
-    kafkaVersion = "3.5.0"
+    kafkaVersion = "3.8.0"
     apacheCommonsLangVersion = "3.14.0"
     slf4jVersion = "1.7.36"
     openSearchVersion = "2.15.0"
