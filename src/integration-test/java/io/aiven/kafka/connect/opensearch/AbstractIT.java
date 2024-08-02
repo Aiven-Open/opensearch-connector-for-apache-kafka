@@ -52,7 +52,7 @@ public abstract class AbstractIT {
         opensearchClient = new OpensearchClient(config);
     }
 
-    protected Map<String, String> getDefaultProperties() {
+    protected static Map<String, String> getDefaultProperties() {
         return Map.of(CONNECTION_URL_CONFIG, opensearchContainer.getHttpHostAddress(), CONNECTION_USERNAME_CONFIG,
                 "admin", CONNECTION_PASSWORD_CONFIG, "admin");
     }
