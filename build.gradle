@@ -189,7 +189,7 @@ dependencies {
 
     integrationTestImplementation "org.testcontainers:junit-jupiter:$testcontainersVersion"
     integrationTestImplementation "org.testcontainers:kafka:$testcontainersVersion" // this is not Kafka version
-    integrationTestImplementation "org.opensearch:opensearch-testcontainers:2.0.1"
+    integrationTestImplementation "org.opensearch:opensearch-testcontainers:2.1.0"
     integrationTestImplementation "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}"
     integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}:test"
