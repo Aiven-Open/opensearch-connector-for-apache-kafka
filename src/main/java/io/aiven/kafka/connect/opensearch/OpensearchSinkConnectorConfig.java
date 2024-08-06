@@ -381,8 +381,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(DATA_STREAM_ENABLED);
     }
 
-    public String dataStreamExistingIndexTemplateName() {
-        return getString(OpensearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME);
+    public Optional<String> dataStreamExistingIndexTemplateName() {
+        return Optional.ofNullable(getString(OpensearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME));
     }
 
     public Optional<String> dataStreamPrefix() {

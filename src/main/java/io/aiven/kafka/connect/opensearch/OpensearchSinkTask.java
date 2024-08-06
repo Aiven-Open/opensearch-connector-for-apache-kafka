@@ -142,17 +142,15 @@ public class OpensearchSinkTask extends SinkTask {
         if (!indexCache.contains(index)) {
             if (!client.indexOrDataStreamExists(index)) {
                 if (config.dataStreamEnabled()) {
-                    // Create if data stream template if does not exist
-                    if (config.dataStreamExistingIndexTemplateName() != null
-                            && !config.dataStreamExistingIndexTemplateName().trim().equals("")
-                            && !client.dataStreamIndexTemplateExists(config.dataStreamExistingIndexTemplateName())) {
-                        LOGGER.info("Create data stream and template {}", index);
-                        client.createIndexTemplateAndDataStream(config.dataStreamExistingIndexTemplateName(),
-                                config.dataStreamTimestampField());
-                    } else if (config.dataStreamExistingIndexTemplateName() != null
-                            && !config.dataStreamExistingIndexTemplateName().trim().equals("")
-                            && client.dataStreamIndexTemplateExists(config.dataStreamExistingIndexTemplateName())) {
-                        LOGGER.info("Do not create data stream and template {}", index);
+                    if (config.dataStreamExistingIndexTemplateName().isPresent()) {
+                        String userProvidedTemplate = config.dataStreamExistingIndexTemplateName().get();
+                        if (!client.dataStreamIndexTemplateExists(userProvidedTemplate)) {
+                            LOGGER.info("Create data stream and template {}", index);
+                            client.createIndexTemplateAndDataStream(userProvidedTemplate,
+                                    config.dataStreamTimestampField());
+                        } else if (client.dataStreamIndexTemplateExists(userProvidedTemplate)) {
+                            LOGGER.info("Do not create data stream and template {}", index);
+                        }
                     } else {
                         LOGGER.info("Create data stream {}", index);
                         client.createIndexTemplateAndDataStream(index, config.dataStreamTimestampField());
