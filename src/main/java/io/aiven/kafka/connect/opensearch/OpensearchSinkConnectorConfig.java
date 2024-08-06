@@ -170,8 +170,9 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             + "If set to true the connector will write to data streams instead of regular indices. "
             + "Default is false.";
 
-    public static final String DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME_DOC = "If data streams is enabled and "
-            + "data.streams.create.index.template is set to false, this existing template has to be provided.";
+    public static final String DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME_DOC = "If "
+            + "data.streams.existing.index.template.name is provided, and if that index "
+            + "template does not exist, a template will be created with that name, else no template is created.";
 
     public static final String DATA_STREAM_PREFIX = "data.stream.prefix";
 
