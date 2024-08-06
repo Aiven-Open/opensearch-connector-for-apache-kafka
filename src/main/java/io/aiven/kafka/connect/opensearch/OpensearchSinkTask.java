@@ -145,11 +145,12 @@ public class OpensearchSinkTask extends SinkTask {
                     if (config.dataStreamExistingIndexTemplateName().isPresent()) {
                         String userProvidedTemplate = config.dataStreamExistingIndexTemplateName().get();
                         if (!client.dataStreamIndexTemplateExists(userProvidedTemplate)) {
-                            LOGGER.info("Create data stream and template {}", index);
+                            LOGGER.info("Creating index template {} for data stream {}", userProvidedTemplate, index);
                             client.createIndexTemplateAndDataStream(userProvidedTemplate,
                                     config.dataStreamTimestampField());
                         } else {
-                            LOGGER.info("Do not create data stream and template {}", index);
+                            LOGGER.info("Using existing index template {} for data stream {}", userProvidedTemplate,
+                                    index);
                         }
                     } else {
                         LOGGER.info("Create data stream {}", index);
