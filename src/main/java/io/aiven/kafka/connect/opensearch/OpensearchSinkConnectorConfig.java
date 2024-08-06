@@ -164,10 +164,15 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
 
     public static final String DATA_STREAM_ENABLED = "data.stream.enabled";
+    public static final String DATA_STREAM_INDEX_TEMPLATE_NAME = "data.streams.existing.index.template.name";
 
     public static final String DATA_STREAM_ENABLED_DOC = "Enable use of data streams. "
             + "If set to true the connector will write to data streams instead of regular indices. "
             + "Default is false.";
+
+    public static final String DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME_DOC = "If "
+            + "data.streams.existing.index.template.name is provided, and if that index "
+            + "template does not exist, a template will be created with that name, else no template is created.";
 
     public static final String DATA_STREAM_PREFIX = "data.stream.prefix";
 
@@ -298,7 +303,10 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                         DATA_STREAM_NAME_DOC, DATA_STREAM_GROUP_NAME, ++order, Width.LONG, "Data stream name")
                 .define(DATA_STREAM_TIMESTAMP_FIELD, Type.STRING, DATA_STREAM_TIMESTAMP_FIELD_DEFAULT,
                         new ConfigDef.NonEmptyString(), Importance.MEDIUM, DATA_STREAM_TIMESTAMP_FIELD_DOC,
-                        DATA_STREAM_GROUP_NAME, ++order, Width.LONG, "Data stream timestamp field");
+                        DATA_STREAM_GROUP_NAME, ++order, Width.LONG, "Data stream timestamp field")
+                .define(DATA_STREAM_INDEX_TEMPLATE_NAME, Type.STRING, null, Importance.MEDIUM,
+                        DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME_DOC, DATA_STREAM_GROUP_NAME, ++order, Width.LONG,
+                        "Data stream name");
     }
 
     public static final ConfigDef CONFIG = baseConfigDef();
@@ -371,6 +379,10 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public boolean dataStreamEnabled() {
         return getBoolean(DATA_STREAM_ENABLED);
+    }
+
+    public Optional<String> dataStreamExistingIndexTemplateName() {
+        return Optional.ofNullable(getString(OpensearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME));
     }
 
     public Optional<String> dataStreamPrefix() {

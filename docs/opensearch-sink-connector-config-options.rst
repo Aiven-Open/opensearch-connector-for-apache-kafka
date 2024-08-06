@@ -214,6 +214,13 @@ Data Stream
   * Valid Values: non-empty string
   * Importance: medium
 
+``data.streams.existing.index.template.name``
+  If data.streams.create.index.template is provided, data stream and index template will be created if it doesn't exist.
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
 Authentication
 ^^^^^^^^^^^^^^
 
