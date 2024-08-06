@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutionException;
 
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.DataStreamsStatsRequest;
+import org.opensearch.client.indices.DeleteDataStreamRequest;
 import org.opensearch.client.indices.PutComposableIndexTemplateRequest;
 import org.opensearch.cluster.metadata.ComposableIndexTemplate;
 
@@ -36,8 +37,6 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
     static final String TOPIC_NAME = "ds-topic";
 
     static final String TOPIC_NAME1 = "ds-topic1";
-
-    static final String TOPIC_NAME2 = "ds-topic2";
 
     static final String DATA_STREAM_PREFIX = "os-data-stream";
 
@@ -108,17 +107,15 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
     }
 
     /*
-     * As DATA_STREAM_CREATE_INDEX_TEMPLATE is set to false, but DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME doesn't exist,
-     * index template (topic name) will be created
+     * User provided template doesn't exist, so create one
      */
     @Test
-    void testConnectorWithDataStreamExistingTemplateDoesNotExist() throws Exception {
+    void testConnectorWithUserProvidedTemplateDoesNotExist() throws Exception {
         final var props = connectorProperties(TOPIC_NAME1);
         connect.kafka().createTopic(TOPIC_NAME1);
-        String existingTemplate = "test-template1";
+        String userProvidedTemplateName = "test-template1";
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_CREATE_INDEX_TEMPLATE, "false");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME, existingTemplate);
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME, userProvidedTemplateName);
         connect.configureConnector(CONNECTOR_NAME, props);
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
@@ -128,34 +125,38 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
 
         // Search for datastreams with topic name, and it should exist
         final var dsStats = opensearchClient.client.indices()
-                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME1), RequestOptions.DEFAULT);
+                .dataStreamsStats(new DataStreamsStatsRequest(userProvidedTemplateName), RequestOptions.DEFAULT);
         assertEquals(1, dsStats.getDataStreamCount());
         deleteTopic(TOPIC_NAME1);
+
+        // Delete datastream
+        DeleteDataStreamRequest deleteDataStreamRequest = new DeleteDataStreamRequest(userProvidedTemplateName);
+        opensearchClient.client.indices().deleteDataStream(deleteDataStreamRequest, RequestOptions.DEFAULT);
     }
 
+    // A new template will not be created, as the one provided by user already exists
     @Test
-    void testConnectorWithDataStreamExistingTemplateExists() throws Exception {
-        final var props = connectorProperties(TOPIC_NAME2);
-        connect.kafka().createTopic(TOPIC_NAME2);
+    void testConnectorWithUserProvidedTemplateAlreadyExists() throws Exception {
+        final var props = connectorProperties(TOPIC_NAME1);
+        connect.kafka().createTopic(TOPIC_NAME1);
         String existingTemplate = "test-template2";
         String dataStream = "test-data-stream_1";
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_CREATE_INDEX_TEMPLATE, "false");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME, existingTemplate);
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME, existingTemplate);
         connect.configureConnector(CONNECTOR_NAME, props);
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
         // make sure index template exists
         createDataStreamAndTemplate(dataStream, existingTemplate);
 
-        writeRecords(10, TOPIC_NAME2);
-        waitForRecords(TOPIC_NAME2, 10);
+        writeRecords(10, TOPIC_NAME1);
+        waitForRecords(TOPIC_NAME1, 10);
 
-        // Search for datastreams with topic name, and it shouldn't exist
+        // Search for datastreams with default index - topic name, and it should not exist
         final var dsStats = opensearchClient.client.indices()
-                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME2), RequestOptions.DEFAULT);
+                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME1), RequestOptions.DEFAULT);
         assertEquals(0, dsStats.getDataStreamCount());
-        deleteTopic(TOPIC_NAME2);
+        deleteTopic(TOPIC_NAME1);
     }
 
     void assertDataStream(final String dataStreamName) throws Exception {
