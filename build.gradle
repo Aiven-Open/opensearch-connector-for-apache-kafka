@@ -136,7 +136,7 @@ ext {
     slf4jVersion = "1.7.36"
     openSearchVersion = "2.16.0"
 
-    testcontainersVersion = "1.20.2"
+    testcontainersVersion = "1.20.3"
 }
 
 sourceSets {
