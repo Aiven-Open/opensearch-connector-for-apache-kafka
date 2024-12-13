@@ -54,8 +54,7 @@ public class OpensearchSinkConnector extends SinkConnector {
     @Override
     public List<Map<String, String>> taskConfigs(final int maxTasks) {
         final List<Map<String, String>> taskConfigs = new ArrayList<>();
-        final Map<String, String> taskProps = new HashMap<>();
-        taskProps.putAll(configProperties);
+        final Map<String, String> taskProps = new HashMap<>(configProperties);
         for (int i = 0; i < maxTasks; i++) {
             taskConfigs.add(taskProps);
         }
