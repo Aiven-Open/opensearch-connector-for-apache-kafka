@@ -115,7 +115,7 @@ public class RetryUtil {
                     final long sleepTimeMs = computeRandomRetryWaitTimeInMillis(retryAttempts, retryBackoffMs);
                     final var msg = String.format("Failed to %s with attempt %s/%s, will attempt retry after %s ms. ",
                             callName, attempts, maxAttempts, sleepTimeMs);
-                    LOGGER.warn(msg + "Failure reason: {}", e);
+                    LOGGER.warn(msg + "Failure reason: ", e);
                     time.sleep(sleepTimeMs);
                 } else {
                     final var msg = String.format("Failed to %s after total of %s attempt(s)", callName, attempts);
