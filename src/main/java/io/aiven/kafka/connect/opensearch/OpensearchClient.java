@@ -248,7 +248,7 @@ public class OpensearchClient implements AutoCloseable {
                     .forOpensearch(config);
             configurators.forEach(configurator -> {
                 if (configurator.apply(config, httpClientBuilder)) {
-                    LOGGER.debug("Successfuly applied " + configurator.getClass().getName()
+                    LOGGER.debug("successfully applied " + configurator.getClass().getName()
                             + " configurator to OpensearchClient");
                 }
             });
