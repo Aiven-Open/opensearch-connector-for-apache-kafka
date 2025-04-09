@@ -153,6 +153,25 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
             + "- ``report`` - report to errant record reporter and keep the existing record\n"
             + "- ``fail`` - fail the task.\n\n";
 
+    public static final String ROUTING_ENABLED_CONFIG = "routing.enabled";
+    private static final String ROUTING_ENABLED_DOC = "Whether to enable routing for documents. "
+            + "If set to true, the connector will use routing when sending documents to OpenSearch. "
+            + "If set to false, no routing will be used. Default is false.";
+
+    public static final String ROUTING_FIELD_PATH_CONFIG = "routing.field.path";
+    private static final String ROUTING_FIELD_PATH_DOC = "The path of the field to pull from the payload "
+            + "to use as the routing value for the document. Supports nested fields using dot notation (e.g., 'customer.id'). "
+            + "If set, then that field from either the key or value will be used as the routing value. "
+            + "If not set, then the entire key or value will be used as the routing value. "
+            + "The value will be added to the PUT request to OpenSearch as the \"routing=...\" argument. "
+            + "Only used if routing.enabled is true.";
+
+    public static final String ROUTING_KEY_CONFIG = "routing.key";
+    private static final String ROUTING_KEY_DOC = "Whether to use the Kafka key for routing instead of the value. "
+            + "If set to true, the key will be used for routing. If set to false, the value will be used for routing. "
+            + "Default is false"
+            + "Only used if routing.enabled is true.";
+
     public static final String INDEX_WRITE_METHOD = "index.write.method";
 
     public static final String INDEX_WRITE_METHOD_DOC = String.format(
@@ -291,7 +310,13 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                         BulkProcessor.BehaviorOnVersionConflict.DEFAULT.toString(),
                         BulkProcessor.BehaviorOnVersionConflict.VALIDATOR, Importance.LOW,
                         BEHAVIOR_ON_VERSION_CONFLICT_DOC, DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT,
-                        "Behavior on document's version conflict (optimistic locking)");
+                        "Behavior on document's version conflict (optimistic locking)")
+                .define(ROUTING_ENABLED_CONFIG, Type.BOOLEAN, false, Importance.LOW, ROUTING_ENABLED_DOC,
+                        DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT, "Enable routing")
+                .define(ROUTING_FIELD_PATH_CONFIG, Type.STRING, null, Importance.LOW, ROUTING_FIELD_PATH_DOC,
+                        DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT, "Routing field path")
+                .define(ROUTING_KEY_CONFIG, Type.BOOLEAN, false, Importance.LOW, ROUTING_KEY_DOC,
+                        DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT, "Use Kafka key for routing");
     }
 
     private static void addDataStreamConfig(final ConfigDef configDef) {
@@ -490,6 +515,18 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public BulkProcessor.BehaviorOnVersionConflict behaviorOnVersionConflict() {
         return BulkProcessor.BehaviorOnVersionConflict
                 .forValue(getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
+    }
+
+    public boolean isRoutingEnabled() {
+        return getBoolean(OpensearchSinkConnectorConfig.ROUTING_ENABLED_CONFIG);
+    }
+
+    public Optional<String> routingFieldPath() {
+        return Optional.ofNullable(getString(OpensearchSinkConnectorConfig.ROUTING_FIELD_PATH_CONFIG));
+    }
+
+    public boolean useRoutingKey() {
+        return getBoolean(OpensearchSinkConnectorConfig.ROUTING_KEY_CONFIG);
     }
 
     public static void main(final String[] args) {

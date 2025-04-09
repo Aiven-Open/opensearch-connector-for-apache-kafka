@@ -76,15 +76,32 @@ public interface RequestBuilder {
                         ? deleteRequest
                         : addVersionIfAny(documentIDStrategy, record, deleteRequest);
             }
+
+            // Extract routing field value if configured
+            final String routingValue = extractRoutingFieldValue(config, record, payload);
+
             if (config.indexWriteMethod() == IndexWriteMethod.UPSERT) {
-                return new UpdateRequest().id(documentId)
+                final var updateRequest = new UpdateRequest().id(documentId)
                         .index(index)
                         .doc(payload, XContentType.JSON)
                         .upsert(payload, XContentType.JSON)
                         .docAsUpsert(true)
                         .retryOnConflict(Math.min(config.maxInFlightRequests(), 3));
+
+                // Add routing if available
+                if (routingValue != null) {
+                    updateRequest.routing(routingValue);
+                }
+
+                return updateRequest;
             } else {
                 final var indexRequest = new IndexRequest().id(documentId).index(index);
+
+                // Add routing if available
+                if (routingValue != null) {
+                    indexRequest.routing(routingValue);
+                }
+
                 if (config.dataStreamEnabled()) {
                     return indexRequest.opType(DocWriteRequest.OpType.CREATE)
                             .source(addTimestampToPayload(config, record, payload), XContentType.JSON);
@@ -130,4 +147,82 @@ public interface RequestBuilder {
         }
     }
 
+    private static String extractRoutingFieldValue(final OpensearchSinkConnectorConfig config, final SinkRecord record, final String payload) {
+        // If routing is not enabled, don't use routing
+        if (!config.isRoutingEnabled()) {
+            return null;
+        }
+
+        // Determine which payload to use based on routing.key setting
+        // If routing.key is not set, use the value (default behavior)
+        String payloadToUse = null;
+        if (config.useRoutingKey()) {
+            if (config.useRoutingKey() && record.key() != null) {
+                try {
+                    payloadToUse = OBJECT_MAPPER.writeValueAsString(record.key());
+                } catch (final IOException e) {
+                    LOGGER.warn("Could not convert key to JSON string", e);
+                }
+            }
+        } else {
+            payloadToUse = payload;
+        }
+
+        // If the payload to use is null, we can't extract a routing value
+        if (payloadToUse == null) {
+            return null;
+        }
+
+        // If routing.field.path is not set, use the entire key or value as routing
+        final var routingFieldPath = config.routingFieldPath();
+        if (routingFieldPath.isEmpty()) {
+            return payloadToUse;
+        }
+
+        // If routing.field.path is set, extract the field from the payload
+        try {
+            final var json = OBJECT_MAPPER.readTree(payloadToUse);
+            if (!json.isObject()) {
+                LOGGER.warn("JSON payload is a type of {}. Required is JSON Object. Routing field value will not be extracted.",
+                        json.getNodeType());
+                return null;
+            }
+
+            // Get the field path and split it into segments for nested field access
+            final var fieldPath = routingFieldPath.get();
+            final var pathSegments = fieldPath.split("\\.");
+
+            // Start with the root object
+            var currentNode = json;
+
+            // Traverse the path segments
+            for (int i = 0; i < pathSegments.length - 1; i++) {
+                if (currentNode.isObject() && currentNode.has(pathSegments[i])) {
+                    currentNode = currentNode.get(pathSegments[i]);
+                } else {
+                    LOGGER.warn("Path segment '{}' in routing field path '{}' not found in payload or not an object. Routing field value will not be extracted.",
+                            pathSegments[i], fieldPath);
+                    return null;
+                }
+            }
+
+            // Get the final field value
+            final var lastSegment = pathSegments[pathSegments.length - 1];
+            if (currentNode.isObject() && currentNode.has(lastSegment)) {
+                final var fieldValue = currentNode.get(lastSegment);
+                if (fieldValue.isValueNode()) {
+                    return fieldValue.asText();
+                } else {
+                    LOGGER.warn("Routing field '{}' is not a value node. Routing field value will not be extracted.",
+                            fieldPath);
+                }
+            } else {
+                LOGGER.warn("Routing field '{}' not found in payload. Routing field value will not be extracted.",
+                        fieldPath);
+            }
+        } catch (final IOException e) {
+            LOGGER.warn("Could not parse payload to extract routing field value", e);
+        }
+        return null;
+    }
 }

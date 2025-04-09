@@ -188,6 +188,28 @@ Data Conversion
   * Valid Values: [ignore, warn, fail, report]
   * Importance: low
 
+``routing.enabled``
+  Whether to enable routing for documents. If set to true, the connector will use routing when sending documents to OpenSearch. If set to false, no routing will be used. Default is false for backward compatibility.
+
+  * Type: boolean
+  * Default: false
+  * Importance: low
+
+``routing.field.path``
+  The path of the field to pull from the payload to use as the routing value for the document. Supports nested fields using dot notation (e.g., 'customer.id'). If set, then that field from either the key or value will be used as the routing value. If not set, then the entire key or value will be used as the routing value. The value will be added to the PUT request to OpenSearch as the \"routing=...\" argument. Only used if routing.enabled is true.
+
+  * Type: string
+  * Default: null
+  * Importance: low
+
+
+``routing.key``
+  Whether to use the Kafka key for routing instead of the value. If set to true, the key will be used for routing. If set to false, the value will be used for routing. Default is false. Only used if routing.enabled is true.
+
+  * Type: boolean
+  * Default: false
+  * Importance: low
+
 Data Stream
 ^^^^^^^^^^^
 
@@ -237,5 +259,3 @@ Authentication
   * Type: password
   * Default: null
   * Importance: medium
-
-
