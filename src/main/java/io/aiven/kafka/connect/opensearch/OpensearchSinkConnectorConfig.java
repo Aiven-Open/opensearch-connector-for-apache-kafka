@@ -169,8 +169,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public static final String ROUTING_KEY_CONFIG = "routing.key";
     private static final String ROUTING_KEY_DOC = "Whether to use the Kafka key for routing instead of the value. "
             + "If set to true, the key will be used for routing. If set to false, the value will be used for routing. "
-            + "Default is false"
-            + "Only used if routing.enabled is true.";
+            + "Default is false" + "Only used if routing.enabled is true.";
 
     public static final String INDEX_WRITE_METHOD = "index.write.method";
 

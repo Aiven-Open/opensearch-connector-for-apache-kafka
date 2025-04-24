@@ -147,7 +147,8 @@ public interface RequestBuilder {
         }
     }
 
-    private static String extractRoutingFieldValue(final OpensearchSinkConnectorConfig config, final SinkRecord record, final String payload) {
+    private static String extractRoutingFieldValue(final OpensearchSinkConnectorConfig config, final SinkRecord record,
+            final String payload) {
         // If routing is not enabled, don't use routing
         if (!config.isRoutingEnabled()) {
             return null;
@@ -183,7 +184,8 @@ public interface RequestBuilder {
         try {
             final var json = OBJECT_MAPPER.readTree(payloadToUse);
             if (!json.isObject()) {
-                LOGGER.warn("JSON payload is a type of {}. Required is JSON Object. Routing field value will not be extracted.",
+                LOGGER.warn(
+                        "JSON payload is a type of {}. Required is JSON Object. Routing field value will not be extracted.",
                         json.getNodeType());
                 return null;
             }
@@ -200,7 +202,8 @@ public interface RequestBuilder {
                 if (currentNode.isObject() && currentNode.has(pathSegments[i])) {
                     currentNode = currentNode.get(pathSegments[i]);
                 } else {
-                    LOGGER.warn("Path segment '{}' in routing field path '{}' not found in payload or not an object. Routing field value will not be extracted.",
+                    LOGGER.warn(
+                            "Path segment '{}' in routing field path '{}' not found in payload or not an object. Routing field value will not be extracted.",
                             pathSegments[i], fieldPath);
                     return null;
                 }
