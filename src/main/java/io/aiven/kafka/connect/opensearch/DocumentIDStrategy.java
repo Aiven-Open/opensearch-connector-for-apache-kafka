@@ -42,7 +42,7 @@ public enum DocumentIDStrategy {
 
     private final Function<SinkRecord, String> docIdGenerator;
 
-    private DocumentIDStrategy(final String name, final String description,
+    DocumentIDStrategy(final String name, final String description,
             final Function<SinkRecord, String> docIdGenerator) {
         this.name = name.toLowerCase(Locale.ROOT);
         this.description = description;
@@ -74,7 +74,7 @@ public enum DocumentIDStrategy {
     }
 
     public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
-        private final String[] names = Arrays.stream(values()).map(v -> v.toString()).toArray(String[]::new);
+        private final String[] names = Arrays.stream(values()).map(Object::toString).toArray(String[]::new);
         private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names);
 
         @Override
