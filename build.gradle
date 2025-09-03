@@ -131,10 +131,15 @@ publishing {
 }
 
 ext {
-    kafkaVersion = "3.5.0"
+    kafkaVersion = "3.8.1"
     apacheCommonsLangVersion = "3.18.0"
     slf4jVersion = "1.7.36"
-    openSearchVersion = "2.18.0"
+    openSearchVersion = "2.19.3"
+
+    mockitoVersion = "5.19.0"
+    jacksonVersion = "2.18.2"
+
+    junitVersion = "5.13.4"
 
     testcontainersVersion = "1.20.4"
 }
@@ -150,8 +155,8 @@ sourceSets {
 
 idea {
     module {
-        testSourceDirs += project.sourceSets.integrationTest.java.srcDirs
-        testSourceDirs += project.sourceSets.integrationTest.resources.srcDirs
+        testSources = files(project.sourceSets.integrationTest.java.srcDirs)
+        testSources = files(project.sourceSets.integrationTest.resources.srcDirs)
     }
 }
 
@@ -171,21 +176,24 @@ dependencies {
     compileOnly "org.apache.kafka:connect-json:$kafkaVersion"
 
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
-    implementation "com.google.code.gson:gson:2.11.0"
+    implementation "com.google.code.gson:gson:2.13.1"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
     implementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
 
-    testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
-    testImplementation "org.mockito:mockito-core:5.12.0"
-    testImplementation "org.mockito:mockito-inline:5.2.0"
-    testImplementation "org.mockito:mockito-junit-jupiter:5.14.2"
+    testImplementation platform("org.junit:junit-bom:${junitVersion}")
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+
+    testImplementation "org.mockito:mockito-core:${mockitoVersion}"
+    testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
 
     testImplementation "org.apache.kafka:connect-api:$kafkaVersion"
     testImplementation "org.apache.kafka:connect-json:$kafkaVersion"
-    testImplementation "com.fasterxml.jackson.core:jackson-core:2.17.2"
-    testImplementation "com.fasterxml.jackson.core:jackson-databind:2.17.2"
-    testImplementation "com.fasterxml.jackson.core:jackson-annotations:2.17.2"
+    testImplementation "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
+    testImplementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    testImplementation "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
+
     testRuntimeOnly "org.slf4j:slf4j-log4j12:$slf4jVersion"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.13.4"
 
     integrationTestImplementation "org.testcontainers:junit-jupiter:$testcontainersVersion"
     integrationTestImplementation "org.testcontainers:kafka:$testcontainersVersion" // this is not Kafka version
