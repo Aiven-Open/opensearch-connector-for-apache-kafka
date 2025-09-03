@@ -19,9 +19,6 @@ plugins {
     // https://docs.gradle.org/current/userguide/java_library_plugin.html
     id "java-library"
 
-    // https://docs.gradle.org/current/userguide/checkstyle_plugin.html
-    id "checkstyle"
-
     // https://docs.gradle.org/current/userguide/jacoco_plugin.html
     id "jacoco"
 
@@ -33,6 +30,9 @@ plugins {
 
     // https://docs.gradle.org/current/userguide/idea_plugin.html
     id 'idea'
+
+    // https://plugins.gradle.org/plugin/com.diffplug.spotless
+    id "com.diffplug.spotless" version "6.25.0"
 }
 
 wrapper {
@@ -49,6 +49,30 @@ repositories {
     mavenCentral()
 }
 
+spotless {
+    format 'misc', {
+        // define the files to apply `misc` to
+        target '*.gradle', '*.md', '.gitignore'
+        targetExclude ".*/**", "**/build/**", "**/.gradle/**"
+
+        // define the steps to apply to those files
+        trimTrailingWhitespace()
+        indentWithSpaces()
+        endWithNewline()
+    }
+
+    java {
+        licenseHeaderFile file("${rootDir}/gradle-config/java.header")
+        importOrder("javax", "java", "org.apache.kafka","org.opensearch","io.aiven","")
+        removeUnusedImports()
+        replaceRegex("No wildcard imports.", "import(?:\\s+static)?\\s+[^\\*\\s]+\\*;(\r\n|\r|\n)", '$1')
+        eclipse().configFile("${rootDir}/gradle-config/aiven-eclipse-formatter.xml")
+        indentWithSpaces()
+        endWithNewline()
+        trimTrailingWhitespace()
+    }
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -58,13 +82,8 @@ compileJava {
     options.compilerArgs = ['-Xlint:all']
 }
 
-checkstyle {
-    toolVersion "9.0.1"
-    configDirectory.set(rootProject.file("checkstyle/"))
-}
-
 jacoco {
-    toolVersion = "0.8.8"
+    toolVersion = "0.8.9"
 }
 
 distributions {
@@ -72,12 +91,6 @@ distributions {
         contents {
             from jar
             from configurations.runtimeClasspath
-
-            into("/") {
-                from projectDir
-                include "version.txt", "README*", "LICENSE*", "NOTICE*", "licenses/"
-                include "config/"
-            }
         }
     }
 }
@@ -118,12 +131,12 @@ publishing {
 }
 
 ext {
-    kafkaVersion = "2.8.1"
+    kafkaVersion = "3.5.0"
+    apacheCommonsLangVersion = "3.18.0"
     slf4jVersion = "1.7.36"
-    openSearchVersion = "2.10.0"
+    openSearchVersion = "2.18.0"
 
-    testcontainersVersion = "1.19.0"
-    confluentPlatformVersion = "4.1.4"
+    testcontainersVersion = "1.20.4"
 }
 
 sourceSets {
@@ -158,25 +171,26 @@ dependencies {
     compileOnly "org.apache.kafka:connect-json:$kafkaVersion"
 
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
-    implementation "com.google.code.gson:gson:2.10.1"
+    implementation "com.google.code.gson:gson:2.11.0"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
     implementation "io.github.acm19:aws-request-signing-apache-interceptor:2.3.1"
+    implementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
 
-    testImplementation "org.junit.jupiter:junit-jupiter:5.10.0"
-    testImplementation "org.mockito:mockito-core:5.5.0"
+    testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
+    testImplementation "org.mockito:mockito-core:5.12.0"
     testImplementation "org.mockito:mockito-inline:5.2.0"
-    testImplementation "org.mockito:mockito-junit-jupiter:5.5.0"
+    testImplementation "org.mockito:mockito-junit-jupiter:5.14.2"
 
     testImplementation "org.apache.kafka:connect-api:$kafkaVersion"
     testImplementation "org.apache.kafka:connect-json:$kafkaVersion"
-    testImplementation "com.fasterxml.jackson.core:jackson-core:2.15.2"
-    testImplementation "com.fasterxml.jackson.core:jackson-databind:2.15.2"
-    testImplementation "com.fasterxml.jackson.core:jackson-annotations:2.15.2"
+    testImplementation "com.fasterxml.jackson.core:jackson-core:2.17.2"
+    testImplementation "com.fasterxml.jackson.core:jackson-databind:2.17.2"
+    testImplementation "com.fasterxml.jackson.core:jackson-annotations:2.17.2"
     testRuntimeOnly "org.slf4j:slf4j-log4j12:$slf4jVersion"
 
     integrationTestImplementation "org.testcontainers:junit-jupiter:$testcontainersVersion"
     integrationTestImplementation "org.testcontainers:kafka:$testcontainersVersion" // this is not Kafka version
-    integrationTestImplementation "org.opensearch:opensearch-testcontainers:2.0.0"
+    integrationTestImplementation "org.opensearch:opensearch-testcontainers:2.1.2"
     integrationTestImplementation "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}"
     integrationTestImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}:test"
@@ -205,7 +219,7 @@ task integrationTest(type: Test) {
 
     // Pass the distribution file path to the tests.
     systemProperty("integration-test.distribution.file.path", distTar.archiveFile.get().asFile.path)
-    systemProperty("opensearch.testcontainers.image-version", 
+    systemProperty("opensearch.testcontainers.image-version",
         project.findProperty("opensearch.testcontainers.image-version") ? project.getProperty("opensearch.testcontainers.image-version") : "2.0.0")
 }
 

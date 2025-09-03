@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
 
 import java.util.Arrays;
@@ -26,8 +24,7 @@ import org.apache.kafka.common.config.ConfigException;
 
 public enum IndexWriteMethod {
 
-    INSERT,
-    UPSERT;
+    INSERT, UPSERT;
 
     public static String possibleValues() {
         return Arrays.stream(IndexWriteMethod.values())
@@ -42,8 +39,8 @@ public enum IndexWriteMethod {
             try {
                 IndexWriteMethod.valueOf(((String) value).toUpperCase(Locale.ROOT));
             } catch (final IllegalArgumentException e) {
-                throw new ConfigException(name, value, "Index write method must be one of: "
-                        + IndexWriteMethod.possibleValues());
+                throw new ConfigException(name, value,
+                        "Index write method must be one of: " + IndexWriteMethod.possibleValues());
             }
         }
 

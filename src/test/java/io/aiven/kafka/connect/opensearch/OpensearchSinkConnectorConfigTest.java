@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -31,10 +32,6 @@ import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 
 public class OpensearchSinkConnectorConfigTest {
 
@@ -69,18 +66,14 @@ public class OpensearchSinkConnectorConfigTest {
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD, "aaa");
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true");
-        props.put(
-                OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG,
-                DocumentIDStrategy.RECORD_KEY.toString()
-        );
+        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG,
+                DocumentIDStrategy.RECORD_KEY.toString());
 
         assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
 
         props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
-        props.put(
-                OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
-                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
-        );
+        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
         assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
 
         props.remove(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED);
@@ -88,10 +81,8 @@ public class OpensearchSinkConnectorConfigTest {
         final var defaultIndexWriteMethod = new OpensearchSinkConnectorConfig(props);
         assertEquals(IndexWriteMethod.INSERT, defaultIndexWriteMethod.indexWriteMethod());
 
-        props.put(
-                OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
-                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
-        );
+        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
         final var upsertIndexWriteMethod = new OpensearchSinkConnectorConfig(props);
         assertEquals(IndexWriteMethod.INSERT, defaultIndexWriteMethod.indexWriteMethod());
     }
@@ -115,10 +106,8 @@ public class OpensearchSinkConnectorConfigTest {
     @Test
     void testWrongKeyIgnoreIdStrategyConfigSettingsForIndexWriteMethodUspert() {
         props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        props.put(
-                OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
-                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
-        );
+        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+                IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
         props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.name());
 
         assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
@@ -127,27 +116,11 @@ public class OpensearchSinkConnectorConfigTest {
     public static class CustomConfigDefContributor implements ConfigDefContributor {
         @Override
         public void addConfig(final ConfigDef config) {
-            config.define(
-                    "custom.property.1",
-                    Type.INT,
-                    null,
-                    Importance.MEDIUM,
-                    "Custom string property 1 description",
-                    "custom",
-                    0,
-                    Width.SHORT,
-                    "Custom string property 1"
-            ).define(
-                    "custom.property.2",
-                    Type.STRING,
-                    null,
-                    Importance.MEDIUM,
-                    "Custom string property 2 description",
-                    "custom",
-                    1,
-                    Width.SHORT,
-                    "Custom string property 2"
-            );
+            config.define("custom.property.1", Type.INT, null, Importance.MEDIUM,
+                    "Custom string property 1 description", "custom", 0, Width.SHORT, "Custom string property 1")
+                    .define("custom.property.2", Type.STRING, null, Importance.MEDIUM,
+                            "Custom string property 2 description", "custom", 1, Width.SHORT,
+                            "Custom string property 2");
         }
     }
 
@@ -211,8 +184,7 @@ public class OpensearchSinkConnectorConfigTest {
     @Test
     void convertTopicToIndexName() {
         final var config = new OpensearchSinkConnectorConfig(
-                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200")
-        );
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200"));
         final var longTopicName = "a".repeat(260);
         assertEquals("a".repeat(255), config.topicToIndexNameConverter().apply(longTopicName));
 
@@ -238,21 +210,14 @@ public class OpensearchSinkConnectorConfigTest {
 
     @Test
     void convertTopicToDataStreamName() {
-        final var config = new OpensearchSinkConnectorConfig(
-                Map.of(
-                        OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
-                        OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
-                        OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaaa"
-                )
-        );
+        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://l:9200", OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaaa"));
         assertEquals("aaaaa-bbbbb", config.topicToIndexNameConverter().apply("bbbbb"));
 
         final var noDsPrefixConfig = new OpensearchSinkConnectorConfig(
-                Map.of(
-                        OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
-                        OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"
-                )
-        );
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                        OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"));
         assertEquals("bbbbb", noDsPrefixConfig.topicToIndexNameConverter().apply("bbbbb"));
     }
 

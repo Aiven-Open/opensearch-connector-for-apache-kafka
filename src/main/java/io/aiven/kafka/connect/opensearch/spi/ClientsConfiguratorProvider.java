@@ -1,6 +1,5 @@
 /*
  * Copyright 2019 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch.spi;
 
 import java.util.ArrayList;
@@ -29,16 +27,18 @@ public final class ClientsConfiguratorProvider {
     }
 
     /**
-     * Use {@link ServiceLoader} mechanism to discover available configurators for Opensearch (and possibly
-     * others) clients which are applicable to the provided configuration. 
-     * @param config provided configuration
-     * @return the list of discovered {@link OpensearchClientConfigurator} configurators which are applicable to the 
-     *     provided configuration.
+     * Use {@link ServiceLoader} mechanism to discover available configurators for Opensearch (and possibly others)
+     * clients which are applicable to the provided configuration.
+     *
+     * @param config
+     *            provided configuration
+     * @return the list of discovered {@link OpensearchClientConfigurator} configurators which are applicable to the
+     *         provided configuration.
      */
     public static Collection<OpensearchClientConfigurator> forOpensearch(final OpensearchSinkConnectorConfig config) {
         final Collection<OpensearchClientConfigurator> configurators = new ArrayList<>();
         final ServiceLoader<OpensearchClientConfigurator> loaders = ServiceLoader
-            .load(OpensearchClientConfigurator.class, ClientsConfiguratorProvider.class.getClassLoader());
+                .load(OpensearchClientConfigurator.class, ClientsConfiguratorProvider.class.getClassLoader());
 
         final Iterator<OpensearchClientConfigurator> iterator = loaders.iterator();
         while (iterator.hasNext()) {

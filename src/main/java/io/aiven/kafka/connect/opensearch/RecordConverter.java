@@ -1,6 +1,5 @@
 /*
  * Copyright 2019 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
 
 import java.math.BigDecimal;
@@ -62,9 +60,9 @@ public class RecordConverter {
     public DocWriteRequest<?> convert(final SinkRecord record, final String indexOrDataStreamName) {
         if (record.value() == null) {
             switch (config.behaviorOnNullValues()) {
-                case IGNORE:
+                case IGNORE :
                     return null;
-                case DELETE:
+                case DELETE :
                     if (record.key() == null) {
                         // Since the record key is used as the ID of the index to delete and we don't have a key
                         // for this record, we can't delete anything anyways, so we ignore the record.
@@ -77,20 +75,15 @@ public class RecordConverter {
                     }
                     // Will proceed as normal, ultimately creating an with a null payload
                     break;
-                case FAIL:
-                default:
+                case FAIL :
+                default :
                     throw new DataException(String.format(
                             "Sink record with key of %s and null value encountered for topic/partition/offset "
                                     + "%s/%s/%s (to ignore future records like this change the configuration property "
                                     + "'%s' from '%s' to '%s')",
-                            record.key(),
-                            record.topic(),
-                            record.kafkaPartition(),
-                            record.kafkaOffset(),
-                            OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
-                            BehaviorOnNullValues.FAIL,
-                            BehaviorOnNullValues.IGNORE
-                    ));
+                            record.key(), record.topic(), record.kafkaPartition(), record.kafkaOffset(),
+                            OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, BehaviorOnNullValues.FAIL,
+                            BehaviorOnNullValues.IGNORE));
             }
         }
         return RequestBuilder.builder()
@@ -132,13 +125,13 @@ public class RecordConverter {
         final String schemaName = schema.name();
         if (schemaName != null) {
             switch (schemaName) {
-                case Decimal.LOGICAL_NAME:
+                case Decimal.LOGICAL_NAME :
                     return copySchemaBasics(schema, SchemaBuilder.float64()).build();
-                case Date.LOGICAL_NAME:
-                case Time.LOGICAL_NAME:
-                case Timestamp.LOGICAL_NAME:
+                case Date.LOGICAL_NAME :
+                case Time.LOGICAL_NAME :
+                case Timestamp.LOGICAL_NAME :
                     return schema;
-                default:
+                default :
                     // User type or unknown logical type
                     break;
             }
@@ -146,13 +139,13 @@ public class RecordConverter {
 
         final Schema.Type schemaType = schema.type();
         switch (schemaType) {
-            case ARRAY:
+            case ARRAY :
                 return preProcessArraySchema(schema);
-            case MAP:
+            case MAP :
                 return preProcessMapSchema(schema);
-            case STRUCT:
+            case STRUCT :
                 return preProcessStructSchema(schema);
-            default:
+            default :
                 return schema;
         }
     }
@@ -173,7 +166,8 @@ public class RecordConverter {
             final SchemaBuilder result = SchemaBuilder.map(preprocessedKeySchema, preprocessedValueSchema);
             return copySchemaBasics(schema, result).build();
         }
-        final Schema elementSchema = SchemaBuilder.struct().name(keyName + "-" + valueName)
+        final Schema elementSchema = SchemaBuilder.struct()
+                .name(keyName + "-" + valueName)
                 .field(Mapping.KEY_FIELD, preprocessedKeySchema)
                 .field(Mapping.VALUE_FIELD, preprocessedValueSchema)
                 .build();
@@ -221,13 +215,13 @@ public class RecordConverter {
 
         final Schema.Type schemaType = schema.type();
         switch (schemaType) {
-            case ARRAY:
+            case ARRAY :
                 return preProcessArrayValue(value, schema, newSchema);
-            case MAP:
+            case MAP :
                 return preProcessMapValue(value, schema, newSchema);
-            case STRUCT:
+            case STRUCT :
                 return preProcessStructValue(value, schema, newSchema);
-            default:
+            default :
                 return value;
         }
     }
@@ -245,13 +239,13 @@ public class RecordConverter {
     // @returns the decoded logical value or null if this isn't a known logical type
     private Object preProcessLogicalValue(final String schemaName, final Object value) {
         switch (schemaName) {
-            case Decimal.LOGICAL_NAME:
+            case Decimal.LOGICAL_NAME :
                 return ((BigDecimal) value).doubleValue();
-            case Date.LOGICAL_NAME:
-            case Time.LOGICAL_NAME:
-            case Timestamp.LOGICAL_NAME:
+            case Date.LOGICAL_NAME :
+            case Time.LOGICAL_NAME :
+            case Timestamp.LOGICAL_NAME :
                 return value;
-            default:
+            default :
                 // User-defined type or unknown built-in
                 return null;
         }
@@ -274,10 +268,8 @@ public class RecordConverter {
         if (config.useCompactMapEntries() && keySchema.type() == Schema.Type.STRING) {
             final Map<Object, Object> processedMap = new HashMap<>();
             for (final Map.Entry<?, ?> entry : map.entrySet()) {
-                processedMap.put(
-                        preProcessValue(entry.getKey(), keySchema, newSchema.keySchema()),
-                        preProcessValue(entry.getValue(), valueSchema, newValueSchema)
-                );
+                processedMap.put(preProcessValue(entry.getKey(), keySchema, newSchema.keySchema()),
+                        preProcessValue(entry.getValue(), valueSchema, newValueSchema));
             }
             return processedMap;
         }
@@ -286,12 +278,8 @@ public class RecordConverter {
             final Struct mapStruct = new Struct(newValueSchema);
             final Schema mapKeySchema = newValueSchema.field(Mapping.KEY_FIELD).schema();
             final Schema mapValueSchema = newValueSchema.field(Mapping.VALUE_FIELD).schema();
-            mapStruct.put(
-                    Mapping.KEY_FIELD,
-                    preProcessValue(entry.getKey(), keySchema, mapKeySchema));
-            mapStruct.put(
-                    Mapping.VALUE_FIELD,
-                    preProcessValue(entry.getValue(), valueSchema, mapValueSchema));
+            mapStruct.put(Mapping.KEY_FIELD, preProcessValue(entry.getKey(), keySchema, mapKeySchema));
+            mapStruct.put(Mapping.VALUE_FIELD, preProcessValue(entry.getValue(), valueSchema, mapValueSchema));
             mapStructs.add(mapStruct);
         }
         return mapStructs;
@@ -309,9 +297,7 @@ public class RecordConverter {
     }
 
     public enum BehaviorOnNullValues {
-        IGNORE,
-        DELETE,
-        FAIL;
+        IGNORE, DELETE, FAIL;
 
         public static final BehaviorOnNullValues DEFAULT = IGNORE;
 

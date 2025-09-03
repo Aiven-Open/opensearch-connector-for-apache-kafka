@@ -1,6 +1,5 @@
 /*
  * Copyright 2019 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch.spi;
 
 import io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig;
@@ -26,10 +24,12 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
  */
 public interface OpensearchClientConfigurator {
     /**
-     * Apply the configurator to the {@link HttpAsyncClientBuilder} instance according to the 
-     * provided configuration.
-     * @param config provided configuration
-     * @param builder {@link HttpAsyncClientBuilder} instance
+     * Apply the configurator to the {@link HttpAsyncClientBuilder} instance according to the provided configuration.
+     *
+     * @param config
+     *            provided configuration
+     * @param builder
+     *            {@link HttpAsyncClientBuilder} instance
      * @return "true" if the configurator is applicable, "false" otherwise
      */
     boolean apply(OpensearchSinkConnectorConfig config, HttpAsyncClientBuilder builder);

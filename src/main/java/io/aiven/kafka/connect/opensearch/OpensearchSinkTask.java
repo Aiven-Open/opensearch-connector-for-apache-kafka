@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -37,9 +38,6 @@ import org.apache.kafka.connect.sink.SinkTask;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
 
 public class OpensearchSinkTask extends SinkTask {
 
@@ -77,10 +75,11 @@ public class OpensearchSinkTask extends SinkTask {
 
             this.topicToIndexConverter = config.topicToIndexNameConverter();
             // Calculate the maximum possible backoff time ...
-            final long maxRetryBackoffMs =
-                    RetryUtil.computeRetryWaitTimeInMillis(config.maxRetry(), config.retryBackoffMs());
+            final long maxRetryBackoffMs = RetryUtil.computeRetryWaitTimeInMillis(config.maxRetry(),
+                    config.retryBackoffMs());
             if (maxRetryBackoffMs > RetryUtil.MAX_RETRY_TIME_MS) {
-                LOGGER.warn("This connector uses exponential backoff with jitter for retries, "
+                LOGGER.warn(
+                        "This connector uses exponential backoff with jitter for retries, "
                                 + "and using '{}={}' and '{}={}' results in an impractical but possible maximum "
                                 + "backoff time greater than {} hours.",
                         OpensearchSinkConnectorConfig.MAX_RETRIES_CONFIG, config.maxRetry(),
@@ -91,10 +90,7 @@ public class OpensearchSinkTask extends SinkTask {
             this.client = new OpensearchClient(config, getErrantRecordReporter());
             this.recordConverter = new RecordConverter(config);
         } catch (final ConfigException e) {
-            throw new ConnectException(
-                    "Couldn't start OpensearchSinkTask due to configuration error:",
-                    e
-            );
+            throw new ConnectException("Couldn't start OpensearchSinkTask due to configuration error:", e);
         }
     }
 
@@ -111,12 +107,8 @@ public class OpensearchSinkTask extends SinkTask {
         LOGGER.trace("Putting {} to Opensearch", records);
         for (final var record : records) {
             if (ignoreRecord(record)) {
-                LOGGER.debug(
-                        "Ignoring sink record with key {} and null value for topic/partition/offset {}/{}/{}",
-                        record.key(),
-                        record.topic(),
-                        record.kafkaPartition(),
-                        record.kafkaOffset());
+                LOGGER.debug("Ignoring sink record with key {} and null value for topic/partition/offset {}/{}/{}",
+                        record.key(), record.topic(), record.kafkaPartition(), record.kafkaOffset());
                 continue;
             }
             tryWriteRecord(record);
@@ -138,13 +130,8 @@ public class OpensearchSinkTask extends SinkTask {
             }
         } catch (final DataException e) {
             if (config.dropInvalidMessage()) {
-                LOGGER.error(
-                        "Can't convert record from topic {} with partition {} and offset {}. Reason: ",
-                        record.topic(),
-                        record.kafkaPartition(),
-                        record.kafkaOffset(),
-                        e
-                );
+                LOGGER.error("Can't convert record from topic {} with partition {} and offset {}. Reason: ",
+                        record.topic(), record.kafkaPartition(), record.kafkaOffset(), e);
             } else {
                 throw e;
             }
@@ -155,8 +142,20 @@ public class OpensearchSinkTask extends SinkTask {
         if (!indexCache.contains(index)) {
             if (!client.indexOrDataStreamExists(index)) {
                 if (config.dataStreamEnabled()) {
-                    LOGGER.info("Create data stream {}", index);
-                    client.createIndexTemplateAndDataStream(index, config.dataStreamTimestampField());
+                    if (config.dataStreamExistingIndexTemplateName().isPresent()) {
+                        String userProvidedTemplate = config.dataStreamExistingIndexTemplateName().get();
+                        if (!client.dataStreamIndexTemplateExists(userProvidedTemplate)) {
+                            LOGGER.info("Creating index template {} for data stream {}", userProvidedTemplate, index);
+                            client.createIndexTemplateAndDataStream(userProvidedTemplate,
+                                    config.dataStreamTimestampField());
+                        } else {
+                            LOGGER.info("Using existing index template {} for data stream {}", userProvidedTemplate,
+                                    index);
+                        }
+                    } else {
+                        LOGGER.info("Create data stream {}", index);
+                        client.createIndexTemplateAndDataStream(index, config.dataStreamTimestampField());
+                    }
                 } else {
                     LOGGER.info("Create index {}", index);
                     client.createIndex(index);
