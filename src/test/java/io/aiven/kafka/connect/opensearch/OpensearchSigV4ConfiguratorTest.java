@@ -1,6 +1,5 @@
 /*
  * Copyright 2019 Aiven Oy
- * Copyright 2016 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aiven.kafka.connect.opensearch;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.util.Map;
 
@@ -26,23 +28,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-
 @ExtendWith(MockitoExtension.class)
 public class OpensearchSigV4ConfiguratorTest {
 
     @Test
     void testApplyInterceptor(final @Mock HttpAsyncClientBuilder httpBuilder) {
-        final var config = new OpensearchSinkConnectorConfig(
-            Map.of(
-                OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
-                OpensearchSigV4Configurator.AWS_ACCESS_KEY_ID_CONFIG, "id",
+        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpensearchSigV4Configurator.AWS_ACCESS_KEY_ID_CONFIG, "id",
                 OpensearchSigV4Configurator.AWS_SECRET_ACCESS_KEY_CONFIG, "secret",
-                OpensearchSigV4Configurator.AWS_REGION_CONFIG, "us-east-1"
-            )
-        );
+                OpensearchSigV4Configurator.AWS_REGION_CONFIG, "us-east-1"));
         final OpensearchSigV4Configurator configurator = new OpensearchSigV4Configurator();
         configurator.apply(config, httpBuilder);
 
@@ -52,8 +46,7 @@ public class OpensearchSigV4ConfiguratorTest {
     @Test
     void testConfigMissing(final @Mock HttpAsyncClientBuilder httpBuilder) {
         final var config = new OpensearchSinkConnectorConfig(
-            Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost")
-        );
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost"));
         final OpensearchSigV4Configurator configurator = new OpensearchSigV4Configurator();
         configurator.apply(config, httpBuilder);
 
@@ -62,13 +55,9 @@ public class OpensearchSigV4ConfiguratorTest {
 
     @Test
     void testAccessKeyIdMissing(final @Mock HttpAsyncClientBuilder httpBuilder) {
-        final var config = new OpensearchSinkConnectorConfig(
-            Map.of(
-                OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
-                OpensearchSigV4Configurator.AWS_SECRET_ACCESS_KEY_CONFIG, "secret",
-                OpensearchSigV4Configurator.AWS_REGION_CONFIG, "us-east-1"
-            )
-        );
+        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpensearchSigV4Configurator.AWS_SECRET_ACCESS_KEY_CONFIG, "secret",
+                OpensearchSigV4Configurator.AWS_REGION_CONFIG, "us-east-1"));
         final OpensearchSigV4Configurator configurator = new OpensearchSigV4Configurator();
         configurator.apply(config, httpBuilder);
 
@@ -77,13 +66,9 @@ public class OpensearchSigV4ConfiguratorTest {
 
     @Test
     void testSecretAccessKeyMissing(final @Mock HttpAsyncClientBuilder httpBuilder) {
-        final var config = new OpensearchSinkConnectorConfig(
-            Map.of(
-                OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
-                OpensearchSigV4Configurator.AWS_ACCESS_KEY_ID_CONFIG, "id",
-                OpensearchSigV4Configurator.AWS_REGION_CONFIG, "us-east-1"
-            )
-        );
+        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpensearchSigV4Configurator.AWS_ACCESS_KEY_ID_CONFIG, "id",
+                OpensearchSigV4Configurator.AWS_REGION_CONFIG, "us-east-1"));
         final OpensearchSigV4Configurator configurator = new OpensearchSigV4Configurator();
         configurator.apply(config, httpBuilder);
 
@@ -92,13 +77,9 @@ public class OpensearchSigV4ConfiguratorTest {
 
     @Test
     void testRegionMissing(final @Mock HttpAsyncClientBuilder httpBuilder) {
-        final var config = new OpensearchSinkConnectorConfig(
-            Map.of(
-                OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
-                OpensearchSigV4Configurator.AWS_ACCESS_KEY_ID_CONFIG, "id",
-                OpensearchSigV4Configurator.AWS_SECRET_ACCESS_KEY_CONFIG, "secret"
-            )
-        );
+        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpensearchSigV4Configurator.AWS_ACCESS_KEY_ID_CONFIG, "id",
+                OpensearchSigV4Configurator.AWS_SECRET_ACCESS_KEY_CONFIG, "secret"));
         final OpensearchSigV4Configurator configurator = new OpensearchSigV4Configurator();
         configurator.apply(config, httpBuilder);
 
