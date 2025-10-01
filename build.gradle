@@ -136,7 +136,7 @@ ext {
     slf4jVersion = "1.7.36"
     openSearchVersion = "2.19.3"
 
-    mockitoVersion = "5.19.0"
+    mockitoVersion = "5.20.0"
     jacksonVersion = "2.18.2"
 
     junitVersion = "5.13.4"
