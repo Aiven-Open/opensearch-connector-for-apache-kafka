@@ -84,7 +84,12 @@ public interface RequestBuilder {
                         .docAsUpsert(true)
                         .retryOnConflict(Math.min(config.maxInFlightRequests(), 3));
             } else {
-                final var indexRequest = new IndexRequest().id(documentId).index(index);
+                // For OpenSearch Serverless (AOSS), do not set document ID as it doesn't support explicit IDs
+                final boolean isAOSS = "aoss"
+                        .equalsIgnoreCase(config.originalsStrings().getOrDefault("aws.auth.service.name", ""));
+                final var indexRequest = isAOSS
+                        ? new IndexRequest().index(index)
+                        : new IndexRequest().id(documentId).index(index);
                 if (config.dataStreamEnabled()) {
                     return indexRequest.opType(DocWriteRequest.OpType.CREATE)
                             .source(addTimestampToPayload(config, record, payload), XContentType.JSON);
