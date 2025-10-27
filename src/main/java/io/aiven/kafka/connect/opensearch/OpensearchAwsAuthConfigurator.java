@@ -30,9 +30,13 @@ import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 /**
  * Adds AWS SigV4 authentication to the {@link HttpAsyncClientBuilder} for OpenSearch client if configured. This enables
@@ -66,8 +70,11 @@ public class OpensearchAwsAuthConfigurator implements OpensearchClientConfigurat
             // Configure AwsV4HttpSigner to always include payload hash (required for AOSS)
             final AwsV4HttpSigner signer = AwsV4HttpSigner.create();
 
+            // Build credentials provider with support for AWS_ROLE_ARN role chaining
+            final AwsCredentialsProvider credentialsProvider = buildCredentialsProvider(region);
+
             final HttpRequestInterceptor interceptor = new AwsRequestSigningApacheInterceptor(serviceName, signer,
-                    DefaultCredentialsProvider.create(), Region.of(region));
+                    credentialsProvider, Region.of(region));
 
             builder.addInterceptorLast(interceptor);
 
@@ -99,5 +106,52 @@ public class OpensearchAwsAuthConfigurator implements OpensearchClientConfigurat
         }
 
         return configured;
+    }
+
+    /**
+     * Builds an AWS credentials provider that supports role chaining via AWS_ROLE_ARN environment variable.
+     * <p>
+     * If AWS_ROLE_ARN is set, this method creates an StsAssumeRoleCredentialsProvider that uses
+     * DefaultCredentialsProvider as the source credentials to assume the specified role. This enables
+     * cross-account access patterns common in Kubernetes IRSA setups.
+     * <p>
+     * If AWS_ROLE_ARN is not set, this method returns DefaultCredentialsProvider directly.
+     *
+     * @param region The AWS region for the STS client
+     * @return An AwsCredentialsProvider configured for the detected credential scenario
+     */
+    private static AwsCredentialsProvider buildCredentialsProvider(final String region) {
+        final String roleArn = System.getenv("AWS_ROLE_ARN");
+
+        if (roleArn != null && !roleArn.trim().isEmpty()) {
+            LOGGER.info("AWS_ROLE_ARN detected: {}. Setting up role chaining with StsAssumeRoleCredentialsProvider",
+                    roleArn);
+
+            // Generate session name with timestamp for uniqueness
+            final String sessionName = "kafka-connect-opensearch-" + System.currentTimeMillis();
+            LOGGER.debug("Generated role session name: {}", sessionName);
+
+            // Build STS client with the specified region
+            final StsClient stsClient = StsClient.builder().region(Region.of(region)).build();
+
+            // Create AssumeRoleRequest
+            final AssumeRoleRequest assumeRoleRequest = AssumeRoleRequest.builder().roleArn(roleArn)
+                    .roleSessionName(sessionName).build();
+
+            // Build credentials provider that uses DefaultCredentialsProvider as source
+            // to assume the role specified in AWS_ROLE_ARN
+            final AwsCredentialsProvider credentialsProvider = StsAssumeRoleCredentialsProvider.builder()
+                    .stsClient(stsClient).refreshRequest(assumeRoleRequest).build();
+
+            LOGGER.info(
+                    "Successfully configured StsAssumeRoleCredentialsProvider for role: {} in region: {} with session: {}",
+                    roleArn, region, sessionName);
+
+            return credentialsProvider;
+        } else {
+            LOGGER.info(
+                    "AWS_ROLE_ARN not set. Using DefaultCredentialsProvider (supports IRSA, environment variables, instance profiles, etc.)");
+            return DefaultCredentialsProvider.create();
+        }
     }
 }
