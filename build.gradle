@@ -83,7 +83,7 @@ compileJava {
 }
 
 jacoco {
-    toolVersion = "0.8.9"
+    toolVersion = "0.8.14"
 }
 
 distributions {
@@ -132,14 +132,14 @@ publishing {
 
 ext {
     kafkaVersion = "3.8.1"
-    apacheCommonsLangVersion = "3.18.0"
-    slf4jVersion = "1.7.36"
+    apacheCommonsLangVersion = "3.20.0"
+    slf4jVersion = "2.0.17"
     openSearchVersion = "2.19.3"
 
-    mockitoVersion = "5.19.0"
+    mockitoVersion = "5.21.0"
     jacksonVersion = "2.18.2"
 
-    junitVersion = "5.13.4"
+    junitVersion = "6.0.2"
 
     testcontainersVersion = "1.20.4"
 }
