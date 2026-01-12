@@ -257,6 +257,215 @@ public class RequestBuilderTest {
         assertNotNull(requestPayload.get(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT));
     }
 
+    @Test
+    void testRoutingFieldExtraction() throws Exception {
+        final var objectMapper = RequestBuilder.OBJECT_MAPPER;
+        final var routingFieldName = "customer_id";
+        final var routingFieldValue = "12345";
+
+        // Test with IndexRequest
+        final var configForIndex = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                        OpensearchSinkConnectorConfig.ROUTING_ENABLED_CONFIG, "true",
+                        OpensearchSinkConnectorConfig.ROUTING_FIELD_PATH_CONFIG, routingFieldName));
+
+        final var payloadWithRoutingField = objectMapper.writeValueAsString(
+                objectMapper.createObjectNode().put("a", "b").put("c", "d").put(routingFieldName, routingFieldValue));
+
+        final var indexRequest = RequestBuilder.builder()
+                .withConfig(configForIndex)
+                .withIndex(INDEX)
+                .withSinkRecord(createSinkRecord(VALUE))
+                .withPayload(payloadWithRoutingField)
+                .build();
+
+        assertTrue(indexRequest instanceof IndexRequest);
+        assertEquals(routingFieldValue, ((IndexRequest) indexRequest).routing());
+
+        // Test with UpdateRequest (upsert)
+        final var configForUpsert = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                        OpensearchSinkConnectorConfig.ROUTING_ENABLED_CONFIG, "true",
+                        OpensearchSinkConnectorConfig.ROUTING_FIELD_PATH_CONFIG, routingFieldName,
+                        OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+                        IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)));
+
+        final var updateRequest = RequestBuilder.builder()
+                .withConfig(configForUpsert)
+                .withIndex(INDEX)
+                .withSinkRecord(createSinkRecord(VALUE))
+                .withPayload(payloadWithRoutingField)
+                .build();
+
+        assertTrue(updateRequest instanceof UpdateRequest);
+        assertEquals(routingFieldValue, ((UpdateRequest) updateRequest).routing());
+    }
+
+    @Test
+    void testRoutingDisabledByDefault() throws Exception {
+        final var objectMapper = RequestBuilder.OBJECT_MAPPER;
+        final var routingFieldName = "customer_id";
+        final var routingFieldValue = "12345";
+
+        // Test 1: Routing is disabled by default, even if routing.field.path is set
+        final var configWithRoutingFieldOnly = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                        OpensearchSinkConnectorConfig.ROUTING_FIELD_PATH_CONFIG, routingFieldName));
+
+        final var payloadWithRoutingField = objectMapper.writeValueAsString(
+                objectMapper.createObjectNode().put("a", "b").put("c", "d").put(routingFieldName, routingFieldValue));
+
+        final var requestWithRoutingDisabled = RequestBuilder.builder()
+                .withConfig(configWithRoutingFieldOnly)
+                .withIndex(INDEX)
+                .withSinkRecord(createSinkRecord(VALUE))
+                .withPayload(payloadWithRoutingField)
+                .build();
+
+        assertTrue(requestWithRoutingDisabled instanceof IndexRequest);
+        // Routing should be null because routing.enabled is false by default
+        assertNull(((IndexRequest) requestWithRoutingDisabled).routing());
+
+        // Test 2: Routing is disabled by default, even if routing.key is set to true
+        final var configWithRoutingKeyOnly = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                        OpensearchSinkConnectorConfig.ROUTING_KEY_CONFIG, "true"));
+
+        final var valueJson = objectMapper
+                .writeValueAsString(objectMapper.createObjectNode().put("a", "b").put("c", "d"));
+
+        final var requestWithRoutingKeyDisabled = RequestBuilder.builder()
+                .withConfig(configWithRoutingKeyOnly)
+                .withIndex(INDEX)
+                .withSinkRecord(createSinkRecord(valueJson))
+                .withPayload(valueJson)
+                .build();
+
+        assertTrue(requestWithRoutingKeyDisabled instanceof IndexRequest);
+        // Routing should be null because routing.enabled is false by default
+        assertNull(((IndexRequest) requestWithRoutingKeyDisabled).routing());
+    }
+
+    @Test
+    void testNestedRoutingFieldPathExtraction() throws Exception {
+        final var objectMapper = RequestBuilder.OBJECT_MAPPER;
+
+        // Test with nested routing field path
+        final var nestedRoutingFieldPath = "customer.id";
+        final var routingFieldValue = "12345";
+
+        // Create a configuration with the new routing.field.path parameter
+        final var configWithNestedPath = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                        OpensearchSinkConnectorConfig.ROUTING_ENABLED_CONFIG, "true",
+                        OpensearchSinkConnectorConfig.ROUTING_FIELD_PATH_CONFIG, nestedRoutingFieldPath));
+
+        // Create a payload with nested fields
+        final var customerObject = objectMapper.createObjectNode()
+                .put("id", routingFieldValue)
+                .put("name", "John Doe")
+                .put("email", "john@example.com");
+
+        final var payloadWithNestedField = objectMapper.writeValueAsString(
+                objectMapper.createObjectNode().put("a", "b").put("c", "d").set("customer", customerObject));
+
+        final var requestWithNestedPath = RequestBuilder.builder()
+                .withConfig(configWithNestedPath)
+                .withIndex(INDEX)
+                .withSinkRecord(createSinkRecord(VALUE))
+                .withPayload(payloadWithNestedField)
+                .build();
+
+        assertTrue(requestWithNestedPath instanceof IndexRequest);
+        assertEquals(routingFieldValue, ((IndexRequest) requestWithNestedPath).routing());
+
+        // Test with deeply nested routing field path
+        final var deeplyNestedPath = "user.address.zip";
+        final var zipValue = "10001";
+
+        // Create a configuration with a deeply nested path
+        final var configWithDeeplyNestedPath = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                        OpensearchSinkConnectorConfig.ROUTING_ENABLED_CONFIG, "true",
+                        OpensearchSinkConnectorConfig.ROUTING_FIELD_PATH_CONFIG, deeplyNestedPath));
+
+        // Create an address object
+        final var addressObject = objectMapper.createObjectNode()
+                .put("street", "123 Main St")
+                .put("city", "New York")
+                .put("state", "NY")
+                .put("zip", zipValue);
+
+        // Create a user object with the address
+        final var userObject = objectMapper.createObjectNode()
+                .put("name", "Jane Smith")
+                .put("email", "jane@example.com")
+                .set("address", addressObject);
+
+        // Create the full payload
+        final var payloadWithDeeplyNestedField = objectMapper.writeValueAsString(
+                objectMapper.createObjectNode().put("a", "b").put("c", "d").set("user", userObject));
+
+        final var requestWithDeeplyNestedPath = RequestBuilder.builder()
+                .withConfig(configWithDeeplyNestedPath)
+                .withIndex(INDEX)
+                .withSinkRecord(createSinkRecord(VALUE))
+                .withPayload(payloadWithDeeplyNestedField)
+                .build();
+
+        assertTrue(requestWithDeeplyNestedPath instanceof IndexRequest);
+        assertEquals(zipValue, ((IndexRequest) requestWithDeeplyNestedPath).routing());
+    }
+
+    @Test
+    void testRoutingKeyConfig() throws Exception {
+        final var objectMapper = RequestBuilder.OBJECT_MAPPER;
+
+        // Test 1: routing.enabled=true, routing.key=true, routing.field.name=null
+        // Should use the entire key as routing
+        final var configKeyOnly = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                        OpensearchSinkConnectorConfig.ROUTING_ENABLED_CONFIG, "true",
+                        OpensearchSinkConnectorConfig.ROUTING_KEY_CONFIG, "true"));
+
+        final var valueJson = objectMapper
+                .writeValueAsString(objectMapper.createObjectNode().put("a", "b").put("c", "d"));
+
+        final var requestKeyOnly = RequestBuilder.builder()
+                .withConfig(configKeyOnly)
+                .withIndex(INDEX)
+                .withSinkRecord(createSinkRecord(valueJson))
+                .withPayload(valueJson)
+                .build();
+
+        assertTrue(requestKeyOnly instanceof IndexRequest);
+        // The key is serialized as a JSON string, so it's wrapped in quotes
+        assertEquals("\"" + KEY + "\"", ((IndexRequest) requestKeyOnly).routing());
+
+        // Test 2: routing.enabled=true, routing.key=false (default), routing.field.name=customer_id
+        // Should extract the field from the value (existing behavior)
+        final var routingFieldName = "customer_id";
+        final var routingFieldValue = "12345";
+
+        final var configValueWithField = new OpensearchSinkConnectorConfig(
+                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                        OpensearchSinkConnectorConfig.ROUTING_ENABLED_CONFIG, "true",
+                        OpensearchSinkConnectorConfig.ROUTING_FIELD_PATH_CONFIG, routingFieldName));
+
+        final var valueWithRoutingField = objectMapper.writeValueAsString(
+                objectMapper.createObjectNode().put("a", "b").put("c", "d").put(routingFieldName, routingFieldValue));
+
+        final var requestValueWithField = RequestBuilder.builder()
+                .withConfig(configValueWithField)
+                .withIndex(INDEX)
+                .withSinkRecord(createSinkRecord(valueWithRoutingField))
+                .withPayload(valueWithRoutingField)
+                .build();
+
+        assertTrue(requestValueWithField instanceof IndexRequest);
+        assertEquals(routingFieldValue, ((IndexRequest) requestValueWithField).routing());
+    }
+
     SinkRecord createSinkRecord(final Object value) {
         return new SinkRecord(TOPIC, PARTITION, Schema.STRING_SCHEMA, KEY,
                 SchemaBuilder.struct().name("struct").field("string", Schema.STRING_SCHEMA).build(), value, OFFSET,
