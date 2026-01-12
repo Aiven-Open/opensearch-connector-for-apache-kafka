@@ -179,6 +179,7 @@ dependencies {
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
     implementation "com.google.code.gson:gson:2.13.1"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
+    implementation "io.github.acm19:aws-request-signing-apache-interceptor:2.3.1"
     implementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
 
     testImplementation platform("org.junit:junit-bom:${junitVersion}")
