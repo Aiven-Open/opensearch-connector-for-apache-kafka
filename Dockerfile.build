@@ -1,0 +1,24 @@
+FROM gradle:8.11.1-jdk11 AS builder
+
+WORKDIR /app
+
+# Copy gradle wrapper and build files first (for better caching)
+COPY gradlew .
+COPY gradle gradle/
+COPY build.gradle .
+COPY settings.gradle .
+COPY gradle.properties .
+
+# Download dependencies (this layer will be cached unless build files change)
+RUN ./gradlew dependencies --no-daemon || true
+
+# Copy source code
+COPY src src/
+COPY gradle-config gradle-config/
+COPY docs docs/
+
+# Build the project (skip tests and integration tests)
+RUN ./gradlew clean build -x test -x integrationTest --no-daemon
+
+# The build artifacts will be in /app/build/distributions/
+# You can copy them out using docker cp or mount a volume

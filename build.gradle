@@ -135,6 +135,8 @@ ext {
     apacheCommonsLangVersion = "3.20.0"
     slf4jVersion = "2.0.17"
     openSearchVersion = "2.19.3"
+    awsSdkVersion = "2.29.29"
+    awsSigningInterceptorVersion = "3.0.0"
 
     mockitoVersion = "5.21.0"
     jacksonVersion = "2.18.2"
@@ -180,6 +182,13 @@ dependencies {
     implementation "com.google.code.gson:gson:2.13.1"
     implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
     implementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
+
+    // AWS SigV4 authentication support
+    implementation "io.github.acm19:aws-request-signing-apache-interceptor:$awsSigningInterceptorVersion"
+    implementation "software.amazon.awssdk:auth:$awsSdkVersion"
+    implementation "software.amazon.awssdk:regions:$awsSdkVersion"
+    implementation "software.amazon.awssdk:http-auth-aws:$awsSdkVersion"
+    implementation "software.amazon.awssdk:sts:$awsSdkVersion"  // Required for IRSA (AssumeRoleWithWebIdentity)
 
     testImplementation platform("org.junit:junit-bom:${junitVersion}")
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
