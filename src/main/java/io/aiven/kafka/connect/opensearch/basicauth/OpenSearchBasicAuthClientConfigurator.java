@@ -22,18 +22,18 @@ import java.util.Objects;
 
 import org.apache.kafka.common.config.types.Password;
 
-import io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig;
-import io.aiven.kafka.connect.opensearch.spi.OpensearchClientConfigurator;
+import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
+import io.aiven.kafka.connect.opensearch.spi.OpenSearchClientConfigurator;
 
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 
-public class OpenSearchBasicAuthClientConfigurator implements OpensearchClientConfigurator {
+public class OpenSearchBasicAuthClientConfigurator implements OpenSearchClientConfigurator {
 
     @Override
-    public boolean apply(OpensearchSinkConnectorConfig config, HttpAsyncClientBuilder builder) {
+    public boolean apply(OpenSearchSinkConnectorConfig config, HttpAsyncClientBuilder builder) {
         if (!isAuthenticatedConnection(config)) {
             return false;
         }
@@ -48,15 +48,15 @@ public class OpenSearchBasicAuthClientConfigurator implements OpensearchClientCo
         return true;
     }
 
-    private static boolean isAuthenticatedConnection(final OpensearchSinkConnectorConfig config) {
+    private static boolean isAuthenticatedConnection(final OpenSearchSinkConnectorConfig config) {
         return Objects.nonNull(connectionUsername(config)) && Objects.nonNull(connectionPassword(config));
     }
 
-    private static String connectionUsername(final OpensearchSinkConnectorConfig config) {
+    private static String connectionUsername(final OpenSearchSinkConnectorConfig config) {
         return config.getString(CONNECTION_USERNAME_CONFIG);
     }
 
-    private static Password connectionPassword(final OpensearchSinkConnectorConfig config) {
+    private static Password connectionPassword(final OpenSearchSinkConnectorConfig config) {
         return config.getPassword(CONNECTION_PASSWORD_CONFIG);
     }
 

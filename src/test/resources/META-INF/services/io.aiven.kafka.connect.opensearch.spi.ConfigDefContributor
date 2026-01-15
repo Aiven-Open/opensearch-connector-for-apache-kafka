@@ -1,1 +1,1 @@
-io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfigTest$CustomConfigDefContributor
+io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfigTest$CustomConfigDefContributor

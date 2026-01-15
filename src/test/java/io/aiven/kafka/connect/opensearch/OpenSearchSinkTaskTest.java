@@ -15,14 +15,14 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BATCH_SIZE_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.LINGER_MS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.MAX_RETRIES_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BATCH_SIZE_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.LINGER_MS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MAX_RETRIES_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
@@ -38,7 +38,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class OpensearchSinkTaskTest {
+public class OpenSearchSinkTaskTest {
 
     @Test
     void failToStartWhenReportIsConfiguredAndErrantRecordReporterIsMissing(final @Mock SinkTaskContext context) {
@@ -48,7 +48,7 @@ public class OpensearchSinkTaskTest {
                 MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1", BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
                 BulkProcessor.BehaviorOnMalformedDoc.REPORT.toString());
         when(context.errantRecordReporter()).thenReturn(null);
-        final var task = new OpensearchSinkTask();
+        final var task = new OpenSearchSinkTask();
         task.initialize(context);
         final Exception exception = assertThrows(ConnectException.class, () -> task.start(props));
         assertTrue(exception.getCause().getMessage().contains("Errant record reporter must be configured"));
@@ -62,7 +62,7 @@ public class OpensearchSinkTaskTest {
                 MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1", BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
                 BulkProcessor.BehaviorOnMalformedDoc.REPORT.toString());
         when(context.errantRecordReporter()).thenThrow(new NoSuchMethodError());
-        final var task = new OpensearchSinkTask();
+        final var task = new OpenSearchSinkTask();
         task.initialize(context);
         final Exception exception = assertThrows(ConnectException.class, () -> task.start(props));
         assertTrue(exception.getCause().getMessage().contains("Errant record reporter must be configured"));

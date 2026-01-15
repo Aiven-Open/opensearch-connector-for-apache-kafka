@@ -84,11 +84,11 @@ public class BulkProcessor {
     private final ErrantRecordReporter reporter;
 
     public BulkProcessor(final Time time, final RestHighLevelClient client,
-            final OpensearchSinkConnectorConfig config) {
+            final OpenSearchSinkConnectorConfig config) {
         this(time, client, config, null);
     }
 
-    public BulkProcessor(final Time time, final RestHighLevelClient client, final OpensearchSinkConnectorConfig config,
+    public BulkProcessor(final Time time, final RestHighLevelClient client, final OpenSearchSinkConnectorConfig config,
             final ErrantRecordReporter reporter) {
         this.time = time;
         this.client = client;
@@ -113,8 +113,8 @@ public class BulkProcessor {
                     "The {} is set to `false` which assumes external version and optimistic locking."
                             + " You may consider changing the configuration property '{}' from '{}' to '{}' or '{}'"
                             + " to deal with possible version conflicts.",
-                    OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG,
-                    OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.FAIL,
+                    OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG,
+                    OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.FAIL,
                     BehaviorOnMalformedDoc.IGNORE, BehaviorOnMalformedDoc.WARN);
         }
     }
@@ -454,7 +454,7 @@ public class BulkProcessor {
                                     + " records. Error was {} (to ignore version conflicts you may consider"
                                     + " changing the configuration property '{}' from '{}' to '{}').",
                             batchId, batch.size(), bulkItemResponse.getFailureMessage(),
-                            OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
+                            OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
                             BehaviorOnMalformedDoc.FAIL, BehaviorOnMalformedDoc.IGNORE);
                     throw new ConnectException("One of the item in the bulk response failed. Reason: "
                             + bulkItemResponse.getFailureMessage());
@@ -494,7 +494,7 @@ public class BulkProcessor {
                                     + " records. Error was {} (to ignore future records like this"
                                     + " change the configuration property '{}' from '{}' to '{}').",
                             batchId, batch.size(), bulkItemResponse.getFailureMessage(),
-                            OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG,
+                            OpenSearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG,
                             BehaviorOnMalformedDoc.FAIL, BehaviorOnMalformedDoc.IGNORE);
                     throw new ConnectException("Bulk request failed: " + bulkItemResponse.getFailureMessage());
             }

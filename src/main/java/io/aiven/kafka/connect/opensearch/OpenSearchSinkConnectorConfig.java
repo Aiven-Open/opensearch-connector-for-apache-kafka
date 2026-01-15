@@ -40,9 +40,9 @@ import org.apache.http.HttpHost;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpensearchSinkConnectorConfig extends AbstractConfig {
+public class OpenSearchSinkConnectorConfig extends AbstractConfig {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(OpensearchSinkConnectorConfig.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(OpenSearchSinkConnectorConfig.class);
 
     public static final String CONNECTOR_GROUP_NAME = "Connector";
 
@@ -205,7 +205,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
      */
     private static void addSpiConfigs(final ConfigDef configDef) {
         final ServiceLoader<ConfigDefContributor> loaders = ServiceLoader.load(ConfigDefContributor.class,
-                OpensearchSinkConnectorConfig.class.getClassLoader());
+                OpenSearchSinkConnectorConfig.class.getClassLoader());
 
         final Iterator<ConfigDefContributor> iterator = loaders.iterator();
         while (iterator.hasNext()) {
@@ -311,7 +311,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public static final ConfigDef CONFIG = baseConfigDef();
 
-    public OpensearchSinkConnectorConfig(final Map<String, String> props) {
+    public OpenSearchSinkConnectorConfig(final Map<String, String> props) {
         super(CONFIG, props);
         validate();
     }
@@ -362,15 +362,15 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     }
 
     public boolean ignoreKey() {
-        return getBoolean(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG);
+        return getBoolean(OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG);
     }
 
     public boolean ignoreSchema() {
-        return getBoolean(OpensearchSinkConnectorConfig.SCHEMA_IGNORE_CONFIG);
+        return getBoolean(OpenSearchSinkConnectorConfig.SCHEMA_IGNORE_CONFIG);
     }
 
     public boolean useCompactMapEntries() {
-        return getBoolean(OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG);
+        return getBoolean(OpenSearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG);
     }
 
     protected IndexWriteMethod indexWriteMethod() {
@@ -382,55 +382,55 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     }
 
     public Optional<String> dataStreamExistingIndexTemplateName() {
-        return Optional.ofNullable(getString(OpensearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME));
+        return Optional.ofNullable(getString(OpenSearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME));
     }
 
     public Optional<String> dataStreamPrefix() {
-        return Optional.ofNullable(getString(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX));
+        return Optional.ofNullable(getString(OpenSearchSinkConnectorConfig.DATA_STREAM_PREFIX));
     }
 
     public String dataStreamTimestampField() {
-        return getString(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD);
+        return getString(OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD);
     }
 
     public Set<String> topicIgnoreKey() {
-        return Set.copyOf(getList(OpensearchSinkConnectorConfig.TOPIC_KEY_IGNORE_CONFIG));
+        return Set.copyOf(getList(OpenSearchSinkConnectorConfig.TOPIC_KEY_IGNORE_CONFIG));
     }
 
     public Set<String> topicIgnoreSchema() {
-        return Set.copyOf(getList(OpensearchSinkConnectorConfig.TOPIC_SCHEMA_IGNORE_CONFIG));
+        return Set.copyOf(getList(OpenSearchSinkConnectorConfig.TOPIC_SCHEMA_IGNORE_CONFIG));
     }
 
     public long flushTimeoutMs() {
-        return getLong(OpensearchSinkConnectorConfig.FLUSH_TIMEOUT_MS_CONFIG);
+        return getLong(OpenSearchSinkConnectorConfig.FLUSH_TIMEOUT_MS_CONFIG);
     }
 
     public int maxBufferedRecords() {
-        return getInt(OpensearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG);
+        return getInt(OpenSearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG);
     }
 
     public int batchSize() {
-        return getInt(OpensearchSinkConnectorConfig.BATCH_SIZE_CONFIG);
+        return getInt(OpenSearchSinkConnectorConfig.BATCH_SIZE_CONFIG);
     }
 
     public long lingerMs() {
-        return getLong(OpensearchSinkConnectorConfig.LINGER_MS_CONFIG);
+        return getLong(OpenSearchSinkConnectorConfig.LINGER_MS_CONFIG);
     }
 
     public int maxInFlightRequests() {
-        return getInt(OpensearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG);
+        return getInt(OpenSearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG);
     }
 
     public long retryBackoffMs() {
-        return getLong(OpensearchSinkConnectorConfig.RETRY_BACKOFF_MS_CONFIG);
+        return getLong(OpenSearchSinkConnectorConfig.RETRY_BACKOFF_MS_CONFIG);
     }
 
     public int maxRetry() {
-        return getInt(OpensearchSinkConnectorConfig.MAX_RETRIES_CONFIG);
+        return getInt(OpenSearchSinkConnectorConfig.MAX_RETRIES_CONFIG);
     }
 
     public boolean dropInvalidMessage() {
-        return getBoolean(OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
+        return getBoolean(OpenSearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG);
     }
 
     private DocumentIDStrategy documentIdStrategy() {
@@ -444,7 +444,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public Function<String, String> topicToIndexNameConverter() {
         return dataStreamEnabled()
                 ? this::convertTopicToDataStreamName
-                : OpensearchSinkConnectorConfig::convertTopicToIndexName;
+                : OpenSearchSinkConnectorConfig::convertTopicToIndexName;
     }
 
     private static String convertTopicToIndexName(final String topic) {
@@ -479,17 +479,17 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
 
     public RecordConverter.BehaviorOnNullValues behaviorOnNullValues() {
         return RecordConverter.BehaviorOnNullValues
-                .forValue(getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG));
+                .forValue(getString(OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG));
     }
 
     public BulkProcessor.BehaviorOnMalformedDoc behaviorOnMalformedDoc() {
         return BulkProcessor.BehaviorOnMalformedDoc
-                .forValue(getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG));
+                .forValue(getString(OpenSearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG));
     }
 
     public BulkProcessor.BehaviorOnVersionConflict behaviorOnVersionConflict() {
         return BulkProcessor.BehaviorOnVersionConflict
-                .forValue(getString(OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
+                .forValue(getString(OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
     }
 
     public static void main(final String[] args) {

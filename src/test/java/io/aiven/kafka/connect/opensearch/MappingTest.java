@@ -172,11 +172,11 @@ public class MappingTest {
             }
         }
 
-        final var props = Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
-                OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+        final var props = Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
                 RecordConverter.BehaviorOnNullValues.IGNORE.toString(),
-                OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, "true");
-        final RecordConverter converter = new RecordConverter(new OpensearchSinkConnectorConfig(props));
+                OpenSearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, "true");
+        final RecordConverter converter = new RecordConverter(new OpenSearchSinkConnectorConfig(props));
         final Schema.Type schemaType = schema.type();
         switch (schemaType) {
             case ARRAY :

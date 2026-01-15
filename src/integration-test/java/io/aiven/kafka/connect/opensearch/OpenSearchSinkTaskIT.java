@@ -15,11 +15,11 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.SCHEMA_IGNORE_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.DROP_INVALID_MESSAGE_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.SCHEMA_IGNORE_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,7 +51,7 @@ import org.opensearch.client.RequestOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-public class OpensearchSinkTaskIT extends AbstractIT {
+public class OpenSearchSinkTaskIT extends AbstractIT {
 
     private static final int PARTITION_1 = 12;
 
@@ -119,7 +119,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
         final var otherSchema = createOtherSchema();
         final var otherRecord = createOtherRecord(otherSchema);
 
-        final var opensearchSinkTask = new OpensearchSinkTask();
+        final var opensearchSinkTask = new OpenSearchSinkTask();
         try {
             final var mockContext = mock(SinkTaskContext.class);
             opensearchSinkTask.initialize(mockContext);
@@ -296,7 +296,7 @@ public class OpensearchSinkTaskIT extends AbstractIT {
     }
 
     private void runTask(final Map<String, String> props, final List<SinkRecord> records) {
-        final var opensearchSinkTask = new OpensearchSinkTask();
+        final var opensearchSinkTask = new OpenSearchSinkTask();
         final var mockContext = mock(SinkTaskContext.class);
         opensearchSinkTask.initialize(mockContext);
         try {

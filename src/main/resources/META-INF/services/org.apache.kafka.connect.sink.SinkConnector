@@ -1,1 +1,1 @@
-io.aiven.kafka.connect.opensearch.OpensearchSinkConnector
+io.aiven.kafka.connect.opensearch.OpenSearchSinkConnector

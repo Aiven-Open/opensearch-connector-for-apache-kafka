@@ -15,14 +15,14 @@
  */
 package io.aiven.kafka.connect.opensearch.spi;
 
-import io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig;
+import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 
 /**
  * The extension points to allow OpensearchClient customization based on the the provided configuration.
  */
-public interface OpensearchClientConfigurator {
+public interface OpenSearchClientConfigurator {
     /**
      * Apply the configurator to the {@link HttpAsyncClientBuilder} instance according to the provided configuration.
      *
@@ -32,5 +32,5 @@ public interface OpensearchClientConfigurator {
      *            {@link HttpAsyncClientBuilder} instance
      * @return "true" if the configurator is applicable, "false" otherwise
      */
-    boolean apply(OpensearchSinkConnectorConfig config, HttpAsyncClientBuilder builder);
+    boolean apply(OpenSearchSinkConnectorConfig config, HttpAsyncClientBuilder builder);
 }

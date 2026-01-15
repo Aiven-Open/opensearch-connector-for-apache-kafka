@@ -51,9 +51,9 @@ public class RecordConverter {
         JSON_CONVERTER.configure(Collections.singletonMap("schemas.enable", "false"), false);
     }
 
-    private final OpensearchSinkConnectorConfig config;
+    private final OpenSearchSinkConnectorConfig config;
 
-    public RecordConverter(final OpensearchSinkConnectorConfig config) {
+    public RecordConverter(final OpenSearchSinkConnectorConfig config) {
         this.config = config;
     }
 
@@ -82,7 +82,7 @@ public class RecordConverter {
                                     + "%s/%s/%s (to ignore future records like this change the configuration property "
                                     + "'%s' from '%s' to '%s')",
                             record.key(), record.topic(), record.kafkaPartition(), record.kafkaOffset(),
-                            OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, BehaviorOnNullValues.FAIL,
+                            OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, BehaviorOnNullValues.FAIL,
                             BehaviorOnNullValues.IGNORE));
             }
         }
