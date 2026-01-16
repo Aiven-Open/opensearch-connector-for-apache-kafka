@@ -134,7 +134,7 @@ ext {
     kafkaVersion = "3.8.1"
     apacheCommonsLangVersion = "3.20.0"
     slf4jVersion = "2.0.17"
-    openSearchVersion = "2.19.3"
+    openSearchVersion = "2.19.4"
 
     mockitoVersion = "5.21.0"
     jacksonVersion = "2.18.2"
