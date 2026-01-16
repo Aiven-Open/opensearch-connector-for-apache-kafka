@@ -40,7 +40,7 @@ import org.opensearch.cluster.metadata.ComposableIndexTemplate.DataStreamTemplat
 
 import org.junit.jupiter.api.Test;
 
-public class OpensearchClientIT extends AbstractIT {
+public class OpenSearchClientIT extends AbstractIT {
 
     @Test
     void getsVersion() {
@@ -74,8 +74,8 @@ public class OpensearchClientIT extends AbstractIT {
 
     @Test
     void createIndexDoesNotCreateWhenAliasExists() throws Exception {
-        final var config = new OpensearchSinkConnectorConfig(getDefaultProperties());
-        final OpensearchClient tmpClient = new OpensearchClient(config);
+        final var config = new OpenSearchSinkConnectorConfig(getDefaultProperties());
+        final OpenSearchClient tmpClient = new OpenSearchClient(config);
 
         try {
             tmpClient.client.indices()
@@ -90,14 +90,14 @@ public class OpensearchClientIT extends AbstractIT {
     @Test
     void createIndexTemplateAndDataStream() throws Exception {
         final var props = new HashMap<>(getDefaultProperties());
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "some_data_stream");
-        final var config = new OpensearchSinkConnectorConfig(props);
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_PREFIX, "some_data_stream");
+        final var config = new OpenSearchSinkConnectorConfig(props);
 
         opensearchClient.createIndexTemplateAndDataStream(config.dataStreamPrefix().get(),
                 config.dataStreamTimestampField());
 
         assertTrue(opensearchClient.dataStreamIndexTemplateExists(
-                String.format(OpensearchClient.DATA_STREAM_TEMPLATE_NAME_PATTERN, "some_data_stream")));
+                String.format(OpenSearchClient.DATA_STREAM_TEMPLATE_NAME_PATTERN, "some_data_stream")));
         final var dataStreams = opensearchClient.client.indices()
                 .getDataStream(new GetDataStreamRequest("some_data_stream"), RequestOptions.DEFAULT)
                 .getDataStreams();
@@ -108,8 +108,8 @@ public class OpensearchClientIT extends AbstractIT {
 
     @Test
     void createIndexDoesNotCreateAlreadyExistingDataStream() throws Exception {
-        final var config = new OpensearchSinkConnectorConfig(getDefaultProperties());
-        final OpensearchClient tmpClient = new OpensearchClient(config);
+        final var config = new OpenSearchSinkConnectorConfig(getDefaultProperties());
+        final OpenSearchClient tmpClient = new OpenSearchClient(config);
 
         try {
             final ComposableIndexTemplate template = new ComposableIndexTemplate(

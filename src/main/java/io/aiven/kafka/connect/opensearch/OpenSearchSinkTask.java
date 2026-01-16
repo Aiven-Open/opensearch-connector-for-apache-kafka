@@ -15,8 +15,8 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -39,13 +39,13 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpensearchSinkTask extends SinkTask {
+public class OpenSearchSinkTask extends SinkTask {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(OpensearchSinkTask.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(OpenSearchSinkTask.class);
 
-    private OpensearchClient client;
+    private OpenSearchClient client;
 
-    private OpensearchSinkConnectorConfig config;
+    private OpenSearchSinkConnectorConfig config;
 
     private final Set<String> indexCache = new HashSet<>();
 
@@ -65,7 +65,7 @@ public class OpensearchSinkTask extends SinkTask {
         try {
             LOGGER.info("Starting OpensearchSinkTask.");
 
-            this.config = new OpensearchSinkConnectorConfig(props);
+            this.config = new OpenSearchSinkConnectorConfig(props);
 
             if (config.requiresErrantRecordReporter() && getErrantRecordReporter() == null) {
                 throw new ConfigException(String.format(
@@ -82,12 +82,12 @@ public class OpensearchSinkTask extends SinkTask {
                         "This connector uses exponential backoff with jitter for retries, "
                                 + "and using '{}={}' and '{}={}' results in an impractical but possible maximum "
                                 + "backoff time greater than {} hours.",
-                        OpensearchSinkConnectorConfig.MAX_RETRIES_CONFIG, config.maxRetry(),
-                        OpensearchSinkConnectorConfig.RETRY_BACKOFF_MS_CONFIG, config.retryBackoffMs(),
+                        OpenSearchSinkConnectorConfig.MAX_RETRIES_CONFIG, config.maxRetry(),
+                        OpenSearchSinkConnectorConfig.RETRY_BACKOFF_MS_CONFIG, config.retryBackoffMs(),
                         TimeUnit.MILLISECONDS.toHours(maxRetryBackoffMs));
             }
 
-            this.client = new OpensearchClient(config, getErrantRecordReporter());
+            this.client = new OpenSearchClient(config, getErrantRecordReporter());
             this.recordConverter = new RecordConverter(config);
         } catch (final ConfigException e) {
             throw new ConnectException("Couldn't start OpensearchSinkTask due to configuration error:", e);

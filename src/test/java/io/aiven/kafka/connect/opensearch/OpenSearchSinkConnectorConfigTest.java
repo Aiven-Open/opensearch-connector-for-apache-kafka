@@ -33,84 +33,84 @@ import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class OpensearchSinkConnectorConfigTest {
+public class OpenSearchSinkConnectorConfigTest {
 
     private Map<String, String> props;
 
     @BeforeEach
     public void setup() {
         props = new HashMap<>();
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true");
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true");
     }
 
     @Test
     public void testDefaultHttpTimeoutsConfig() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        assertEquals(config.getInt(OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG), 3000);
-        assertEquals(config.getInt(OpensearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG), 1000);
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        final OpenSearchSinkConnectorConfig config = new OpenSearchSinkConnectorConfig(props);
+        assertEquals(config.getInt(OpenSearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG), 3000);
+        assertEquals(config.getInt(OpenSearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG), 1000);
     }
 
     @Test
     public void testSetHttpTimeoutsConfig() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        props.put(OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG, "10000");
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG, "15000");
-        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
-        assertEquals(config.getInt(OpensearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG), 10000);
-        assertEquals(config.getInt(OpensearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG), 15000);
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG, "10000");
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG, "15000");
+        final OpenSearchSinkConnectorConfig config = new OpenSearchSinkConnectorConfig(props);
+        assertEquals(config.getInt(OpenSearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG), 10000);
+        assertEquals(config.getInt(OpenSearchSinkConnectorConfig.CONNECTION_TIMEOUT_MS_CONFIG), 15000);
     }
 
     @Test
     void testWrongIndexWriteMethod() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD, "aaa");
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true");
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG,
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.INDEX_WRITE_METHOD, "aaa");
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true");
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG,
                 DocumentIDStrategy.RECORD_KEY.toString());
 
-        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+        assertThrows(ConfigException.class, () -> new OpenSearchSinkConnectorConfig(props));
 
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
-        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        props.put(OpenSearchSinkConnectorConfig.INDEX_WRITE_METHOD,
                 IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
-        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+        assertThrows(ConfigException.class, () -> new OpenSearchSinkConnectorConfig(props));
 
-        props.remove(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED);
-        props.remove(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD);
-        final var defaultIndexWriteMethod = new OpensearchSinkConnectorConfig(props);
+        props.remove(OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED);
+        props.remove(OpenSearchSinkConnectorConfig.INDEX_WRITE_METHOD);
+        final var defaultIndexWriteMethod = new OpenSearchSinkConnectorConfig(props);
         assertEquals(IndexWriteMethod.INSERT, defaultIndexWriteMethod.indexWriteMethod());
 
-        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+        props.put(OpenSearchSinkConnectorConfig.INDEX_WRITE_METHOD,
                 IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
-        final var upsertIndexWriteMethod = new OpensearchSinkConnectorConfig(props);
+        final var upsertIndexWriteMethod = new OpenSearchSinkConnectorConfig(props);
         assertEquals(IndexWriteMethod.INSERT, defaultIndexWriteMethod.indexWriteMethod());
     }
 
     @Test
     public void testThrowsConfigExceptionForWrongUrls() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "ttp://asdsad");
-        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "ttp://asdsad");
+        assertThrows(ConfigException.class, () -> new OpenSearchSinkConnectorConfig(props));
     }
 
     @Test
     public void testAddConfigDefs() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put("custom.property.1", "10");
         props.put("custom.property.2", "http://localhost:9000");
-        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+        final OpenSearchSinkConnectorConfig config = new OpenSearchSinkConnectorConfig(props);
         assertEquals(config.getInt("custom.property.1"), 10);
         assertEquals(config.getString("custom.property.2"), "http://localhost:9000");
     }
 
     @Test
     void testWrongKeyIgnoreIdStrategyConfigSettingsForIndexWriteMethodUspert() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.INDEX_WRITE_METHOD,
                 IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.name());
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.name());
 
-        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+        assertThrows(ConfigException.class, () -> new OpenSearchSinkConnectorConfig(props));
     }
 
     public static class CustomConfigDefContributor implements ConfigDefContributor {
@@ -126,38 +126,38 @@ public class OpensearchSinkConnectorConfigTest {
 
     @Test
     public void docIdStrategyValidator() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, "something");
-        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, "something");
+        assertThrows(ConfigException.class, () -> new OpenSearchSinkConnectorConfig(props));
     }
 
     @Test
     public void docIdStrategies() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         for (final var strategy : DocumentIDStrategy.values()) {
-            props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, strategy.toString());
-            final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+            props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, strategy.toString());
+            final OpenSearchSinkConnectorConfig config = new OpenSearchSinkConnectorConfig(props);
             assertEquals(strategy, config.documentIdStrategy("anyTopic"));
         }
     }
 
     @Test
     public void docIdStrategyWithoutKeyIgnoreIdStrategy() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString());
-        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString());
+        final OpenSearchSinkConnectorConfig config = new OpenSearchSinkConnectorConfig(props);
         assertEquals(DocumentIDStrategy.RECORD_KEY, config.documentIdStrategy("anyTopic"));
     }
 
     @Test
     public void docIdStrategyWithoutKeyIgnoreWithTopicKeyIgnore() {
         final DocumentIDStrategy keyIgnoreStrategy = DocumentIDStrategy.NONE;
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
-        props.put(OpensearchSinkConnectorConfig.TOPIC_KEY_IGNORE_CONFIG, "topic1,topic2");
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, keyIgnoreStrategy.toString());
-        final OpensearchSinkConnectorConfig config = new OpensearchSinkConnectorConfig(props);
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
+        props.put(OpenSearchSinkConnectorConfig.TOPIC_KEY_IGNORE_CONFIG, "topic1,topic2");
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, keyIgnoreStrategy.toString());
+        final OpenSearchSinkConnectorConfig config = new OpenSearchSinkConnectorConfig(props);
 
         assertEquals(keyIgnoreStrategy, config.documentIdStrategy("topic1"));
         assertEquals(keyIgnoreStrategy, config.documentIdStrategy("topic2"));
@@ -166,25 +166,25 @@ public class OpensearchSinkConnectorConfigTest {
 
     @Test
     public void dataStreamConfig() {
-        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaa");
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaa");
 
-        final var defaultConfig = new OpensearchSinkConnectorConfig(props);
+        final var defaultConfig = new OpenSearchSinkConnectorConfig(props);
 
         assertEquals("aaaa", defaultConfig.dataStreamPrefix().get());
         assertEquals("@timestamp", defaultConfig.dataStreamTimestampField());
 
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "bbbb");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "custom_timestamp");
-        final var customConfig = new OpensearchSinkConnectorConfig(props);
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_PREFIX, "bbbb");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "custom_timestamp");
+        final var customConfig = new OpenSearchSinkConnectorConfig(props);
         assertEquals("bbbb", customConfig.dataStreamPrefix().get());
         assertEquals("custom_timestamp", customConfig.dataStreamTimestampField());
     }
 
     @Test
     void convertTopicToIndexName() {
-        final var config = new OpensearchSinkConnectorConfig(
-                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200"));
+        final var config = new OpenSearchSinkConnectorConfig(
+                Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200"));
         final var longTopicName = "a".repeat(260);
         assertEquals("a".repeat(255), config.topicToIndexNameConverter().apply(longTopicName));
 
@@ -210,14 +210,14 @@ public class OpensearchSinkConnectorConfigTest {
 
     @Test
     void convertTopicToDataStreamName() {
-        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
-                "http://l:9200", OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
-                OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaaa"));
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://l:9200", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                OpenSearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaaa"));
         assertEquals("aaaaa-bbbbb", config.topicToIndexNameConverter().apply("bbbbb"));
 
-        final var noDsPrefixConfig = new OpensearchSinkConnectorConfig(
-                Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
-                        OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"));
+        final var noDsPrefixConfig = new OpenSearchSinkConnectorConfig(
+                Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                        OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"));
         assertEquals("bbbbb", noDsPrefixConfig.topicToIndexNameConverter().apply("bbbbb"));
     }
 

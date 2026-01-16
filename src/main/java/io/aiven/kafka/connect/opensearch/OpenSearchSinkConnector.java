@@ -26,7 +26,7 @@ import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkConnector;
 
-public class OpensearchSinkConnector extends SinkConnector {
+public class OpenSearchSinkConnector extends SinkConnector {
 
     private Map<String, String> configProperties;
 
@@ -40,7 +40,7 @@ public class OpensearchSinkConnector extends SinkConnector {
         try {
             configProperties = props;
             // validation
-            new OpensearchSinkConnectorConfig(props);
+            new OpenSearchSinkConnectorConfig(props);
         } catch (final ConfigException e) {
             throw new ConnectException("Couldn't start OpensearchSinkConnector due to configuration error", e);
         }
@@ -48,7 +48,7 @@ public class OpensearchSinkConnector extends SinkConnector {
 
     @Override
     public Class<? extends Task> taskClass() {
-        return OpensearchSinkTask.class;
+        return OpenSearchSinkTask.class;
     }
 
     @Override
@@ -69,6 +69,6 @@ public class OpensearchSinkConnector extends SinkConnector {
 
     @Override
     public ConfigDef config() {
-        return OpensearchSinkConnectorConfig.CONFIG;
+        return OpenSearchSinkConnectorConfig.CONFIG;
     }
 }

@@ -15,7 +15,7 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
 import static io.aiven.kafka.connect.opensearch.basicauth.OpenSearchBasicAuthConfigDefContributor.CONNECTION_PASSWORD_CONFIG;
 import static io.aiven.kafka.connect.opensearch.basicauth.OpenSearchBasicAuthConfigDefContributor.CONNECTION_USERNAME_CONFIG;
 
@@ -44,12 +44,12 @@ public abstract class AbstractIT {
     @Container
     static OpenSearchContainer<?> opensearchContainer = new OpenSearchContainer<>(getOpenSearchImage());
 
-    OpensearchClient opensearchClient;
+    OpenSearchClient opensearchClient;
 
     @BeforeEach
     void setup() throws Exception {
-        final var config = new OpensearchSinkConnectorConfig(getDefaultProperties());
-        opensearchClient = new OpensearchClient(config);
+        final var config = new OpenSearchSinkConnectorConfig(getDefaultProperties());
+        opensearchClient = new OpenSearchClient(config);
     }
 
     protected static Map<String, String> getDefaultProperties() {

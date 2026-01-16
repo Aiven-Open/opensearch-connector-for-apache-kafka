@@ -55,7 +55,7 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
     @Test
     void testConnector() throws Exception {
         final var props = connectorProperties(TOPIC_NAME);
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
         connect.configureConnector(CONNECTOR_NAME, props);
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
@@ -65,15 +65,15 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         waitForRecords(TOPIC_NAME, 10);
 
         assertDataStream(TOPIC_NAME);
-        assertDocs(TOPIC_NAME, OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT);
+        assertDocs(TOPIC_NAME, OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT);
     }
 
     @Test
     void testConnectorWithDataStreamCustomTimestamp() throws Exception {
         final var props = connectorProperties(topicName);
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, DATA_STREAM_PREFIX_WITH_TIMESTAMP);
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "custom_timestamp");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_PREFIX, DATA_STREAM_PREFIX_WITH_TIMESTAMP);
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "custom_timestamp");
         connect.configureConnector(CONNECTOR_NAME, props);
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
@@ -93,8 +93,8 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
     @Test
     void testConnectorWithDataStreamPrefix() throws Exception {
         final var props = connectorProperties(TOPIC_NAME);
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_PREFIX, DATA_STREAM_PREFIX);
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_PREFIX, DATA_STREAM_PREFIX);
         connect.configureConnector(CONNECTOR_NAME, props);
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
@@ -103,7 +103,7 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
 
         assertDataStream(DATA_STREAM_WITH_PREFIX_INDEX_NAME);
         assertDocs(DATA_STREAM_WITH_PREFIX_INDEX_NAME,
-                OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT);
+                OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT);
     }
 
     /*
@@ -114,8 +114,8 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         final var props = connectorProperties(TOPIC_NAME1);
         connect.kafka().createTopic(TOPIC_NAME1);
         String userProvidedTemplateName = "test-template1";
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME, userProvidedTemplateName);
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME, userProvidedTemplateName);
         connect.configureConnector(CONNECTOR_NAME, props);
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);
@@ -141,8 +141,8 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         connect.kafka().createTopic(TOPIC_NAME1);
         String existingTemplate = "test-template2";
         String dataStream = "test-data-stream_1";
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
-        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME, existingTemplate);
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_INDEX_TEMPLATE_NAME, existingTemplate);
         connect.configureConnector(CONNECTOR_NAME, props);
 
         waitForConnectorToStart(CONNECTOR_NAME, 1);

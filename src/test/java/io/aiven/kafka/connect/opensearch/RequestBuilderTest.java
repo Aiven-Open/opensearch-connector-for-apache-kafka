@@ -57,9 +57,9 @@ public class RequestBuilderTest {
 
     @Test
     public void requestWithDocumentIdStrategyNone() throws Exception {
-        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
-                "http://localhost", OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true",
-                OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString()));
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true",
+                OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString()));
         final var deleteRequest = RequestBuilder.builder()
                 .withConfig(config)
                 .withIndex(INDEX)
@@ -87,9 +87,9 @@ public class RequestBuilderTest {
 
     @Test
     public void requestWithDocumentIdStrategyTopicPartitionOffset() throws Exception {
-        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
-                "http://localhost", OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true",
-                OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG,
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true",
+                OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG,
                 DocumentIDStrategy.TOPIC_PARTITION_OFFSET.toString()));
         final var deleteRequest = RequestBuilder.builder()
                 .withConfig(config)
@@ -118,9 +118,9 @@ public class RequestBuilderTest {
 
     @Test
     public void requestWithDocumentIdStrategyRecordKey() throws Exception {
-        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
-                "http://localhost", OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true",
-                OpensearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.RECORD_KEY.toString()));
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true",
+                OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.RECORD_KEY.toString()));
 
         final var deleteRequest = RequestBuilder.builder()
                 .withConfig(config)
@@ -149,8 +149,8 @@ public class RequestBuilderTest {
 
     @Test
     void testUpsertRequest() throws Exception {
-        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
-                "http://localhost", OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpenSearchSinkConnectorConfig.INDEX_WRITE_METHOD,
                 IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT)
         // OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false"
         ));
@@ -175,8 +175,8 @@ public class RequestBuilderTest {
     @Test
     void dataStreamRequest() throws Exception {
         final var objectMapper = RequestBuilder.OBJECT_MAPPER;
-        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
-                "http://localhost", OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"));
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"));
 
         final var deleteRequest = RequestBuilder.builder()
                 .withConfig(config)
@@ -191,7 +191,7 @@ public class RequestBuilderTest {
         final var payloadWithoutTimestamp = objectMapper.writeValueAsString(objectMapper.createObjectNode()
                 .put("a", "b")
                 .put("c", "d")
-                .put(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT, "12345"));
+                .put(OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT, "12345"));
 
         final var dataStreamRequest = RequestBuilder.builder()
                 .withConfig(config)
@@ -211,9 +211,9 @@ public class RequestBuilderTest {
     @Test
     void dataStreamRequestWithCustomTimestamp() throws Exception {
         final var objectMapper = RequestBuilder.OBJECT_MAPPER;
-        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
-                "http://localhost", OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
-                OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "t"));
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "t"));
 
         final var payloadWithoutTimestamp = objectMapper
                 .writeValueAsString(objectMapper.createObjectNode().put("a", "b").put("c", "d").put("t", "12345"));
@@ -236,8 +236,8 @@ public class RequestBuilderTest {
     @Test
     void dataStreamRequestWithEmptyTimestamp() throws Exception {
         final var objectMapper = RequestBuilder.OBJECT_MAPPER;
-        final var config = new OpensearchSinkConnectorConfig(Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
-                "http://localhost", OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"));
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://localhost", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"));
 
         final var payloadWithoutTimestamp = objectMapper
                 .writeValueAsString(objectMapper.createObjectNode().put("a", "b").put("c", "d"));
@@ -254,7 +254,7 @@ public class RequestBuilderTest {
                 readPayload(((IndexRequest) dataStreamRequest).source(), payloadWithoutTimestamp.length()),
                 new TypeReference<Map<String, String>>() {
                 });
-        assertNotNull(requestPayload.get(OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT));
+        assertNotNull(requestPayload.get(OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT));
     }
 
     SinkRecord createSinkRecord(final Object value) {

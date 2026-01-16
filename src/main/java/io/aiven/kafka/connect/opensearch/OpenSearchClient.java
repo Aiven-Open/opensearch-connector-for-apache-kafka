@@ -48,7 +48,7 @@ import org.opensearch.cluster.metadata.ComposableIndexTemplate.DataStreamTemplat
 import org.opensearch.cluster.metadata.DataStream.TimestampField;
 
 import io.aiven.kafka.connect.opensearch.spi.ClientsConfiguratorProvider;
-import io.aiven.kafka.connect.opensearch.spi.OpensearchClientConfigurator;
+import io.aiven.kafka.connect.opensearch.spi.OpenSearchClientConfigurator;
 
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.config.RegistryBuilder;
@@ -66,9 +66,9 @@ import org.apache.http.ssl.SSLContexts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OpensearchClient implements AutoCloseable {
+public class OpenSearchClient implements AutoCloseable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(OpensearchClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(OpenSearchClient.class);
 
     public static final String DATA_STREAM_TEMPLATE_NAME_PATTERN = "%s-connector-data-stream-template";
 
@@ -80,23 +80,23 @@ public class OpensearchClient implements AutoCloseable {
 
     private static final String DEFAULT_OS_VERSION = "1.0.0";
 
-    private final OpensearchSinkConnectorConfig config;
+    private final OpenSearchSinkConnectorConfig config;
 
     private final BulkProcessor bulkProcessor;
 
     /* visible for testing */
     protected final RestHighLevelClient client;
 
-    public OpensearchClient(final OpensearchSinkConnectorConfig config) {
+    public OpenSearchClient(final OpenSearchSinkConnectorConfig config) {
         this(config, null);
     }
 
-    public OpensearchClient(final OpensearchSinkConnectorConfig config, final ErrantRecordReporter reporter) {
+    public OpenSearchClient(final OpenSearchSinkConnectorConfig config, final ErrantRecordReporter reporter) {
         this(new RestHighLevelClient(RestClient.builder(config.httpHosts())
                 .setHttpClientConfigCallback(new HttpClientConfigCallback(config))), config, reporter);
     }
 
-    protected OpensearchClient(final RestHighLevelClient client, final OpensearchSinkConnectorConfig config,
+    protected OpenSearchClient(final RestHighLevelClient client, final OpenSearchSinkConnectorConfig config,
             final ErrantRecordReporter reporter) {
         this.client = client;
         this.config = config;
@@ -230,9 +230,9 @@ public class OpensearchClient implements AutoCloseable {
 
     private static class HttpClientConfigCallback implements RestClientBuilder.HttpClientConfigCallback {
 
-        private final OpensearchSinkConnectorConfig config;
+        private final OpenSearchSinkConnectorConfig config;
 
-        private HttpClientConfigCallback(final OpensearchSinkConnectorConfig config) {
+        private HttpClientConfigCallback(final OpenSearchSinkConnectorConfig config) {
             this.config = config;
         }
 
@@ -244,7 +244,7 @@ public class OpensearchClient implements AutoCloseable {
                     .setSocketTimeout(config.readTimeoutMs())
                     .build();
 
-            final Collection<OpensearchClientConfigurator> configurators = ClientsConfiguratorProvider
+            final Collection<OpenSearchClientConfigurator> configurators = ClientsConfiguratorProvider
                     .forOpensearch(config);
             configurators.forEach(configurator -> {
                 if (configurator.apply(config, httpClientBuilder)) {

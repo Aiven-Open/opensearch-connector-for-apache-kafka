@@ -67,10 +67,10 @@ public class RecordConverterTest {
 
     private RecordConverter createDataConverter(final boolean useCompactMapEntries,
             final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
-        final var props = Map.of(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
-                OpensearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, behaviorOnNullValues.toString(),
-                OpensearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, Boolean.toString(useCompactMapEntries));
-        return new RecordConverter(new OpensearchSinkConnectorConfig(props));
+        final var props = Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
+                OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, behaviorOnNullValues.toString(),
+                OpenSearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, Boolean.toString(useCompactMapEntries));
+        return new RecordConverter(new OpenSearchSinkConnectorConfig(props));
     }
 
     @Test

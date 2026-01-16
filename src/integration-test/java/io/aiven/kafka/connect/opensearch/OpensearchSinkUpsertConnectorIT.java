@@ -45,9 +45,9 @@ public class OpensearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
     @Test
     public void testConnector() throws Exception {
         final var props = connectorProperties(TOPIC_NAME);
-        props.put(OpensearchSinkConnectorConfig.INDEX_WRITE_METHOD,
+        props.put(OpenSearchSinkConnectorConfig.INDEX_WRITE_METHOD,
                 IndexWriteMethod.UPSERT.name().toLowerCase(Locale.ROOT));
-        props.put(OpensearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
+        props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "false");
         connect.configureConnector(CONNECTOR_NAME, props);
         waitForConnectorToStart(CONNECTOR_NAME, 1);
 

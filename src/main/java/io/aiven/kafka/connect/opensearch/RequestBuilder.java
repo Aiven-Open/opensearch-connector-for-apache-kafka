@@ -15,7 +15,7 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
-import static io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -44,7 +44,7 @@ public interface RequestBuilder {
 
     @FunctionalInterface
     interface SetOpenSearchSinkConnectorConfig {
-        SetIndexName withConfig(final OpensearchSinkConnectorConfig config);
+        SetIndexName withConfig(final OpenSearchSinkConnectorConfig config);
     }
 
     @FunctionalInterface
@@ -105,7 +105,7 @@ public interface RequestBuilder {
         return request;
     }
 
-    private static String addTimestampToPayload(final OpensearchSinkConnectorConfig config, final SinkRecord record,
+    private static String addTimestampToPayload(final OpenSearchSinkConnectorConfig config, final SinkRecord record,
             final String payload) {
         if (DATA_STREAM_TIMESTAMP_FIELD_DEFAULT.equals(config.dataStreamTimestampField())) {
             try {
