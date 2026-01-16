@@ -6,7 +6,7 @@ This repository includes Aiven's OpenSearch [Apache Kafka® Connector](http://ka
 Kafka®.
 
 The project originates from
-Aiven's [elasticsearch-connector-for-apache-kafka](https://github.com/aiven/elasticsearch-connector-for-apache-kafka).
+Aiven's [opensearch-connector-for-apache-kafka](https://github.com/aiven/elasticsearch-connector-for-apache-kafka).
 The code was forked and all classes were renamed.
 
 # Documentation

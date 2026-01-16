@@ -111,9 +111,9 @@ public class RecordConverter {
         return new String(rawJsonPayload, StandardCharsets.UTF_8);
     }
 
-    // We need to pre process the Kafka Connect schema before converting to JSON as Elasticsearch
+    // We need to pre process the Kafka Connect schema before converting to JSON as OpenSearch
     // expects a different JSON format from the current JSON converter provides. Rather than
-    // completely rewrite a converter for Elasticsearch, we will refactor the JSON converter to
+    // completely rewrite a converter for OpenSearch, we will refactor the JSON converter to
     // support customized translation. The pre process is no longer needed once we have the JSON
     // converter refactored.
     // visible for testing

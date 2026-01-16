@@ -62,7 +62,7 @@ public class AbstractKafkaConnectIT extends AbstractIT {
 
     @BeforeEach
     void startConnect() {
-        connect = new EmbeddedConnectCluster.Builder().name("elasticsearch-it-connect-cluster").build();
+        connect = new EmbeddedConnectCluster.Builder().name("opensearch-it-connect-cluster").build();
         connect.start();
         connect.kafka().createTopic(topicName);
     }
