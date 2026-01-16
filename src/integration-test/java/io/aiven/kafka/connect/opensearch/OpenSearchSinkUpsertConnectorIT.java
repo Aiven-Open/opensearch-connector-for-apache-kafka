@@ -30,7 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
 
-public class OpensearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
+public class OpenSearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
 
     final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -38,7 +38,7 @@ public class OpensearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
 
     static final String TOPIC_NAME = "os-upsert-topic";
 
-    public OpensearchSinkUpsertConnectorIT() {
+    public OpenSearchSinkUpsertConnectorIT() {
         super(TOPIC_NAME, CONNECTOR_NAME);
     }
 

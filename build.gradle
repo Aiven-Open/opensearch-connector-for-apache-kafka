@@ -70,7 +70,22 @@ spotless {
         indentWithSpaces()
         endWithNewline()
         trimTrailingWhitespace()
+
+        // Custom rule to check class names don't contain "Opensearch"
+        custom("checkClassNames", { input ->
+            def pattern = ~/(?:public\s+)?(?:abstract\s+)?(?:final\s+)?(?:class|interface|enum)\s+([A-Za-z0-9_]*Opensearch[A-Za-z0-9_]*)/
+            def matcher = pattern.matcher(input)
+            if (matcher.find()) {
+                def className = matcher.group(1)
+                throw new GradleException(
+                        "Class name '${className}' contains 'Opensearch' instead of 'OpenSearch'. " +
+                                "Please rename to use 'OpenSearch' (capital S)."
+                )
+            }
+            return input
+        } as Closure<String>)
     }
+
 }
 
 java {

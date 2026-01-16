@@ -32,7 +32,7 @@ import org.opensearch.cluster.metadata.ComposableIndexTemplate;
 
 import org.junit.jupiter.api.Test;
 
-public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT {
+public class OpenSearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT {
 
     static final String TOPIC_NAME = "ds-topic";
 
@@ -48,7 +48,7 @@ public class OpensearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
             DATA_STREAM_PREFIX_WITH_TIMESTAMP, TOPIC_NAME);
     static final String CONNECTOR_NAME = "os-ds-sink-connector";
 
-    public OpensearchSinkDataStreamConnectorIT() {
+    public OpenSearchSinkDataStreamConnectorIT() {
         super(TOPIC_NAME, CONNECTOR_NAME);
     }
 
