@@ -227,7 +227,7 @@ test {
     }
 }
 
-task integrationTest(type: Test) {
+tasks.register('integrationTest', Test) {
     description = 'Runs the integration tests.'
     group = 'verification'
     testClassesDirs = sourceSets.integrationTest.output.classesDirs
@@ -243,21 +243,16 @@ task integrationTest(type: Test) {
     // Pass the distribution file path to the tests.
     systemProperty("integration-test.distribution.file.path", distTar.archiveFile.get().asFile.path)
     systemProperty("opensearch.testcontainers.image-version",
-        project.findProperty("opensearch.testcontainers.image-version") ? project.getProperty("opensearch.testcontainers.image-version") : "2.0.0")
+            project.findProperty("opensearch.testcontainers.image-version") ? project.getProperty("opensearch.testcontainers.image-version") : "2.0.0")
 }
 
-task connectorConfigDoc {
+tasks.register('connectorConfigDoc', JavaExec) {
     description = "Generates the connector's configuration documentation."
     group = "documentation"
     dependsOn "classes"
-
-    doLast {
-        javaexec {
-            main = "io.aiven.kafka.connect.opensearch.OpensearchSinkConnectorConfig"
-            classpath = sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
-            standardOutput = new FileOutputStream("$projectDir/docs/opensearch-sink-connector-config-options.rst")
-        }
-    }
+    mainClass = "io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig"
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.main.compileClasspath
+    standardOutput = new FileOutputStream("$projectDir/docs/opensearch-sink-connector-config-options.rst")
 }
 
 tasks.named(JavaBasePlugin.CHECK_TASK_NAME) {

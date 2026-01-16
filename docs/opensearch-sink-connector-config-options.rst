@@ -215,7 +215,7 @@ Data Stream
   * Importance: medium
 
 ``data.streams.existing.index.template.name``
-  If data.streams.create.index.template is provided, data stream and index template will be created if it doesn't exist.
+  If data.streams.existing.index.template.name is provided, and if that index template does not exist, a template will be created with that name, else no template is created.
 
   * Type: string
   * Default: null
