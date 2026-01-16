@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.data.Schema;
@@ -50,19 +51,15 @@ import org.opensearch.cluster.metadata.DataStream.TimestampField;
 import io.aiven.kafka.connect.opensearch.spi.ClientsConfiguratorProvider;
 import io.aiven.kafka.connect.opensearch.spi.OpenSearchClientConfigurator;
 
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.config.RegistryBuilder;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
-import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
-import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
-import org.apache.http.impl.nio.reactor.IOReactorConfig;
-import org.apache.http.nio.conn.NoopIOSessionStrategy;
-import org.apache.http.nio.conn.SchemeIOSessionStrategy;
-import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
-import org.apache.http.nio.reactor.IOReactorException;
-import org.apache.http.ssl.SSLContexts;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.client5.http.ssl.TrustAllStrategy;
+import org.apache.hc.core5.http.ssl.TLS;
+import org.apache.hc.core5.ssl.SSLContexts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -228,59 +225,45 @@ public class OpenSearchClient implements AutoCloseable {
         }
     }
 
-    private static class HttpClientConfigCallback implements RestClientBuilder.HttpClientConfigCallback {
-
-        private final OpenSearchSinkConnectorConfig config;
-
-        private HttpClientConfigCallback(final OpenSearchSinkConnectorConfig config) {
-            this.config = config;
-        }
+    private record HttpClientConfigCallback(
+            OpenSearchSinkConnectorConfig config) implements RestClientBuilder.HttpClientConfigCallback {
 
         @Override
         public HttpAsyncClientBuilder customizeHttpClient(final HttpAsyncClientBuilder httpClientBuilder) {
-            final var requestConfig = RequestConfig.custom()
-                    .setConnectTimeout(config.connectionTimeoutMs())
-                    .setConnectionRequestTimeout(config.readTimeoutMs())
-                    .setSocketTimeout(config.readTimeoutMs())
-                    .build();
-
             final Collection<OpenSearchClientConfigurator> configurators = ClientsConfiguratorProvider
                     .forOpensearch(config);
             configurators.forEach(configurator -> {
                 if (configurator.apply(config, httpClientBuilder)) {
-                    LOGGER.debug("Successfuly applied " + configurator.getClass().getName()
-                            + " configurator to OpensearchClient");
+                    LOGGER.debug("Successfully applied {} configurator to OpensearchClient",
+                            configurator.getClass().getName());
                 }
             });
 
-            httpClientBuilder.setConnectionManager(createConnectionManager()).setDefaultRequestConfig(requestConfig);
+            httpClientBuilder.setConnectionManager(createConnectionManager())
+                    .setDefaultRequestConfig(RequestConfig.custom()
+                            .setConnectionRequestTimeout(config.readTimeoutMs(), TimeUnit.MILLISECONDS)
+                            .build());
 
             return httpClientBuilder;
         }
 
-        private PoolingNHttpClientConnectionManager createConnectionManager() {
+        private PoolingAsyncClientConnectionManager createConnectionManager() {
             try {
-                final var ioReactorConfig = IOReactorConfig.custom()
-                        .setConnectTimeout(config.connectionTimeoutMs())
-                        .setSoTimeout(config.readTimeoutMs())
-                        .build();
-
-                final var sslStrategy = new SSLIOSessionStrategy(
-                        SSLContexts.custom().loadTrustMaterial(new TrustSelfSignedStrategy()).build(),
-                        new NoopHostnameVerifier());
-                final var registry = RegistryBuilder.<SchemeIOSessionStrategy>create()
-                        .register("http", NoopIOSessionStrategy.INSTANCE)
-                        .register("https", sslStrategy)
-                        .build();
-                final var connectionManager = new PoolingNHttpClientConnectionManager(
-                        new DefaultConnectingIOReactor(ioReactorConfig), registry);
                 final var maxPerRoute = Math.max(10, config.maxInFlightRequests() * 2);
-                connectionManager.setDefaultMaxPerRoute(maxPerRoute);
-                connectionManager.setMaxTotal(maxPerRoute * config.httpHosts().length);
-                return connectionManager;
-            } catch (final IOReactorException | NoSuchAlgorithmException | KeyStoreException
-                    | KeyManagementException e) {
-                throw new ConnectException("Unable to open ElasticsearchClient.", e);
+                return PoolingAsyncClientConnectionManagerBuilder.create()
+                        .setTlsStrategy(ClientTlsStrategyBuilder.create()
+                                .setTlsVersions(TLS.V_1_2, TLS.V_1_3)
+                                .setSslContext(SSLContexts.custom().loadTrustMaterial(new TrustAllStrategy()).build())
+                                .build())
+                        .setDefaultConnectionConfig(ConnectionConfig.custom()
+                                .setConnectTimeout(config.connectionTimeoutMs(), TimeUnit.MILLISECONDS)
+                                .setSocketTimeout(config.readTimeoutMs(), TimeUnit.MILLISECONDS)
+                                .build())
+                        .setMaxConnPerRoute(maxPerRoute)
+                        .setMaxConnTotal(maxPerRoute * config.httpHosts().length)
+                        .build();
+            } catch (final NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
+                throw new ConnectException("Unable to open OpenSearchClient.", e);
             }
         }
 

@@ -422,7 +422,7 @@ public class BulkProcessor {
         }
 
         private void handleVersionConflict(final BulkItemResponse bulkItemResponse) {
-            // if the elasticsearch request failed because of a version conflict,
+            // if the OpenSearch request failed because of a version conflict,
             // the behavior is configurable.
             switch (behaviorOnVersionConflict) {
                 case IGNORE :
@@ -462,7 +462,7 @@ public class BulkProcessor {
         }
 
         private void handleMalformedDoc(final BulkItemResponse bulkItemResponse) {
-            // if the elasticsearch request failed because of a malformed document,
+            // if the OpenSearch request failed because of a malformed document,
             // the behavior is configurable.
             switch (behaviorOnMalformedDoc) {
                 case IGNORE :

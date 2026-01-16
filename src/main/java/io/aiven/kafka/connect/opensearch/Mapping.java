@@ -215,7 +215,6 @@ public class Mapping {
     }
 
     private static void addTextMapping(final XContentBuilder builder) throws IOException {
-        // Add additional mapping for indexing, per https://www.elastic.co/blog/strings-are-dead-long-live-strings
         builder.startObject(FIELDS_FIELD);
         builder.startObject(KEYWORD_FIELD);
         builder.field(TYPE_FIELD, KEYWORD_TYPE);

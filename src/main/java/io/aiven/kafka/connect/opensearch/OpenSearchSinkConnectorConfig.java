@@ -16,6 +16,7 @@
 package io.aiven.kafka.connect.opensearch;
 
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Iterator;
 import java.util.List;
@@ -36,7 +37,7 @@ import org.apache.kafka.common.config.ConfigException;
 
 import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
-import org.apache.http.HttpHost;
+import org.apache.hc.core5.http.HttpHost;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -337,14 +338,18 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     }
 
     public HttpHost[] httpHosts() {
-        final var connectionUrls = connectionUrls();
-        final var httpHosts = new HttpHost[connectionUrls.size()];
-        int idx = 0;
-        for (final var url : connectionUrls) {
-            httpHosts[idx] = HttpHost.create(url);
-            idx++;
+        try {
+            final var connectionUrls = connectionUrls();
+            final var httpHosts = new HttpHost[connectionUrls.size()];
+            int idx = 0;
+            for (final var url : connectionUrls) {
+                httpHosts[idx] = HttpHost.create(url);
+                idx++;
+            }
+            return httpHosts;
+        } catch (URISyntaxException e) {
+            throw new ConfigException(CONNECTION_URL_CONFIG, String.format("Wrong URI format. %s", e.getMessage()));
         }
-        return httpHosts;
     }
 
     private List<String> connectionUrls() {

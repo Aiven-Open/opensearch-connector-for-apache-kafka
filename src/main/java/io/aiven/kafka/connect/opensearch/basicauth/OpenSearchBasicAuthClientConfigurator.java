@@ -25,10 +25,10 @@ import org.apache.kafka.common.config.types.Password;
 import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 import io.aiven.kafka.connect.opensearch.spi.OpenSearchClientConfigurator;
 
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 
 public class OpenSearchBasicAuthClientConfigurator implements OpenSearchClientConfigurator {
 
@@ -40,8 +40,8 @@ public class OpenSearchBasicAuthClientConfigurator implements OpenSearchClientCo
 
         final var credentialsProvider = new BasicCredentialsProvider();
         for (final var httpHost : config.httpHosts()) {
-            credentialsProvider.setCredentials(new AuthScope(httpHost),
-                    new UsernamePasswordCredentials(connectionUsername(config), connectionPassword(config).value()));
+            credentialsProvider.setCredentials(new AuthScope(httpHost), new UsernamePasswordCredentials(
+                    connectionUsername(config), connectionPassword(config).value().toCharArray()));
         }
 
         builder.setDefaultCredentialsProvider(credentialsProvider);

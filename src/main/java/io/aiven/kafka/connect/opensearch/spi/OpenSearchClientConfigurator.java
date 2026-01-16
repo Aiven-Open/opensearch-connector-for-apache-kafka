@@ -17,7 +17,7 @@ package io.aiven.kafka.connect.opensearch.spi;
 
 import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 
 /**
  * The extension points to allow OpensearchClient customization based on the the provided configuration.
