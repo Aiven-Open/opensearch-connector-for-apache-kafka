@@ -15,9 +15,22 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
+import static org.apache.kafka.common.config.SslConfigs.SSL_CIPHER_SUITES_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_ENABLED_PROTOCOLS_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_KEYSTORE_TYPE_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_KEY_PASSWORD_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_PROTOCOL_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG;
+
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -34,6 +47,7 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
 import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.config.SslConfigs;
 
 import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
@@ -188,9 +202,14 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     public static final String DATA_STREAM_TIMESTAMP_FIELD_DOC = "The Kafka record field to use as "
             + "the timestamp for the @timestamp field in documents sent to a data stream. The default is @timestamp.";
 
+    private final static String SSL_SETTINGS_GROUP_NAME = "TLS Configuration for HTTPS";
+
+    public final static String SSL_CONFIG_PREFIX = "connection.";
+
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
+        addSslConfig(configDef);
         addConversionConfigs(configDef);
         addDataStreamConfig(configDef);
         addSpiConfigs(configDef);
@@ -256,6 +275,37 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                         CONNECTOR_GROUP_NAME, ++order, Width.SHORT, "Connection Timeout")
                 .define(READ_TIMEOUT_MS_CONFIG, Type.INT, 3000, Importance.LOW, READ_TIMEOUT_MS_CONFIG_DOC,
                         CONNECTOR_GROUP_NAME, ++order, Width.SHORT, "Read Timeout");
+    }
+
+    private static void addSslConfig(final ConfigDef configDef) {
+        ConfigDef sslConfigDef = new ConfigDef();
+        sslConfigDef
+                .define(SslConfigs.SSL_PROTOCOL_CONFIG, ConfigDef.Type.STRING, SslConfigs.DEFAULT_SSL_PROTOCOL,
+                        ConfigDef.Importance.MEDIUM, SslConfigs.SSL_PROTOCOL_DOC)
+                .define(SSL_CIPHER_SUITES_CONFIG, ConfigDef.Type.LIST, null, ConfigDef.Importance.LOW,
+                        SslConfigs.SSL_CIPHER_SUITES_DOC)
+                .define(SSL_ENABLED_PROTOCOLS_CONFIG, ConfigDef.Type.LIST, SslConfigs.DEFAULT_SSL_ENABLED_PROTOCOLS,
+                        ConfigDef.Importance.MEDIUM, SslConfigs.SSL_ENABLED_PROTOCOLS_DOC)
+                .define(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, ConfigDef.Type.STRING,
+                        SslConfigs.DEFAULT_SSL_KEYSTORE_TYPE, ConfigDef.Importance.MEDIUM,
+                        SslConfigs.SSL_KEYSTORE_TYPE_DOC)
+                .define(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, ConfigDef.Type.STRING, null, ConfigDef.Importance.HIGH,
+                        SslConfigs.SSL_KEYSTORE_LOCATION_DOC)
+                .define(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, ConfigDef.Type.PASSWORD, null,
+                        ConfigDef.Importance.HIGH, SslConfigs.SSL_KEYSTORE_PASSWORD_DOC)
+                .define(SSL_KEY_PASSWORD_CONFIG, ConfigDef.Type.PASSWORD, null, ConfigDef.Importance.HIGH,
+                        SslConfigs.SSL_KEY_PASSWORD_DOC)
+                .define(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, ConfigDef.Type.STRING,
+                        SslConfigs.DEFAULT_SSL_TRUSTSTORE_TYPE, ConfigDef.Importance.MEDIUM,
+                        SslConfigs.SSL_TRUSTSTORE_TYPE_DOC)
+                .define(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, ConfigDef.Type.STRING, null,
+                        ConfigDef.Importance.HIGH, SslConfigs.SSL_TRUSTSTORE_LOCATION_DOC)
+                .define(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, ConfigDef.Type.PASSWORD, null,
+                        ConfigDef.Importance.HIGH, SslConfigs.SSL_TRUSTSTORE_PASSWORD_DOC)
+                .define(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, ConfigDef.Type.STRING,
+                        SslConfigs.DEFAULT_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, ConfigDef.Importance.LOW,
+                        SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_DOC);
+        configDef.embed(SSL_CONFIG_PREFIX, SSL_SETTINGS_GROUP_NAME, configDef.configKeys().size() + 1, sslConfigDef);
     }
 
     private static void addConversionConfigs(final ConfigDef configDef) {
@@ -495,6 +545,68 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     public BulkProcessor.BehaviorOnVersionConflict behaviorOnVersionConflict() {
         return BulkProcessor.BehaviorOnVersionConflict
                 .forValue(getString(OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
+    }
+
+    public Optional<Path> trustStorePath() {
+        return Optional.ofNullable(getString(SSL_CONFIG_PREFIX + SSL_TRUSTSTORE_LOCATION_CONFIG)).map(Path::of);
+    }
+
+    public String trustStoreType() {
+        return getString(SSL_CONFIG_PREFIX + SSL_TRUSTSTORE_TYPE_CONFIG);
+    }
+
+    public char[] trustStorePassword() {
+        final var pwd = getPassword(SSL_CONFIG_PREFIX + SSL_TRUSTSTORE_PASSWORD_CONFIG);
+        if (pwd == null) {
+            return null;
+        }
+        return pwd.value().toCharArray();
+    }
+
+    public Optional<Path> keyStorePath() {
+        return Optional.ofNullable(getString(SSL_CONFIG_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG)).map(Path::of);
+    }
+
+    public char[] keyStorePassword() {
+        final var pwd = getPassword(SSL_CONFIG_PREFIX + SSL_KEYSTORE_PASSWORD_CONFIG);
+        if (pwd == null) {
+            return null;
+        }
+        return pwd.value().toCharArray();
+    }
+
+    public String keyStoreType() {
+        return getString(SSL_CONFIG_PREFIX + SSL_KEYSTORE_TYPE_CONFIG);
+    }
+
+    public char[] keyPassword() {
+        final var pwd = getPassword(SSL_CONFIG_PREFIX + SSL_KEYSTORE_PASSWORD_CONFIG);
+        if (pwd == null) {
+            return null;
+        }
+        return pwd.value().toCharArray();
+    }
+
+    public String sslProtocol() {
+        return getString(SSL_CONFIG_PREFIX + SSL_PROTOCOL_CONFIG);
+    }
+
+    public String[] sslEnableProtocols() {
+        return getList(SSL_CONFIG_PREFIX + SSL_ENABLED_PROTOCOLS_CONFIG).toArray(new String[0]);
+    }
+
+    public String[] cipherSuitesConfig() {
+        final var suites = getList(SSL_CONFIG_PREFIX + SSL_CIPHER_SUITES_CONFIG);
+        if (suites != null && !suites.isEmpty()) {
+            return suites.toArray(new String[0]);
+        }
+        return null;
+    }
+
+    public boolean disableHostnameVerification() {
+        String sslEndpointIdentificationAlgorithm = getString(
+                SSL_CONFIG_PREFIX + SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG);
+        return sslEndpointIdentificationAlgorithm != null && sslEndpointIdentificationAlgorithm.isEmpty();
     }
 
     public static void main(final String[] args) {

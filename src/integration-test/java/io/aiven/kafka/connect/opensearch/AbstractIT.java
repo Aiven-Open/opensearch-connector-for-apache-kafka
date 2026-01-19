@@ -34,17 +34,22 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.testcontainers.OpenSearchContainer;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 public abstract class AbstractIT {
 
-    @Container
-    static OpenSearchContainer<?> opensearchContainer = new OpenSearchContainer<>(getOpenSearchImage());
+    static OpenSearchContainer<?> openSearchContainer;
 
     OpenSearchClient opensearchClient;
+
+    @BeforeAll
+    static void beforeAll() throws Exception {
+        openSearchContainer = new OpenSearchContainer<>(getOpenSearchImage());
+        openSearchContainer.start();
+    }
 
     @BeforeEach
     void setup() throws Exception {
@@ -53,8 +58,8 @@ public abstract class AbstractIT {
     }
 
     protected static Map<String, String> getDefaultProperties() {
-        return Map.of(CONNECTION_URL_CONFIG, opensearchContainer.getHttpHostAddress(), CONNECTION_USERNAME_CONFIG,
-                "admin", CONNECTION_PASSWORD_CONFIG, "admin");
+        return Map.of(CONNECTION_URL_CONFIG, openSearchContainer.getHttpHostAddress(), CONNECTION_USERNAME_CONFIG,
+                "admin", CONNECTION_PASSWORD_CONFIG, openSearchContainer.getPassword());
     }
 
     @AfterEach
@@ -81,7 +86,7 @@ public abstract class AbstractIT {
                 String.format("Could not find expected documents (%d) in time.", expectedRecords));
     }
 
-    private static String getOpenSearchImage() {
+    protected static String getOpenSearchImage() {
         return "opensearchproject/opensearch:" + getOpenSearchVersion();
     }
 

@@ -77,6 +77,86 @@ Connector
   * Default: 3000 (3 seconds)
   * Importance: low
 
+TLS Configuration for HTTPS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``connection.ssl.key.password``
+  The password of the private key in the key store file or the PEM key specified in 'ssl.keystore.key'.
+
+  * Type: password
+  * Default: null
+  * Importance: high
+
+``connection.ssl.keystore.location``
+  The location of the key store file. This is optional for client and can be used for two-way authentication for client.
+
+  * Type: string
+  * Default: null
+  * Importance: high
+
+``connection.ssl.keystore.password``
+  The store password for the key store file. This is optional for client and only needed if 'ssl.keystore.location' is configured. Key store password is not supported for PEM format.
+
+  * Type: password
+  * Default: null
+  * Importance: high
+
+``connection.ssl.truststore.location``
+  The location of the trust store file.
+
+  * Type: string
+  * Default: null
+  * Importance: high
+
+``connection.ssl.truststore.password``
+  The password for the trust store file. If a password is not set, trust store file configured will still be used, but integrity checking is disabled. Trust store password is not supported for PEM format.
+
+  * Type: password
+  * Default: null
+  * Importance: high
+
+``connection.ssl.enabled.protocols``
+  The list of protocols enabled for SSL connections. The default is 'TLSv1.2,TLSv1.3' when running with Java 11 or newer, 'TLSv1.2' otherwise. With the default value for Java 11, clients and servers will prefer TLSv1.3 if both support it and fallback to TLSv1.2 otherwise (assuming both support at least TLSv1.2). This default should be fine for most cases. Also see the config documentation for `ssl.protocol`.
+
+  * Type: list
+  * Default: TLSv1.2,TLSv1.3
+  * Importance: medium
+
+``connection.ssl.keystore.type``
+  The file format of the key store file. This is optional for client. The values currently supported by the default `ssl.engine.factory.class` are [JKS, PKCS12, PEM].
+
+  * Type: string
+  * Default: JKS
+  * Importance: medium
+
+``connection.ssl.protocol``
+  The SSL protocol used to generate the SSLContext. The default is 'TLSv1.3' when running with Java 11 or newer, 'TLSv1.2' otherwise. This value should be fine for most use cases. Allowed values in recent JVMs are 'TLSv1.2' and 'TLSv1.3'. 'TLS', 'TLSv1.1', 'SSL', 'SSLv2' and 'SSLv3' may be supported in older JVMs, but their usage is discouraged due to known security vulnerabilities. With the default value for this config and 'ssl.enabled.protocols', clients will downgrade to 'TLSv1.2' if the server does not support 'TLSv1.3'. If this config is set to 'TLSv1.2', clients will not use 'TLSv1.3' even if it is one of the values in ssl.enabled.protocols and the server only supports 'TLSv1.3'.
+
+  * Type: string
+  * Default: TLSv1.3
+  * Importance: medium
+
+``connection.ssl.truststore.type``
+  The file format of the trust store file. The values currently supported by the default `ssl.engine.factory.class` are [JKS, PKCS12, PEM].
+
+  * Type: string
+  * Default: JKS
+  * Importance: medium
+
+``connection.ssl.cipher.suites``
+  A list of cipher suites. This is a named combination of authentication, encryption, MAC and key exchange algorithm used to negotiate the security settings for a network connection using TLS or SSL network protocol. By default all the available cipher suites are supported.
+
+  * Type: list
+  * Default: null
+  * Importance: low
+
+``connection.ssl.endpoint.identification.algorithm``
+  The endpoint identification algorithm to validate server hostname using server certificate. 
+
+  * Type: string
+  * Default: https
+  * Importance: low
+
 Data Conversion
 ^^^^^^^^^^^^^^^
 
