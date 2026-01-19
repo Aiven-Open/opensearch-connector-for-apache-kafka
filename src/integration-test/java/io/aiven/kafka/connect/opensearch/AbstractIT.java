@@ -86,6 +86,6 @@ public abstract class AbstractIT {
     }
 
     protected static String getOpenSearchVersion() {
-        return System.getProperty("opensearch.testcontainers.image-version", "2.0.0");
+        return System.getProperty("opensearch.testcontainers.image-version", "2.19.4");
     }
 }
