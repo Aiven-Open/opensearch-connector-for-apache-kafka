@@ -15,10 +15,14 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
+import javax.net.ssl.SSLContext;
+
 import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -57,9 +61,10 @@ import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.client5.http.ssl.HttpsSupport;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.client5.http.ssl.TrustAllStrategy;
-import org.apache.hc.core5.http.ssl.TLS;
-import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -248,29 +253,60 @@ public class OpenSearchClient implements AutoCloseable {
         }
 
         private PoolingAsyncClientConnectionManager createConnectionManager() {
-            try {
-                final var maxPerRoute = Math.max(10, config.maxInFlightRequests() * 2);
-                return PoolingAsyncClientConnectionManagerBuilder.create()
-                        .setTlsStrategy(ClientTlsStrategyBuilder.create()
-                                .setTlsVersions(TLS.V_1_2, TLS.V_1_3)
-                                .setSslContext(SSLContexts.custom().loadTrustMaterial(new TrustAllStrategy()).build())
-                                .build())
-                        .setDefaultConnectionConfig(ConnectionConfig.custom()
-                                .setConnectTimeout(config.connectionTimeoutMs(), TimeUnit.MILLISECONDS)
-                                .setSocketTimeout(config.readTimeoutMs(), TimeUnit.MILLISECONDS)
-                                .build())
-                        .setMaxConnPerRoute(maxPerRoute)
-                        .setMaxConnTotal(maxPerRoute * config.httpHosts().length)
-                        .build();
-            } catch (final NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
-                throw new ConnectException("Unable to open OpenSearchClient.", e);
-            }
+            final var maxPerRoute = Math.max(10, config.maxInFlightRequests() * 2);
+            return PoolingAsyncClientConnectionManagerBuilder.create()
+                    .setTlsStrategy(ClientTlsStrategyBuilder.create()
+                            .setSslContext(sslContext(config))
+                            .setHostnameVerifier(config.disableHostnameVerification()
+                                    ? NoopHostnameVerifier.INSTANCE
+                                    : HttpsSupport.getDefaultHostnameVerifier())
+                            .setTlsVersions(config.sslEnableProtocols())
+                            .setCiphers(config.cipherSuitesConfig())
+                            .build())
+                    .setDefaultConnectionConfig(ConnectionConfig.custom()
+                            .setConnectTimeout(config.connectionTimeoutMs(), TimeUnit.MILLISECONDS)
+                            .setSocketTimeout(config.readTimeoutMs(), TimeUnit.MILLISECONDS)
+                            .build())
+                    .setMaxConnPerRoute(maxPerRoute)
+                    .setMaxConnTotal(maxPerRoute * config.httpHosts().length)
+                    .build();
         }
 
+        private SSLContext sslContext(final OpenSearchSinkConnectorConfig config) {
+            final var sslContextBuilder = SSLContextBuilder.create().setProtocol(config.sslProtocol());
+            config.trustStorePath().ifPresentOrElse(p -> {
+                try {
+                    sslContextBuilder.setKeyStoreType(config.trustStoreType())
+                            .loadTrustMaterial(p, config.trustStorePassword());
+                } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException e) {
+                    throw new ConnectException("Unable to load trust store from " + p, e);
+                }
+            }, () -> {
+                try {
+                    LOGGER.warn("Hostname verification disabled. Not recommended for production environments.");
+                    sslContextBuilder.loadTrustMaterial(TrustAllStrategy.INSTANCE);
+                } catch (final NoSuchAlgorithmException | KeyStoreException e) {
+                    throw new ConnectException("Unable to configure SSL context with trust all strategy", e);
+                }
+            });
+            config.keyStorePath().ifPresent(p -> {
+                try {
+                    sslContextBuilder.setKeyStoreType(config.keyStoreType())
+                            .loadKeyMaterial(p, config.keyStorePassword(), config.keyPassword());
+                } catch (final NoSuchAlgorithmException | KeyStoreException | UnrecoverableKeyException
+                        | CertificateException | IOException e) {
+                    throw new ConnectException("Unable to load key store from " + p, e);
+                }
+            });
+            try {
+                return sslContextBuilder.build();
+            } catch (final NoSuchAlgorithmException | KeyManagementException e) {
+                throw new ConnectException("Unable to build SSL context", e);
+            }
+        }
     }
 
     public <T> T withRetry(final String callName, final Callable<T> callable) {
         return RetryUtil.callWithRetry(callName, callable, config.maxRetry(), config.retryBackoffMs());
     }
-
 }
