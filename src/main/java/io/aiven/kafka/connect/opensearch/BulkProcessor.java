@@ -22,7 +22,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,7 +33,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.ErrantRecordReporter;
@@ -558,98 +556,4 @@ public class BulkProcessor {
         }
     }
 
-    public enum BehaviorOnMalformedDoc {
-        IGNORE, WARN, FAIL, REPORT;
-
-        public static final BehaviorOnMalformedDoc DEFAULT = FAIL;
-
-        // Want values for "behavior.on.malformed.doc" property to be case-insensitive
-        public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
-            private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
-
-            @Override
-            public void ensureValid(final String name, final Object value) {
-                if (value instanceof String) {
-                    final String lowerCaseStringValue = ((String) value).toLowerCase(Locale.ROOT);
-                    validator.ensureValid(name, lowerCaseStringValue);
-                } else {
-                    validator.ensureValid(name, value);
-                }
-            }
-
-            // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
-            @Override
-            public String toString() {
-                return validator.toString();
-            }
-
-        };
-
-        public static String[] names() {
-            final BehaviorOnMalformedDoc[] behaviors = values();
-            final String[] result = new String[behaviors.length];
-
-            for (int i = 0; i < behaviors.length; i++) {
-                result[i] = behaviors[i].toString();
-            }
-
-            return result;
-        }
-
-        public static BehaviorOnMalformedDoc forValue(final String value) {
-            return valueOf(value.toUpperCase(Locale.ROOT));
-        }
-
-        @Override
-        public String toString() {
-            return name().toLowerCase(Locale.ROOT);
-        }
-    }
-
-    public enum BehaviorOnVersionConflict {
-        IGNORE, WARN, FAIL, REPORT;
-
-        public static final BehaviorOnVersionConflict DEFAULT = FAIL;
-
-        // Want values for "behavior.on.version.conflict" property to be case-insensitive
-        public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
-            private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
-
-            @Override
-            public void ensureValid(final String name, final Object value) {
-                if (value instanceof String) {
-                    final String lowerCaseStringValue = ((String) value).toLowerCase(Locale.ROOT);
-                    validator.ensureValid(name, lowerCaseStringValue);
-                } else {
-                    validator.ensureValid(name, value);
-                }
-            }
-
-            // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
-            @Override
-            public String toString() {
-                return validator.toString();
-            }
-        };
-
-        public static String[] names() {
-            final BehaviorOnVersionConflict[] behaviors = values();
-            final String[] result = new String[behaviors.length];
-
-            for (int i = 0; i < behaviors.length; i++) {
-                result[i] = behaviors[i].toString();
-            }
-
-            return result;
-        }
-
-        public static BehaviorOnVersionConflict forValue(final String value) {
-            return valueOf(value.toUpperCase(Locale.ROOT));
-        }
-
-        @Override
-        public String toString() {
-            return name().toLowerCase(Locale.ROOT);
-        }
-    }
 }

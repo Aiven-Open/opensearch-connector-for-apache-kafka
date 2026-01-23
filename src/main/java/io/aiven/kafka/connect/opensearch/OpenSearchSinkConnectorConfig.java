@@ -330,18 +330,15 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                         DATA_CONVERSION_GROUP_NAME, ++order, Width.LONG, "Topics for 'Ignore Schema' mode")
                 .define(DROP_INVALID_MESSAGE_CONFIG, Type.BOOLEAN, false, Importance.LOW, DROP_INVALID_MESSAGE_DOC,
                         DATA_CONVERSION_GROUP_NAME, ++order, Width.LONG, "Drop invalid messages")
-                .define(BEHAVIOR_ON_NULL_VALUES_CONFIG, Type.STRING,
-                        RecordConverter.BehaviorOnNullValues.DEFAULT.toString(),
-                        RecordConverter.BehaviorOnNullValues.VALIDATOR, Importance.LOW, BEHAVIOR_ON_NULL_VALUES_DOC,
+                .define(BEHAVIOR_ON_NULL_VALUES_CONFIG, Type.STRING, BehaviorOnNullValues.DEFAULT.toString(),
+                        BehaviorOnNullValues.VALIDATOR, Importance.LOW, BEHAVIOR_ON_NULL_VALUES_DOC,
                         DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT, "Behavior for null-valued records")
-                .define(BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, Type.STRING,
-                        BulkProcessor.BehaviorOnMalformedDoc.DEFAULT.toString(),
-                        BulkProcessor.BehaviorOnMalformedDoc.VALIDATOR, Importance.LOW, BEHAVIOR_ON_MALFORMED_DOCS_DOC,
+                .define(BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, Type.STRING, BehaviorOnMalformedDoc.DEFAULT.toString(),
+                        BehaviorOnMalformedDoc.VALIDATOR, Importance.LOW, BEHAVIOR_ON_MALFORMED_DOCS_DOC,
                         DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT, "Behavior on malformed documents")
-                .define(BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, Type.STRING,
-                        BulkProcessor.BehaviorOnVersionConflict.DEFAULT.toString(),
-                        BulkProcessor.BehaviorOnVersionConflict.VALIDATOR, Importance.LOW,
-                        BEHAVIOR_ON_VERSION_CONFLICT_DOC, DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT,
+                .define(BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, Type.STRING, BehaviorOnVersionConflict.DEFAULT.toString(),
+                        BehaviorOnVersionConflict.VALIDATOR, Importance.LOW, BEHAVIOR_ON_VERSION_CONFLICT_DOC,
+                        DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT,
                         "Behavior on document's version conflict (optimistic locking)");
     }
 
@@ -368,8 +365,8 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     }
 
     public boolean requiresErrantRecordReporter() {
-        return behaviorOnMalformedDoc() == BulkProcessor.BehaviorOnMalformedDoc.REPORT
-                || behaviorOnVersionConflict() == BulkProcessor.BehaviorOnVersionConflict.REPORT;
+        return behaviorOnMalformedDoc() == BehaviorOnMalformedDoc.REPORT
+                || behaviorOnVersionConflict() == BehaviorOnVersionConflict.REPORT;
     }
 
     private void validate() {
@@ -532,18 +529,17 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
         return ignoreSchema() || topicIgnoreSchema().contains(topic);
     }
 
-    public RecordConverter.BehaviorOnNullValues behaviorOnNullValues() {
-        return RecordConverter.BehaviorOnNullValues
-                .forValue(getString(OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG));
+    public BehaviorOnNullValues behaviorOnNullValues() {
+        return BehaviorOnNullValues.forValue(getString(OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG));
     }
 
-    public BulkProcessor.BehaviorOnMalformedDoc behaviorOnMalformedDoc() {
-        return BulkProcessor.BehaviorOnMalformedDoc
+    public BehaviorOnMalformedDoc behaviorOnMalformedDoc() {
+        return BehaviorOnMalformedDoc
                 .forValue(getString(OpenSearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG));
     }
 
-    public BulkProcessor.BehaviorOnVersionConflict behaviorOnVersionConflict() {
-        return BulkProcessor.BehaviorOnVersionConflict
+    public BehaviorOnVersionConflict behaviorOnVersionConflict() {
+        return BehaviorOnVersionConflict
                 .forValue(getString(OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG));
     }
 

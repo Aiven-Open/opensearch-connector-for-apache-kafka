@@ -15,7 +15,6 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
-import static io.aiven.kafka.connect.opensearch.BulkProcessor.BehaviorOnMalformedDoc;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BATCH_SIZE_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
@@ -61,8 +60,6 @@ import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.common.bytes.BytesReference;
-
-import io.aiven.kafka.connect.opensearch.BulkProcessor.BehaviorOnVersionConflict;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
