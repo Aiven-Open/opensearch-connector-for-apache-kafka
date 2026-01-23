@@ -46,7 +46,7 @@ public class OpenSearchSinkTaskTest {
         final var props = Map.of(CONNECTION_URL_CONFIG, "http://localhost", MAX_BUFFERED_RECORDS_CONFIG, "100",
                 MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2", LINGER_MS_CONFIG, "1000",
                 MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1", BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
-                BulkProcessor.BehaviorOnMalformedDoc.REPORT.toString());
+                BehaviorOnMalformedDoc.REPORT.toString());
         when(context.errantRecordReporter()).thenReturn(null);
         final var task = new OpenSearchSinkTask();
         task.initialize(context);
@@ -60,7 +60,7 @@ public class OpenSearchSinkTaskTest {
         final var props = Map.of(CONNECTION_URL_CONFIG, "http://localhost", MAX_BUFFERED_RECORDS_CONFIG, "100",
                 MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2", LINGER_MS_CONFIG, "1000",
                 MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1", BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
-                BulkProcessor.BehaviorOnMalformedDoc.REPORT.toString());
+                BehaviorOnMalformedDoc.REPORT.toString());
         when(context.errantRecordReporter()).thenThrow(new NoSuchMethodError());
         final var task = new OpenSearchSinkTask();
         task.initialize(context);

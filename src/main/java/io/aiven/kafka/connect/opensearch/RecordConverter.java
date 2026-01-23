@@ -22,10 +22,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
-import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
@@ -296,51 +294,4 @@ public class RecordConverter {
         return newStruct;
     }
 
-    public enum BehaviorOnNullValues {
-        IGNORE, DELETE, FAIL;
-
-        public static final BehaviorOnNullValues DEFAULT = IGNORE;
-
-        // Want values for "behavior.on.null.values" property to be case-insensitive
-        public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
-            private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names());
-
-            @Override
-            public void ensureValid(final String name, final Object value) {
-                if (value instanceof String) {
-                    final String lowerStringValue = ((String) value).toLowerCase(Locale.ROOT);
-                    validator.ensureValid(name, lowerStringValue);
-                } else {
-                    validator.ensureValid(name, value);
-                }
-            }
-
-            // Overridden here so that ConfigDef.toEnrichedRst shows possible values correctly
-            @Override
-            public String toString() {
-                return validator.toString();
-            }
-
-        };
-
-        public static String[] names() {
-            final BehaviorOnNullValues[] behaviors = values();
-            final String[] result = new String[behaviors.length];
-
-            for (int i = 0; i < behaviors.length; i++) {
-                result[i] = behaviors[i].toString();
-            }
-
-            return result;
-        }
-
-        public static BehaviorOnNullValues forValue(final String value) {
-            return valueOf(value.toUpperCase(Locale.ROOT));
-        }
-
-        @Override
-        public String toString() {
-            return name().toLowerCase(Locale.ROOT);
-        }
-    }
 }

@@ -116,7 +116,7 @@ public class OpenSearchSinkTask extends SinkTask {
     }
 
     public boolean ignoreRecord(final SinkRecord record) {
-        return record.value() == null && config.behaviorOnNullValues() == RecordConverter.BehaviorOnNullValues.IGNORE;
+        return record.value() == null && config.behaviorOnNullValues() == BehaviorOnNullValues.IGNORE;
     }
 
     private void tryWriteRecord(final SinkRecord record) {

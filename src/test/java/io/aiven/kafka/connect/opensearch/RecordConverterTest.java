@@ -62,11 +62,11 @@ public class RecordConverterTest {
     }
 
     private RecordConverter createDataConverter(final boolean useCompactMapEntries) {
-        return createDataConverter(useCompactMapEntries, RecordConverter.BehaviorOnNullValues.DEFAULT);
+        return createDataConverter(useCompactMapEntries, BehaviorOnNullValues.DEFAULT);
     }
 
     private RecordConverter createDataConverter(final boolean useCompactMapEntries,
-            final RecordConverter.BehaviorOnNullValues behaviorOnNullValues) {
+            final BehaviorOnNullValues behaviorOnNullValues) {
         final var props = Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost",
                 OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, behaviorOnNullValues.toString(),
                 OpenSearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG, Boolean.toString(useCompactMapEntries));
@@ -258,7 +258,7 @@ public class RecordConverterTest {
 
     @Test
     public void ignoreOnNullValue() {
-        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.IGNORE);
+        converter = createDataConverter(true, BehaviorOnNullValues.IGNORE);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
         assertNull(converter.convert(sinkRecord, index));
@@ -266,7 +266,7 @@ public class RecordConverterTest {
 
     @Test
     public void deleteOnNullValue() {
-        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.DELETE);
+        converter = createDataConverter(true, BehaviorOnNullValues.DELETE);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
         final var deleteRecord = converter.convert(sinkRecord, index);
@@ -278,7 +278,7 @@ public class RecordConverterTest {
 
     @Test
     public void ignoreDeleteOnNullValueWithNullKey() {
-        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.DELETE);
+        converter = createDataConverter(true, BehaviorOnNullValues.DELETE);
         key = null;
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
@@ -287,7 +287,7 @@ public class RecordConverterTest {
 
     @Test
     public void failOnNullValue() {
-        converter = createDataConverter(true, RecordConverter.BehaviorOnNullValues.FAIL);
+        converter = createDataConverter(true, BehaviorOnNullValues.FAIL);
 
         final SinkRecord sinkRecord = createSinkRecordWithValue(null);
         assertThrows(DataException.class, () -> converter.convert(sinkRecord, index));
