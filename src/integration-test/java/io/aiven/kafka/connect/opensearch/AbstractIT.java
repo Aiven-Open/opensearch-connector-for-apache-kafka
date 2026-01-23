@@ -16,8 +16,6 @@
 package io.aiven.kafka.connect.opensearch;
 
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
-import static io.aiven.kafka.connect.opensearch.basicauth.OpenSearchBasicAuthConfigDefContributor.CONNECTION_PASSWORD_CONFIG;
-import static io.aiven.kafka.connect.opensearch.basicauth.OpenSearchBasicAuthConfigDefContributor.CONNECTION_USERNAME_CONFIG;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -33,10 +31,13 @@ import org.opensearch.client.core.CountRequest;
 import org.opensearch.search.SearchHits;
 import org.opensearch.testcontainers.OpenSearchContainer;
 
+import io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefContributor;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import software.amazon.awssdk.regions.Region;
 
 @Testcontainers
 public abstract class AbstractIT {
@@ -58,8 +59,13 @@ public abstract class AbstractIT {
     }
 
     protected static Map<String, String> getDefaultProperties() {
-        return Map.of(CONNECTION_URL_CONFIG, openSearchContainer.getHttpHostAddress(), CONNECTION_USERNAME_CONFIG,
-                "admin", CONNECTION_PASSWORD_CONFIG, openSearchContainer.getPassword());
+        return Map.of(CONNECTION_URL_CONFIG, openSearchContainer.getHttpHostAddress(),
+                // CONNECTION_USERNAME_CONFIG, "admin",
+                // CONNECTION_PASSWORD_CONFIG, openSearchContainer.getPassword()
+                OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG, "aaaa",
+                OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG, "bbb",
+                OpenSearchSigV4ConfigDefContributor.AWS_REGION_CONFIG, Region.EU_CENTRAL_1.toString(),
+                OpenSearchSigV4ConfigDefContributor.AWS_SERVICE_SIGNING_NAME_CONFIG, "aaaa");
     }
 
     @AfterEach

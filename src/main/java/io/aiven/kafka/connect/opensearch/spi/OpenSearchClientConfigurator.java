@@ -33,4 +33,10 @@ public interface OpenSearchClientConfigurator {
      * @return "true" if the configurator is applicable, "false" otherwise
      */
     boolean apply(OpenSearchSinkConnectorConfig config, HttpAsyncClientBuilder builder);
+
+    /**
+     * Indicate configuration has been applied or not
+     */
+    boolean isAuthenticatedConnection(final OpenSearchSinkConnectorConfig config);
+
 }

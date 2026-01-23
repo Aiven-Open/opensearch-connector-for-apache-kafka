@@ -1,2 +1,0 @@
-io.aiven.kafka.connect.opensearch.OpensearchBasicAuthConfigurator
-io.aiven.kafka.connect.opensearch.OpensearchSigV4Configurator

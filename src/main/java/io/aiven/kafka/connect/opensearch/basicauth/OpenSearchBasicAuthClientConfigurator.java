@@ -48,7 +48,8 @@ public class OpenSearchBasicAuthClientConfigurator implements OpenSearchClientCo
         return true;
     }
 
-    private static boolean isAuthenticatedConnection(final OpenSearchSinkConnectorConfig config) {
+    @Override
+    public boolean isAuthenticatedConnection(final OpenSearchSinkConnectorConfig config) {
         return Objects.nonNull(connectionUsername(config)) && Objects.nonNull(connectionPassword(config));
     }
 

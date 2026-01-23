@@ -23,12 +23,12 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -53,7 +53,6 @@ import org.opensearch.cluster.metadata.ComposableIndexTemplate.DataStreamTemplat
 import org.opensearch.cluster.metadata.DataStream.TimestampField;
 
 import io.aiven.kafka.connect.opensearch.spi.ClientsConfiguratorProvider;
-import io.aiven.kafka.connect.opensearch.spi.OpenSearchClientConfigurator;
 
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
@@ -230,19 +229,25 @@ public class OpenSearchClient implements AutoCloseable {
         }
     }
 
-    private record HttpClientConfigCallback(
+    protected record HttpClientConfigCallback(
             OpenSearchSinkConnectorConfig config) implements RestClientBuilder.HttpClientConfigCallback {
 
         @Override
         public HttpAsyncClientBuilder customizeHttpClient(final HttpAsyncClientBuilder httpClientBuilder) {
-            final Collection<OpenSearchClientConfigurator> configurators = ClientsConfiguratorProvider
-                    .forOpensearch(config);
-            configurators.forEach(configurator -> {
-                if (configurator.apply(config, httpClientBuilder)) {
-                    LOGGER.debug("Successfully applied {} configurator to OpensearchClient",
-                            configurator.getClass().getName());
+            final var configurators = ClientsConfiguratorProvider.forOpensearch(config);
+            int auth = 0;
+            for (final var c : configurators) {
+                final var applied = c.apply(config, httpClientBuilder);
+                if (applied) {
+                    if (c.isAuthenticatedConnection(config))
+                        auth++;
+                    LOGGER.debug("Successfully applied {} configurator to OpensearchClient", c.getClass().getName());
                 }
-            });
+                if (auth > 1) {
+                    throw new ConfigException(
+                            "More than one authenticated configurator is applied for the client. Only one is allowed.");
+                }
+            }
 
             httpClientBuilder.setConnectionManager(createConnectionManager())
                     .setDefaultRequestConfig(RequestConfig.custom()
