@@ -152,7 +152,7 @@ ext {
     openSearchVersion = "3.3.2"
 
     mockitoVersion = "5.21.0"
-    jacksonVersion = "2.18.2"
+    jacksonVersion = "2.21.0"
 
     junitVersion = "6.0.2"
 
