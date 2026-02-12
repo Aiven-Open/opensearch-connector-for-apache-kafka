@@ -26,6 +26,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.opensearch.client.opensearch.core.SearchRequest;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
@@ -55,15 +57,16 @@ public class OpenSearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
 
         waitForRecords(TOPIC_NAME, 3);
 
-        final var messages = new ArrayList<Pair<String, Map<String, Object>>>(3);
-        for (final var hit : search(TOPIC_NAME)) {
-            final var d = hit.getSourceAsMap();
-            messages.add(Pair.of(hit.getId(), hit.getSourceAsMap()));
+        final var messages = new ArrayList<Pair<String, Map<?, ?>>>(3);
+        var searchResults = opensearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME)), Map.class).hits();
+        for (final var hit : searchResults.hits()) {
+            final var id = String.valueOf(hit.source().get("doc_num"));
+            messages.add(Pair.of(id, hit.source()));
         }
 
         for (var i = 0; i < messages.size(); i++) {
             final var m = messages.get(i);
-            m.getRight().put("another_key", "another_value_" + i);
+            ((Map<String, String>) m.getRight()).put("another_key", "another_value_" + i);
             connect.kafka().produce(TOPIC_NAME, m.getLeft(), objectMapper.writeValueAsString(m.getRight()));
         }
 
@@ -72,11 +75,12 @@ public class OpenSearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
 
         waitForRecords(TOPIC_NAME, 5);
 
-        final var foundDocs = new HashMap<Integer, Map<String, Object>>();
+        final var foundDocs = new HashMap<Integer, Map<?, ?>>();
 
-        for (final var hit : search(TOPIC_NAME)) {
-            final var id = Integer.valueOf(hit.getId());
-            foundDocs.put(id, hit.getSourceAsMap());
+        searchResults = opensearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME)), Map.class).hits();
+        for (final var hit : searchResults.hits()) {
+            final var id = Integer.valueOf(hit.id());
+            foundDocs.put(id, hit.source());
         }
 
         assertIterableEquals(List.of(0, 1, 2, 11, 12),
