@@ -13,7 +13,9 @@ jobs:
           - { opensearch-version: 2.19.4, java-version: 21 }
           - { opensearch-version: 2.19.4, java-version: 25 }
           - { opensearch-version: 3.3.2, java-version: 21 }
+          - { opensearch-version: 3.5.0, java-version: 21 }
           - { opensearch-version: 3.3.2, java-version: 25 }
+          - { opensearch-version: 3.5.0, java-version: 25 }
         runs-on: [ubuntu-latest]
     name: Check on ${{ matrix.runs-on }} (JDK-${{ matrix.entry.java-version }}, OpenSearch ${{ matrix.entry.opensearch-version }})
     runs-on: ${{ matrix.runs-on }}
