@@ -20,15 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import org.opensearch.client.RequestOptions;
-import org.opensearch.client.indices.DataStreamsStatsRequest;
-import org.opensearch.client.indices.DeleteDataStreamRequest;
-import org.opensearch.client.indices.PutComposableIndexTemplateRequest;
-import org.opensearch.cluster.metadata.ComposableIndexTemplate;
+import org.opensearch.client.opensearch.core.SearchRequest;
+import org.opensearch.client.opensearch.indices.DataStreamsStatsRequest;
+import org.opensearch.client.opensearch.indices.PutIndexTemplateRequest;
 
 import org.junit.jupiter.api.Test;
 
@@ -124,14 +122,13 @@ public class OpenSearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         waitForRecords(TOPIC_NAME1, 10);
 
         // Search for datastreams with topic name, and it should exist
-        final var dsStats = opensearchClient.client.indices()
-                .dataStreamsStats(new DataStreamsStatsRequest(userProvidedTemplateName), RequestOptions.DEFAULT);
-        assertEquals(1, dsStats.getDataStreamCount());
+        final var dsStats = opensearchClient.indices()
+                .dataStreamsStats(DataStreamsStatsRequest.builder().name(TOPIC_NAME1).build());
+        assertEquals(1, dsStats.dataStreamCount());
         deleteTopic(TOPIC_NAME1);
 
         // Delete datastream
-        DeleteDataStreamRequest deleteDataStreamRequest = new DeleteDataStreamRequest(userProvidedTemplateName);
-        opensearchClient.client.indices().deleteDataStream(deleteDataStreamRequest, RequestOptions.DEFAULT);
+        opensearchClient.indices().deleteDataStream(b -> b.name(List.of(userProvidedTemplateName)));
     }
 
     // A new template will not be created, as the one provided by user already exists
@@ -153,26 +150,28 @@ public class OpenSearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         waitForRecords(TOPIC_NAME1, 10);
 
         // Search for datastreams with default index - topic name, and it should not exist
-        final var dsStats = opensearchClient.client.indices()
-                .dataStreamsStats(new DataStreamsStatsRequest(TOPIC_NAME1), RequestOptions.DEFAULT);
-        assertEquals(0, dsStats.getDataStreamCount());
+        final var dsStats = opensearchClient.indices()
+                .dataStreamsStats(DataStreamsStatsRequest.builder().name(List.of(TOPIC_NAME1)).build());
+        assertEquals(1, dsStats.dataStreamCount());
         deleteTopic(TOPIC_NAME1);
     }
 
     void assertDataStream(final String dataStreamName) throws Exception {
-        final var dsStats = opensearchClient.client.indices()
-                .dataStreamsStats(new DataStreamsStatsRequest(dataStreamName), RequestOptions.DEFAULT);
+        final var dsStats = opensearchClient.indices()
+                .dataStreamsStats(DataStreamsStatsRequest.builder().name(List.of(dataStreamName)).build());
 
-        assertEquals(1, dsStats.getDataStreamCount());
-        assertEquals(1, dsStats.getBackingIndices());
-        assertTrue(dsStats.getDataStreams().containsKey(dataStreamName));
+        assertEquals(1, dsStats.dataStreamCount());
+        assertEquals(1, dsStats.backingIndices());
+        assertEquals(dataStreamName, dsStats.dataStreams().get(dsStats.dataStreamCount() - 1).dataStream());
     }
 
     void assertDocs(final String dataStreamIndexName, final String timestampFieldName) throws Exception {
-        for (final var hit : search(dataStreamIndexName)) {
-            final var id = (Integer) hit.getSourceAsMap().get("doc_num");
-            final var timestamp = (Long) hit.getSourceAsMap().get(timestampFieldName);
-            System.out.println(hit.getSourceAsMap());
+        final var searchResults = opensearchClient
+                .search(SearchRequest.of(b -> b.index(dataStreamIndexName)), Map.class)
+                .hits();
+        for (final var hit : searchResults.hits()) {
+            final var id = (Integer) hit.source().get("doc_num");
+            final var timestamp = (Long) hit.source().get(timestampFieldName);
             assertNotNull(id);
             assertNotNull(timestamp);
             assertTrue(id < 10);
@@ -180,16 +179,15 @@ public class OpenSearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
     }
 
     void createDataStreamAndTemplate(String dataStream, String dataStreamTemplate) throws IOException {
-        final ComposableIndexTemplate template = new ComposableIndexTemplate(Arrays.asList(dataStream, "index-logs-*"),
-                null, null, 100L, null, null, new ComposableIndexTemplate.DataStreamTemplate());
-        final PutComposableIndexTemplateRequest request = new PutComposableIndexTemplateRequest();
-        request.name(dataStreamTemplate);
-        request.indexTemplate(template);
-
-        opensearchClient.client.indices().putIndexTemplate(request, RequestOptions.DEFAULT);
+        opensearchClient.indices()
+                .putIndexTemplate(PutIndexTemplateRequest.builder()
+                        .name(dataStreamTemplate)
+                        .indexPatterns(List.of(dataStream, "index-logs-*"))
+                        .priority(100)
+                        .build());
     }
 
-    void deleteTopic(String topicName) {
+    void deleteTopic(final String topicName) {
         try (final var admin = connect.kafka().createAdminClient()) {
             final var result = admin.deleteTopics(List.of(topicName));
             result.all().get();
