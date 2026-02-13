@@ -209,7 +209,7 @@ dependencies {
     testImplementation "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
 
     testRuntimeOnly "org.slf4j:slf4j-log4j12:$slf4jVersion"
-    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.13.4"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:6.0.2"
 
     integrationTestImplementation "org.testcontainers:testcontainers-junit-jupiter:$testcontainersVersion"
     integrationTestImplementation "org.testcontainers:testcontainers-kafka:$testcontainersVersion" // this is not Kafka version
