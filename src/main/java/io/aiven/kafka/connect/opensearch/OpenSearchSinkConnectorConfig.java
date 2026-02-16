@@ -425,7 +425,7 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
         return getBoolean(OpenSearchSinkConnectorConfig.COMPACT_MAP_ENTRIES_CONFIG);
     }
 
-    protected IndexWriteMethod indexWriteMethod() {
+    public IndexWriteMethod indexWriteMethod() {
         return IndexWriteMethod.valueOf(getString(INDEX_WRITE_METHOD).toUpperCase(Locale.ROOT));
     }
 

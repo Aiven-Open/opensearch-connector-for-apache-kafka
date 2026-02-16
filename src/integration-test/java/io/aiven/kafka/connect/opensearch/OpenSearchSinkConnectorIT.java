@@ -19,7 +19,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Map;
+
+import org.opensearch.client.opensearch._types.mapping.DynamicMapping;
+import org.opensearch.client.opensearch.core.SearchRequest;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -46,12 +50,19 @@ public class OpenSearchSinkConnectorIT extends AbstractKafkaConnectIT {
 
         waitForRecords(TOPIC_NAME, 10);
 
-        for (final var hit : search(TOPIC_NAME)) {
-            final var id = (Integer) hit.getSourceAsMap().get("doc_num");
+        final var searchResults = opensearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME)), Map.class).hits();
+        for (final var hit : searchResults.hits()) {
+            final var id = (Integer) hit.source().get("doc_num");
             assertNotNull(id);
             assertTrue(id < 10);
-            assertEquals(TOPIC_NAME, hit.getIndex());
+            assertEquals(TOPIC_NAME, hit.index());
         }
+        assertEquals(DynamicMapping.True,
+                opensearchClient.indices()
+                        .getMapping(b -> b.index(List.of(TOPIC_NAME)))
+                        .get(TOPIC_NAME)
+                        .mappings()
+                        .dynamic());
     }
 
     @Test

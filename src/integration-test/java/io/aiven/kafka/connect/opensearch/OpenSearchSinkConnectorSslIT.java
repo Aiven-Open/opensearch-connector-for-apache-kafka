@@ -19,10 +19,10 @@ import org.opensearch.testcontainers.OpenSearchContainer;
 
 import org.junit.jupiter.api.BeforeAll;
 
-public class OpenSearchSslClientIT extends OpenSearchClientIT {
+public class OpenSearchSinkConnectorSslIT extends OpenSearchSinkConnectorIT {
 
     @BeforeAll
-    static void beforeAll() throws Exception {
+    static void beforeAll() {
         openSearchContainer = new OpenSearchContainer<>(getOpenSearchImage()).withSecurityEnabled();
         openSearchContainer.start();
     }
