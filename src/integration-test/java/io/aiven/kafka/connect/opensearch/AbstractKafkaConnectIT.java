@@ -108,6 +108,7 @@ public class AbstractKafkaConnectIT extends AbstractIT {
         props.put(KEY_IGNORE_CONFIG, "true");
         props.put(SCHEMA_IGNORE_CONFIG, "true");
         props.put(MAX_BUFFERED_RECORDS_CONFIG, "1");
+        props.put("offset.flush.timeout.ms", "1000");
         return props;
     }
 
