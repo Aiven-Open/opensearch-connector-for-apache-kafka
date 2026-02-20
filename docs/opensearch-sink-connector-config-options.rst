@@ -157,6 +157,13 @@ TLS Configuration for HTTPS
   * Default: https
   * Importance: low
 
+``connection.trust.all.certificates``
+  Allow to trust all certificates. Default is false
+
+  * Type: boolean
+  * Default: false
+  * Importance: low
+
 Data Conversion
 ^^^^^^^^^^^^^^^
 

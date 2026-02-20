@@ -22,6 +22,7 @@ import static io.aiven.kafka.connect.opensearch.basicauth.OpenSearchBasicAuthCon
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -60,7 +61,10 @@ public abstract class AbstractIT {
 
     @BeforeEach
     void setup() throws Exception {
-        final var config = new OpenSearchSinkConnectorConfig(getDefaultProperties());
+        final var props = new HashMap<>(getDefaultProperties());
+        if (openSearchContainer.isSecurityEnabled())
+            props.put("connection.trust.all.certificates", "true");
+        final var config = new OpenSearchSinkConnectorConfig(props);
         opensearchClient = new OpenSearchClient(ApacheHttpClient5TransportBuilder.builder(config.httpHosts())
                 .setHttpClientConfigCallback(new HttpClientConfigCallback(config))
                 .build());
@@ -74,7 +78,7 @@ public abstract class AbstractIT {
         }, TimeUnit.MINUTES.toMillis(1L), "Cluster hasn't finished formation");
     }
 
-    protected static Map<String, String> getDefaultProperties() {
+    static Map<String, String> getDefaultProperties() {
         return Map.of(CONNECTION_URL_CONFIG, openSearchContainer.getHttpHostAddress(), CONNECTION_USERNAME_CONFIG,
                 "admin", CONNECTION_PASSWORD_CONFIG, openSearchContainer.getPassword(), READ_TIMEOUT_MS_CONFIG,
                 "10000");

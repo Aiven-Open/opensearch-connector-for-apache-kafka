@@ -93,13 +93,15 @@ public record HttpClientConfigCallback(
             try {
                 sslContextBuilder.setKeyStoreType(config.trustStoreType())
                         .loadTrustMaterial(p, config.trustStorePassword());
-            } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException e) {
+            } catch (final NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException e) {
                 throw new ConnectException("Unable to load trust store from " + p, e);
             }
         }, () -> {
             try {
-                LOGGER.warn("Hostname verification disabled. Not recommended for production environments.");
-                sslContextBuilder.loadTrustMaterial(TrustAllStrategy.INSTANCE);
+                if (config.trustAllCertificates()) {
+                    LOGGER.warn("Hostname verification disabled. Not recommended for production environments.");
+                    sslContextBuilder.loadTrustMaterial(TrustAllStrategy.INSTANCE);
+                }
             } catch (final NoSuchAlgorithmException | KeyStoreException e) {
                 throw new ConnectException("Unable to configure SSL context with trust all strategy", e);
             }

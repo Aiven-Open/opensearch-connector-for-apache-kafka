@@ -15,6 +15,9 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.opensearch.testcontainers.OpenSearchContainer;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -27,4 +30,10 @@ public class OpenSearchSinkConnectorSslIT extends OpenSearchSinkConnectorIT {
         openSearchContainer.start();
     }
 
+    @Override
+    Map<String, String> connectorProperties(String topicName) {
+        final var props = new HashMap<>(super.connectorProperties(topicName));
+        props.put("connection.trust.all.certificates", "true");
+        return Map.copyOf(props);
+    }
 }
