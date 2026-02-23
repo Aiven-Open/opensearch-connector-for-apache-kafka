@@ -206,6 +206,9 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
 
     public final static String SSL_CONFIG_PREFIX = "connection.";
 
+    public final static String SSL_CONFIG_TRUST_ALL_CERTIFICATES = "trust.all.certificates";
+    public final static String SSL_CONFIG_TRUST_ALL_CERTIFICATES_DOC = "Allow to trust all certificates. Default is false";
+
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
@@ -304,7 +307,10 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                         ConfigDef.Importance.HIGH, SslConfigs.SSL_TRUSTSTORE_PASSWORD_DOC)
                 .define(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, ConfigDef.Type.STRING,
                         SslConfigs.DEFAULT_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, ConfigDef.Importance.LOW,
-                        SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_DOC);
+                        SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_DOC)
+                .define(SSL_CONFIG_TRUST_ALL_CERTIFICATES, Type.BOOLEAN, false, Importance.LOW,
+                        SSL_CONFIG_TRUST_ALL_CERTIFICATES_DOC);
+
         configDef.embed(SSL_CONFIG_PREFIX, SSL_SETTINGS_GROUP_NAME, configDef.configKeys().size() + 1, sslConfigDef);
     }
 
@@ -576,7 +582,7 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     }
 
     public char[] keyPassword() {
-        final var pwd = getPassword(SSL_CONFIG_PREFIX + SSL_KEYSTORE_PASSWORD_CONFIG);
+        final var pwd = getPassword(SSL_CONFIG_PREFIX + SSL_KEY_PASSWORD_CONFIG);
         if (pwd == null) {
             return null;
         }
@@ -603,6 +609,10 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
         String sslEndpointIdentificationAlgorithm = getString(
                 SSL_CONFIG_PREFIX + SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG);
         return sslEndpointIdentificationAlgorithm != null && sslEndpointIdentificationAlgorithm.isEmpty();
+    }
+
+    public boolean trustAllCertificates() {
+        return getBoolean(SSL_CONFIG_PREFIX + SSL_CONFIG_TRUST_ALL_CERTIFICATES);
     }
 
     public static void main(final String[] args) {
