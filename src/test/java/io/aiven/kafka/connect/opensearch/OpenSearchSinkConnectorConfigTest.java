@@ -15,10 +15,29 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.SSL_CONFIG_PREFIX;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.SSL_CONFIG_TRUST_ALL_CERTIFICATES;
+import static org.apache.kafka.common.config.SslConfigs.SSL_CIPHER_SUITES_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_ENABLED_PROTOCOLS_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_KEYSTORE_TYPE_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_KEY_PASSWORD_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_PROTOCOL_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG;
+import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -27,6 +46,7 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
 import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.config.SslConfigs;
 
 import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
@@ -179,6 +199,68 @@ public class OpenSearchSinkConnectorConfigTest {
         final var customConfig = new OpenSearchSinkConnectorConfig(props);
         assertEquals("bbbb", customConfig.dataStreamPrefix().get());
         assertEquals("custom_timestamp", customConfig.dataStreamTimestampField());
+    }
+
+    @Test
+    public void testDefaultSslConfig() {
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaa");
+
+        final var defaultConfig = new OpenSearchSinkConnectorConfig(props);
+        assertEquals(SslConfigs.DEFAULT_SSL_PROTOCOL, defaultConfig.sslProtocol());
+        assertNull(defaultConfig.cipherSuitesConfig());
+        assertEquals(SslConfigs.DEFAULT_SSL_ENABLED_PROTOCOLS,
+                String.join(",", List.of(defaultConfig.sslEnableProtocols())));
+        assertEquals(SslConfigs.DEFAULT_SSL_KEYSTORE_TYPE, defaultConfig.trustStoreType());
+        assertTrue(defaultConfig.trustStorePath().isEmpty());
+        assertNull(defaultConfig.trustStorePassword());
+
+        assertEquals(SslConfigs.DEFAULT_SSL_TRUSTSTORE_TYPE, defaultConfig.trustStoreType());
+        assertTrue(defaultConfig.keyStorePath().isEmpty());
+        assertNull(defaultConfig.keyStorePassword());
+        assertNull(defaultConfig.keyPassword());
+
+        assertFalse(defaultConfig.disableHostnameVerification());
+        assertFalse(defaultConfig.trustAllCertificates());
+    }
+
+    @Test
+    public void testSetSslConfig() {
+        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpenSearchSinkConnectorConfig.DATA_STREAM_PREFIX, "aaaa");
+
+        props.put(SSL_CONFIG_PREFIX + SSL_PROTOCOL_CONFIG, "TLSv1.2");
+        props.put(SSL_CONFIG_PREFIX + SSL_CIPHER_SUITES_CONFIG, "A,B,C");
+        props.put(SSL_CONFIG_PREFIX + SSL_ENABLED_PROTOCOLS_CONFIG, "TLSv1.1");
+        props.put(SSL_CONFIG_PREFIX + SSL_TRUSTSTORE_TYPE_CONFIG, "PKCS12");
+        props.put(SSL_CONFIG_PREFIX + SSL_TRUSTSTORE_LOCATION_CONFIG, "/d/e");
+        props.put(SSL_CONFIG_PREFIX + SSL_TRUSTSTORE_PASSWORD_CONFIG, "trust_store_password");
+
+        props.put(SSL_CONFIG_PREFIX + SSL_KEYSTORE_TYPE_CONFIG, "PKCS12");
+        props.put(SSL_CONFIG_PREFIX + SSL_KEYSTORE_LOCATION_CONFIG, "/f/g");
+        props.put(SSL_CONFIG_PREFIX + SSL_KEYSTORE_PASSWORD_CONFIG, "key_store_password");
+        props.put(SSL_CONFIG_PREFIX + SSL_KEY_PASSWORD_CONFIG, "key_password");
+        props.put(SSL_CONFIG_PREFIX + SSL_CONFIG_TRUST_ALL_CERTIFICATES, "true");
+        props.put(SSL_CONFIG_PREFIX + SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, "");
+
+        final var defaultConfig = new OpenSearchSinkConnectorConfig(props);
+        assertEquals("TLSv1.2", defaultConfig.sslProtocol());
+        assertArrayEquals(new String[] { "A", "B", "C" }, defaultConfig.cipherSuitesConfig());
+        assertEquals("TLSv1.1", String.join(",", List.of(defaultConfig.sslEnableProtocols())));
+
+        assertEquals("PKCS12", defaultConfig.trustStoreType());
+        assertTrue(defaultConfig.trustStorePath().isPresent());
+        assertEquals(Path.of("/d/e"), defaultConfig.trustStorePath().get());
+        assertEquals("trust_store_password", String.valueOf(defaultConfig.trustStorePassword()));
+
+        assertEquals("PKCS12", defaultConfig.keyStoreType());
+        assertTrue(defaultConfig.keyStorePath().isPresent());
+        assertEquals(Path.of("/f/g"), defaultConfig.keyStorePath().get());
+        assertEquals("key_store_password", String.valueOf(defaultConfig.keyStorePassword()));
+        assertEquals("key_password", String.valueOf(defaultConfig.keyPassword()));
+
+        assertTrue(defaultConfig.disableHostnameVerification());
+        assertTrue(defaultConfig.trustAllCertificates());
     }
 
     @Test
