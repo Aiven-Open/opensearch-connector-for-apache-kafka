@@ -189,7 +189,7 @@ public class OpenSearchTaskHandler {
                 throw new ConnectException("Couldn't create index " + indexName, oe);
             }
         } catch (IOException e) {
-            throw new ConnectException("Couldn't create index template for datastream", e);
+            throw new RetriableException("Couldn't create index template for datastream", e);
         }
     }
 
@@ -205,7 +205,11 @@ public class OpenSearchTaskHandler {
 
     public void close() throws IOException {
         if (bulkIngester != null) {
-            bulkIngester.close();
+            try {
+                bulkIngester.close();
+            } catch (Exception e) {
+                LOGGER.warn("Couldn't close bulk ingester", e);
+            }
         }
         if (transport != null) {
             transport.close();
