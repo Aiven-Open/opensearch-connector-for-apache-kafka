@@ -15,8 +15,12 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
+import static java.util.Objects.nonNull;
+
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Set;
 
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
@@ -26,201 +30,159 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.core.xcontent.XContentBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class Mapping {
 
-    public static final String BOOLEAN_TYPE = "boolean";
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public static final String BYTE_TYPE = "byte";
+    private static final Set<String> LOGICAL_NAMES = Set.of(Date.LOGICAL_NAME, Time.LOGICAL_NAME,
+            Timestamp.LOGICAL_NAME, Decimal.LOGICAL_NAME);
 
-    public static final String BINARY_TYPE = "binary";
-
-    public static final String SHORT_TYPE = "short";
-
-    public static final String INTEGER_TYPE = "integer";
-
-    public static final String LONG_TYPE = "long";
-
-    public static final String FLOAT_TYPE = "float";
-
-    public static final String DOUBLE_TYPE = "double";
-
-    public static final String STRING_TYPE = "string";
-
-    public static final String TEXT_TYPE = "text";
-
-    public static final String KEYWORD_TYPE = "keyword";
-
-    public static final String DATE_TYPE = "date";
-
-    private static final String DEFAULT_VALUE_FIELD = "null_value";
-
-    private static final String FIELDS_FIELD = "fields";
-
-    private static final String IGNORE_ABOVE_FIELD = "ignore_above";
-
-    public static final String KEY_FIELD = "key";
-
-    private static final String KEYWORD_FIELD = "keyword";
-
-    private static final String PROPERTIES_FIELD = "properties";
-
-    private static final String TYPE_FIELD = "type";
-
-    public static final String VALUE_FIELD = "value";
-
-    public static XContentBuilder buildMappingFor(final Schema schema) {
+    public static ByteArrayInputStream buildMappingFor(final Schema schema) {
         if (Objects.isNull(schema)) {
             throw new DataException("Cannot convert schema to mapping without schema    ");
         }
         try {
-            final var builder = XContentFactory.jsonBuilder();
-            builder.startObject();
-            buildMapping(schema, builder);
-            builder.endObject();
-            return builder;
+            final var rootNode = MAPPER.createObjectNode();
+            mapping(schema, rootNode);
+            return new ByteArrayInputStream(MAPPER.writerWithDefaultPrettyPrinter().writeValueAsBytes(rootNode));
         } catch (final IOException e) {
             throw new ConnectException("Failed to convert schema to mapping. Schema is " + schema, e);
         }
     }
 
-    private static XContentBuilder buildMapping(final Schema schema, final XContentBuilder builder) throws IOException {
-        final var logicalConversion = logicalMapping(schema, builder);
-        if (Objects.nonNull(logicalConversion)) {
-            return builder;
-        }
-
-        switch (schema.type()) {
-            case ARRAY :
-                return buildMapping(schema.valueSchema(), builder);
-            case MAP :
-                return buildMap(schema, builder);
-            case STRUCT :
-                return buildStruct(schema, builder);
-            default :
-                return buildPrimitive(builder, schemaTypeToOsType(schema.type()), schema.defaultValue());
-        }
-    }
-
-    private static XContentBuilder logicalMapping(final Schema schema, final XContentBuilder builder)
-            throws IOException {
-        if (Objects.isNull(schema.name())) {
-            return null;
-        }
-        switch (schema.name()) {
-            case Date.LOGICAL_NAME :
-            case Time.LOGICAL_NAME :
-            case Timestamp.LOGICAL_NAME :
-                return buildPrimitive(builder, DATE_TYPE, schema.defaultValue());
-            case Decimal.LOGICAL_NAME :
-                return buildPrimitive(builder, DOUBLE_TYPE, schema.defaultValue());
-            default :
-                // User-defined type or unknown built-in
-                return null;
+    private static void mapping(final Schema schema, final ObjectNode rootNode) {
+        if (nonNull(schema.name()) && LOGICAL_NAMES.contains(schema.name())) {
+            switch (schema.name()) {
+                case Date.LOGICAL_NAME :
+                case Time.LOGICAL_NAME :
+                case Timestamp.LOGICAL_NAME :
+                    primitiveMapping(rootNode, "date", schema.defaultValue());
+                    break;
+                case Decimal.LOGICAL_NAME :
+                    primitiveMapping(rootNode, "double", schema.defaultValue());
+                    break;
+                default :
+                    break;
+            }
+        } else {
+            switch (schema.type()) {
+                case ARRAY :
+                    mapping(schema.valueSchema(), rootNode);
+                    break;
+                case MAP :
+                    mapMapping(schema, rootNode);
+                    break;
+                case STRUCT :
+                    structMapping(schema, rootNode);
+                    break;
+                default :
+                    primitiveMapping(rootNode, schemaTypeToOsType(schema.type()), schema.defaultValue());
+                    break;
+            }
         }
     }
 
-    private static XContentBuilder buildMap(final Schema schema, final XContentBuilder builder) throws IOException {
-        builder.startObject(PROPERTIES_FIELD);
+    private static void mapMapping(final Schema schema, final ObjectNode rootNode) {
+        final var keyNode = MAPPER.createObjectNode();
+        mapping(schema.keySchema(), keyNode);
 
-        builder.startObject(KEY_FIELD);
-        buildMapping(schema.keySchema(), builder);
-        builder.endObject();
+        final var valueNode = MAPPER.createObjectNode();
+        mapping(schema.valueSchema(), valueNode);
 
-        builder.startObject(VALUE_FIELD);
-        buildMapping(schema.valueSchema(), builder);
-        builder.endObject();
-
-        return builder.endObject();
+        final var propertiesNode = MAPPER.createObjectNode();
+        propertiesNode.set("key", keyNode);
+        propertiesNode.set("value", valueNode);
+        rootNode.set("properties", propertiesNode);
     }
 
-    private static XContentBuilder buildStruct(final Schema schema, final XContentBuilder builder) throws IOException {
-        builder.startObject(PROPERTIES_FIELD);
-        for (final var field : schema.fields()) {
-            builder.startObject(field.name());
-            buildMapping(field.schema(), builder);
-            builder.endObject();
-        }
-        return builder.endObject();
+    private static void structMapping(final Schema schema, final ObjectNode rootNode) {
+        final var propertiesNode = MAPPER.createObjectNode();
+        schema.fields().forEach(field -> {
+            final var fieldNode = MAPPER.createObjectNode();
+            mapping(field.schema(), fieldNode);
+            propertiesNode.set(field.name(), fieldNode);
+        });
+        rootNode.set("properties", propertiesNode);
     }
 
-    // visible for testing
     protected static String schemaTypeToOsType(final Schema.Type schemaType) {
         switch (schemaType) {
             case BOOLEAN :
-                return BOOLEAN_TYPE;
+                return "boolean";
             case INT8 :
-                return BYTE_TYPE;
+                return "byte";
             case INT16 :
-                return SHORT_TYPE;
+                return "short";
             case INT32 :
-                return INTEGER_TYPE;
+                return "integer";
             case INT64 :
-                return LONG_TYPE;
+                return "long";
             case FLOAT32 :
-                return FLOAT_TYPE;
+                return "float";
             case FLOAT64 :
-                return DOUBLE_TYPE;
+                return "double";
             case STRING :
-                return TEXT_TYPE;
+                return "text";
             case BYTES :
-                return BINARY_TYPE;
+                return "binary";
             default :
                 return null;
         }
     }
 
-    private static XContentBuilder buildPrimitive(final XContentBuilder builder, final String type,
-            final Object defaultValue) throws IOException {
+    private static void primitiveMapping(final ObjectNode rootNode, final String type, final Object defaultValue) {
         if (type == null) {
             throw new DataException("Invalid primitive type");
         }
-        builder.field(TYPE_FIELD, type);
-
-        if (type.equals(TEXT_TYPE)) {
-            addTextMapping(builder);
+        final var typeNode = MAPPER.createObjectNode();
+        typeNode.put("type", type);
+        if ("text".equals(type)) {
+            textMapping(typeNode);
+        } else if (nonNull(defaultValue)) {
+            switch (type) {
+                case "byte" :
+                    typeNode.put("null_value", (byte) defaultValue);
+                    break;
+                case "short" :
+                    typeNode.put("null_value", (short) defaultValue);
+                    break;
+                case "integer" :
+                    typeNode.put("null_value", (int) defaultValue);
+                    break;
+                case "long" :
+                    typeNode.put("null_value", (long) defaultValue);
+                    break;
+                case "float" :
+                    typeNode.put("null_value", (float) defaultValue);
+                    break;
+                case "double" :
+                    typeNode.put("null_value", (double) defaultValue);
+                    break;
+                case "boolean" :
+                    typeNode.put("null_value", (boolean) defaultValue);
+                    break;
+                case "date" :
+                    typeNode.put("null_value", ((java.util.Date) defaultValue).getTime());
+                    break;
+                case "string" :
+                case "text" :
+                case "binary" :
+                    // IGNORE default values for text and binary types as this is not supported by OS side.
+                    break;
+                default :
+                    throw new DataException("Invalid primitive type " + type);
+            }
         }
-
-        if (Objects.isNull(defaultValue)) {
-            return builder;
-        }
-
-        switch (type) {
-            case BYTE_TYPE :
-                return builder.field(DEFAULT_VALUE_FIELD, (byte) defaultValue);
-            case SHORT_TYPE :
-                return builder.field(DEFAULT_VALUE_FIELD, (short) defaultValue);
-            case INTEGER_TYPE :
-                return builder.field(DEFAULT_VALUE_FIELD, (int) defaultValue);
-            case LONG_TYPE :
-                return builder.field(DEFAULT_VALUE_FIELD, (long) defaultValue);
-            case FLOAT_TYPE :
-                return builder.field(DEFAULT_VALUE_FIELD, (float) defaultValue);
-            case DOUBLE_TYPE :
-                return builder.field(DEFAULT_VALUE_FIELD, (double) defaultValue);
-            case BOOLEAN_TYPE :
-                return builder.field(DEFAULT_VALUE_FIELD, (boolean) defaultValue);
-            case DATE_TYPE :
-                return builder.field(DEFAULT_VALUE_FIELD, ((java.util.Date) defaultValue).getTime());
-            case STRING_TYPE :
-            case TEXT_TYPE :
-            case BINARY_TYPE :
-                // IGNORE default values for text and binary types as this is not supported by OS side.
-                return builder;
-            default :
-                throw new DataException("Invalid primitive type " + type);
-        }
+        rootNode.setAll(typeNode);
     }
 
-    private static void addTextMapping(final XContentBuilder builder) throws IOException {
-        builder.startObject(FIELDS_FIELD);
-        builder.startObject(KEYWORD_FIELD);
-        builder.field(TYPE_FIELD, KEYWORD_TYPE);
-        builder.field(IGNORE_ABOVE_FIELD, 256);
-        builder.endObject();
-        builder.endObject();
+    private static void textMapping(final ObjectNode rootNode) {
+        final var keywordNode = MAPPER.createObjectNode();
+        keywordNode.put("type", "keyword").put("ignore_above", 256);
+        rootNode.set("fields", MAPPER.createObjectNode().set("keyword", keywordNode));
     }
 
 }

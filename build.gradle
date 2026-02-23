@@ -57,7 +57,7 @@ spotless {
 
         // define the steps to apply to those files
         trimTrailingWhitespace()
-        indentWithSpaces()
+        leadingTabsToSpaces()
         endWithNewline()
     }
 
@@ -67,7 +67,7 @@ spotless {
         removeUnusedImports()
         replaceRegex("No wildcard imports.", "import(?:\\s+static)?\\s+[^\\*\\s]+\\*;(\r\n|\r|\n)", '$1')
         eclipse().configFile("${rootDir}/gradle-config/aiven-eclipse-formatter.xml")
-        indentWithSpaces()
+        leadingTabsToSpaces()
         endWithNewline()
         trimTrailingWhitespace()
 
@@ -149,10 +149,10 @@ ext {
     kafkaVersion = "3.8.1"
     apacheCommonsLangVersion = "3.20.0"
     slf4jVersion = "2.0.17"
-    openSearchVersion = "3.3.2"
+
+    openSearchJavaClientVersion = "3.5.0"
 
     mockitoVersion = "5.21.0"
-    jacksonVersion = "2.18.2"
 
     junitVersion = "6.0.2"
 
@@ -192,8 +192,7 @@ dependencies {
     compileOnly "org.apache.kafka:connect-json:$kafkaVersion"
 
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
-    implementation "com.google.code.gson:gson:2.13.1"
-    implementation "org.opensearch.client:opensearch-rest-high-level-client:$openSearchVersion"
+    implementation "org.opensearch.client:opensearch-java:$openSearchJavaClientVersion"
     implementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
 
     testImplementation platform("org.junit:junit-bom:${junitVersion}")
@@ -204,9 +203,6 @@ dependencies {
 
     testImplementation "org.apache.kafka:connect-api:$kafkaVersion"
     testImplementation "org.apache.kafka:connect-json:$kafkaVersion"
-    testImplementation "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
-    testImplementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
-    testImplementation "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
 
     testRuntimeOnly "org.slf4j:slf4j-log4j12:$slf4jVersion"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher:6.0.2"
@@ -243,7 +239,7 @@ tasks.register('integrationTest', Test) {
     // Pass the distribution file path to the tests.
     systemProperty("integration-test.distribution.file.path", distTar.archiveFile.get().asFile.path)
     systemProperty("opensearch.testcontainers.image-version",
-            project.findProperty("opensearch.testcontainers.image-version") ? project.getProperty("opensearch.testcontainers.image-version") : "2.0.0")
+            project.findProperty("opensearch.testcontainers.image-version") ? project.getProperty("opensearch.testcontainers.image-version") : "2.19.4")
 }
 
 tasks.register('connectorConfigDoc', JavaExec) {
