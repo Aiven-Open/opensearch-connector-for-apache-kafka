@@ -388,6 +388,7 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                     String.format("%s is not supported for index upsert. Supported is: %s",
                             documentIdStrategy().toString(), DocumentIDStrategy.RECORD_KEY));
         }
+
     }
 
     public HttpHost[] httpHosts() {
