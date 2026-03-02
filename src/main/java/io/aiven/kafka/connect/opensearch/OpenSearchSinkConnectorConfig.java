@@ -51,6 +51,7 @@ import org.apache.kafka.common.config.SslConfigs;
 
 import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
+import com.fasterxml.jackson.core.JsonPointer;
 import org.apache.hc.core5.http.HttpHost;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -209,6 +210,13 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     public final static String SSL_CONFIG_TRUST_ALL_CERTIFICATES = "trust.all.certificates";
     public final static String SSL_CONFIG_TRUST_ALL_CERTIFICATES_DOC = "Allow to trust all certificates. Default is false";
 
+    public final static String ROUTING_TYPE = "routing.type";
+    private static final String ROUTING_TYPE_DOC = "Specifies the routing type which connector uses when sending documents to OpenSearch. Available types: "
+            + RoutingType.describe() + ". " + "If not specified, the default is ``none``.";
+
+    public final static String ROUTING_RECORD_VALUE_PATH = "routing.type.record.value.path";
+    public final static String ROUTING_RECORD_VALUE_PATH_DOC = "Specifies the routing value which is determined by the record's value as JSON Pointer";
+
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
@@ -345,10 +353,45 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                 .define(BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, Type.STRING, BehaviorOnVersionConflict.DEFAULT.toString(),
                         BehaviorOnVersionConflict.VALIDATOR, Importance.LOW, BEHAVIOR_ON_VERSION_CONFLICT_DOC,
                         DATA_CONVERSION_GROUP_NAME, ++order, Width.SHORT,
-                        "Behavior on document's version conflict (optimistic locking)");
+                        "Behavior on document's version conflict (optimistic locking)")
+                .define(ROUTING_TYPE, Type.STRING, RoutingType.NONE.toString(), RoutingType.VALIDATOR, Importance.LOW,
+                        ROUTING_TYPE_DOC, DATA_CONVERSION_GROUP_NAME, ++order, Width.LONG, "Routing type")
+                .define(ROUTING_RECORD_VALUE_PATH, Type.STRING, null, new ConfigDef.Validator() {
+                    @Override
+                    public void ensureValid(String name, Object value) {
+                        if (value instanceof String s) {
+                            try {
+                                JsonPointer.compile(s);
+                            } catch (final IllegalArgumentException e) {
+                                throw new ConfigException(e.getMessage());
+                            }
+                        }
+                    }
+
+                    @Override
+                    public String toString() {
+                        return "A valid JSON Pointer value (https://datatracker.ietf.org/doc/html/rfc6901)";
+                    }
+                }, Importance.LOW, ROUTING_RECORD_VALUE_PATH_DOC, DATA_CONVERSION_GROUP_NAME, ++order, Width.LONG,
+                        "The routing value is determined by the record's value");
     }
 
     private static void addDataStreamConfig(final ConfigDef configDef) {
+        int order = 0;
+        configDef
+                .define(DATA_STREAM_ENABLED, Type.BOOLEAN, false, Importance.MEDIUM, DATA_STREAM_ENABLED_DOC,
+                        DATA_STREAM_GROUP_NAME, ++order, Width.LONG, "Data stream name")
+                .define(DATA_STREAM_PREFIX, Type.STRING, null, new ConfigDef.NonEmptyString(), Importance.MEDIUM,
+                        DATA_STREAM_NAME_DOC, DATA_STREAM_GROUP_NAME, ++order, Width.LONG, "Data stream name")
+                .define(DATA_STREAM_TIMESTAMP_FIELD, Type.STRING, DATA_STREAM_TIMESTAMP_FIELD_DEFAULT,
+                        new ConfigDef.NonEmptyString(), Importance.MEDIUM, DATA_STREAM_TIMESTAMP_FIELD_DOC,
+                        DATA_STREAM_GROUP_NAME, ++order, Width.LONG, "Data stream timestamp field")
+                .define(DATA_STREAM_INDEX_TEMPLATE_NAME, Type.STRING, null, Importance.MEDIUM,
+                        DATA_STREAM_EXISTING_INDEX_TEMPLATE_NAME_DOC, DATA_STREAM_GROUP_NAME, ++order, Width.LONG,
+                        "Data stream name");
+    }
+
+    private static void addRoutingConfig(final ConfigDef configDef) {
         int order = 0;
         configDef
                 .define(DATA_STREAM_ENABLED, Type.BOOLEAN, false, Importance.MEDIUM, DATA_STREAM_ENABLED_DOC,
@@ -387,6 +430,11 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
             throw new ConfigException(KEY_IGNORE_ID_STRATEGY_CONFIG, documentIdStrategy().toString(),
                     String.format("%s is not supported for index upsert. Supported is: %s",
                             documentIdStrategy().toString(), DocumentIDStrategy.RECORD_KEY));
+        }
+        if (routingType() == RoutingType.VALUE && routingRecordValuePath() == null) {
+            throw new ConfigException(
+                    String.format("The '%s' setting must be configured when using the '%s' routing type",
+                            ROUTING_RECORD_VALUE_PATH, RoutingType.VALUE.toString()));
         }
     }
 
@@ -613,6 +661,17 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
 
     public boolean trustAllCertificates() {
         return getBoolean(SSL_CONFIG_PREFIX + SSL_CONFIG_TRUST_ALL_CERTIFICATES);
+    }
+
+    public RoutingType routingType() {
+        return RoutingType.fromString(getString(ROUTING_TYPE));
+    }
+
+    public JsonPointer routingRecordValuePath() {
+        final var p = getString(ROUTING_RECORD_VALUE_PATH);
+        if (p == null)
+            return null;
+        return JsonPointer.compile(p);
     }
 
     public static void main(final String[] args) {
