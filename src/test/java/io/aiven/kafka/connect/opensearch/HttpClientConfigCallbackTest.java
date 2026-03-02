@@ -25,6 +25,7 @@ import static io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefCon
 import static io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefContributor.AWS_STS_ROLE_SESSION_NAME_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -66,7 +67,7 @@ class HttpClientConfigCallbackTest {
     @Test
     public void failsIfMoreThanOneAuthConfigApplied() {
         assertThrows(ConfigException.class, () -> {
-            final var c = new OpenSearchClient.HttpClientConfigCallback(new OpenSearchSinkConnectorConfig(Map.of(
+            final var c = new HttpClientConfigCallback(new OpenSearchSinkConnectorConfig(Map.of(
                     OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost", CONNECTION_USERNAME_CONFIG,
                     "a", CONNECTION_PASSWORD_CONFIG, "b", AWS_ACCESS_KEY_ID_CONFIG, "id", AWS_SECRET_ACCESS_KEY_CONFIG,
                     "secret", AWS_REGION_CONFIG, "us-east-1", AWS_SERVICE_SIGNING_NAME_CONFIG, "some_service_name")));
@@ -76,7 +77,7 @@ class HttpClientConfigCallbackTest {
 
     @Test
     public void canReadBasicAuthOnlyConfig() {
-        final var c = new OpenSearchClient.HttpClientConfigCallback(
+        final var c = new HttpClientConfigCallback(
                 new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
                         "http://localhost", CONNECTION_USERNAME_CONFIG, "a", CONNECTION_PASSWORD_CONFIG, "b")));
         c.customizeHttpClient(asyncClientBuilder);
@@ -86,23 +87,23 @@ class HttpClientConfigCallbackTest {
 
     @Test
     public void canReadSig4OnlyConfigForBasicAwsCreds() {
-        final var c = new OpenSearchClient.HttpClientConfigCallback(
+        final var c = new HttpClientConfigCallback(
                 new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
                         "http://localhost", AWS_ACCESS_KEY_ID_CONFIG, "id", AWS_SECRET_ACCESS_KEY_CONFIG, "secret",
                         AWS_REGION_CONFIG, "us-east-1", AWS_SERVICE_SIGNING_NAME_CONFIG, "some_service_name")));
         c.customizeHttpClient(asyncClientBuilder);
 
-        verify(asyncClientBuilder, times(1)).addRequestInterceptorLast(any(Sig4HttpRequestInterceptor.class));
+        verify(asyncClientBuilder, times(1)).addExecInterceptorLast(anyString(), any(Sig4HttpRequestInterceptor.class));
     }
 
     @Test
     public void canReadSig4OnlyConfigForStsAwsCreds() {
-        final var c = new OpenSearchClient.HttpClientConfigCallback(new OpenSearchSinkConnectorConfig(
+        final var c = new HttpClientConfigCallback(new OpenSearchSinkConnectorConfig(
                 Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost", AWS_STS_ROLE_ARN_CONFIG,
                         "a::b:c", AWS_STS_ROLE_SESSION_NAME_CONFIG, "sadsada", AWS_REGION_CONFIG, "us-east-1",
                         AWS_SERVICE_SIGNING_NAME_CONFIG, "some_service_name")));
         c.customizeHttpClient(asyncClientBuilder);
 
-        verify(asyncClientBuilder, times(1)).addRequestInterceptorLast(any(Sig4HttpRequestInterceptor.class));
+        verify(asyncClientBuilder, times(1)).addExecInterceptorLast(anyString(),any(Sig4HttpRequestInterceptor.class));
     }
 }

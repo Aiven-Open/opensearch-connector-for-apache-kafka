@@ -23,6 +23,7 @@ import static io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefCon
 import static io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefContributor.AWS_STS_ROLE_SESSION_NAME_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -49,7 +50,7 @@ public class OpenSearchSigV4ConfiguratorTest {
         final OpenSearchSigV4ClientConfigurator configurator = new OpenSearchSigV4ClientConfigurator();
         configurator.apply(config, httpBuilder);
 
-        verify(httpBuilder, never()).addRequestInterceptorLast(any(Sig4HttpRequestInterceptor.class));
+        verify(httpBuilder, never()).addExecInterceptorLast(anyString(),any(Sig4HttpRequestInterceptor.class));
     }
 
     @Test
@@ -59,7 +60,7 @@ public class OpenSearchSigV4ConfiguratorTest {
         final OpenSearchSigV4ClientConfigurator configurator = new OpenSearchSigV4ClientConfigurator();
         configurator.apply(config, httpBuilder);
 
-        verify(httpBuilder, never()).addRequestInterceptorLast(any(Sig4HttpRequestInterceptor.class));
+        verify(httpBuilder, never()).addExecInterceptorLast(anyString(),any(Sig4HttpRequestInterceptor.class));
     }
 
     @Test
@@ -69,7 +70,7 @@ public class OpenSearchSigV4ConfiguratorTest {
         final OpenSearchSigV4ClientConfigurator configurator = new OpenSearchSigV4ClientConfigurator();
         configurator.apply(config, httpBuilder);
 
-        verify(httpBuilder, never()).addRequestInterceptorLast(any(Sig4HttpRequestInterceptor.class));
+        verify(httpBuilder, never()).addExecInterceptorLast(anyString(),any(Sig4HttpRequestInterceptor.class));
     }
 
     @Test
@@ -79,7 +80,7 @@ public class OpenSearchSigV4ConfiguratorTest {
         final OpenSearchSigV4ClientConfigurator configurator = new OpenSearchSigV4ClientConfigurator();
         assertThrows(ConfigException.class, () -> configurator.apply(config, httpBuilder));
 
-        verify(httpBuilder, never()).addRequestInterceptorLast(any(Sig4HttpRequestInterceptor.class));
+        verify(httpBuilder, never()).addExecInterceptorLast(anyString(),any(Sig4HttpRequestInterceptor.class));
     }
 
     @Test
@@ -90,7 +91,7 @@ public class OpenSearchSigV4ConfiguratorTest {
         final OpenSearchSigV4ClientConfigurator configurator = new OpenSearchSigV4ClientConfigurator();
         assertThrows(ConfigException.class, () -> configurator.apply(config, httpBuilder));
 
-        verify(httpBuilder, never()).addRequestInterceptorLast(any(Sig4HttpRequestInterceptor.class));
+        verify(httpBuilder, never()).addExecInterceptorLast(anyString(),any(Sig4HttpRequestInterceptor.class));
     }
 
     @Test
@@ -102,7 +103,7 @@ public class OpenSearchSigV4ConfiguratorTest {
         final OpenSearchSigV4ClientConfigurator configurator = new OpenSearchSigV4ClientConfigurator();
         assertThrows(ConfigException.class, () -> configurator.apply(config, httpBuilder));
 
-        verify(httpBuilder, never()).addRequestInterceptorLast(any(Sig4HttpRequestInterceptor.class));
+        verify(httpBuilder, never()).addExecInterceptorLast(anyString(),any(Sig4HttpRequestInterceptor.class));
     }
 
 }

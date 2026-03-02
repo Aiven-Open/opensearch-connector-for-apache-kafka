@@ -25,6 +25,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
@@ -52,12 +53,19 @@ public record HttpClientConfigCallback(
     @Override
     public HttpAsyncClientBuilder customizeHttpClient(final HttpAsyncClientBuilder httpClientBuilder) {
         final var configurators = ClientsConfiguratorProvider.forOpensearch(config);
-        configurators.forEach(configurator -> {
-            if (configurator.apply(config, httpClientBuilder)) {
-                LOGGER.debug("Successfully applied {} configurator to OpensearchClient",
-                        configurator.getClass().getName());
+        var auth = 0;
+        for (final var c : configurators) {
+            final var applied = c.apply(config, httpClientBuilder);
+            if (applied) {
+                if (c.isAuthenticatedConnection(config))
+                    auth++;
+                LOGGER.debug("Successfully applied {} configurator to OpensearchClient", c.getClass().getName());
             }
-        });
+            if (auth > 1) {
+                throw new ConfigException(
+                        "More than one authenticated configurator is applied for the client. Only one is allowed.");
+            }
+        }
 
         httpClientBuilder.setConnectionManager(createConnectionManager())
                 .setDefaultRequestConfig(RequestConfig.custom()

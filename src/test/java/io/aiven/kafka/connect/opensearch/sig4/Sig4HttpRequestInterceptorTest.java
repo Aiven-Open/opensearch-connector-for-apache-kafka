@@ -15,6 +15,8 @@
  */
 package io.aiven.kafka.connect.opensearch.sig4;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -30,6 +32,7 @@ import org.apache.hc.core5.http.message.BasicHeader;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.http.auth.aws.signer.SignerConstant;
 import software.amazon.awssdk.regions.Region;
 
 public class Sig4HttpRequestInterceptorTest {
@@ -63,29 +66,29 @@ public class Sig4HttpRequestInterceptorTest {
 
         final var r = newRequest(Method.GET);
         r.setUri(new URI("http://localhost:8080"));
-        // sig4HttpRequestInterceptor.process(r, null, null);
+        sig4HttpRequestInterceptor.process(r, null, null);
         // from https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html
         // check expected headers in the finla request
-        // assertTrue(r.containsHeader(HttpHeaders.AUTHORIZATION));
-        // assertTrue(r.containsHeader(SignerConstant.X_AMZ_CONTENT_SHA256));
-        // assertTrue(r.containsHeader(SignerConstant.HOST));
-        // assertTrue(r.containsHeader(SignerConstant.X_AMZ_DATE));
+        assertTrue(r.containsHeader(HttpHeaders.AUTHORIZATION));
+        assertTrue(r.containsHeader(SignerConstant.X_AMZ_CONTENT_SHA256));
+        assertTrue(r.containsHeader(SignerConstant.HOST));
+        assertTrue(r.containsHeader(SignerConstant.X_AMZ_DATE));
     }
 
     @Test
-    public void signsRequest() throws Exception {
+    public void signsPostRequest() throws Exception {
         final var sig4HttpRequestInterceptor = new Sig4HttpRequestInterceptor(
                 StaticCredentialsProvider.create(AwsBasicCredentials.create("accessKeyId", "secretAccessKey")),
                 Region.AF_SOUTH_1.toString(), "aaaaa");
 
         final var r = newRequest(Method.POST);
-        // sig4HttpRequestInterceptor.process(r, newEntityDetails(), null);
+        sig4HttpRequestInterceptor.process(r, newEntityDetails(), null);
         // from https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html
         // check expected headers in the finla request
-        // assertTrue(r.containsHeader(HttpHeaders.AUTHORIZATION));
-        // assertTrue(r.containsHeader(SignerConstant.X_AMZ_CONTENT_SHA256));
-        // assertTrue(r.containsHeader(SignerConstant.HOST));
-        // assertTrue(r.containsHeader(SignerConstant.X_AMZ_DATE));
+        assertTrue(r.containsHeader(HttpHeaders.AUTHORIZATION));
+        assertTrue(r.containsHeader(SignerConstant.X_AMZ_CONTENT_SHA256));
+        assertTrue(r.containsHeader(SignerConstant.HOST));
+        assertTrue(r.containsHeader(SignerConstant.X_AMZ_DATE));
     }
 
     @Test
@@ -99,13 +102,13 @@ public class Sig4HttpRequestInterceptorTest {
         r.setHeader(new BasicHeader("a", "b"));
         r.setHeader(new BasicHeader("c", "d"));
 
-        // sig4HttpRequestInterceptor.process(r, newEntityDetails(), null);
+        sig4HttpRequestInterceptor.process(r, newEntityDetails(), null);
         // from https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html
         // check expected headers in the finla request
-        // assertTrue(r.containsHeader(HttpHeaders.AUTHORIZATION));
-        // assertTrue(r.containsHeader(SignerConstant.X_AMZ_CONTENT_SHA256));
-        // assertTrue(r.containsHeader(SignerConstant.HOST));
-        // assertTrue(r.containsHeader(SignerConstant.X_AMZ_DATE));
+        assertTrue(r.containsHeader(HttpHeaders.AUTHORIZATION));
+        assertTrue(r.containsHeader(SignerConstant.X_AMZ_CONTENT_SHA256));
+        assertTrue(r.containsHeader(SignerConstant.HOST));
+        assertTrue(r.containsHeader(SignerConstant.X_AMZ_DATE));
     }
 
 }

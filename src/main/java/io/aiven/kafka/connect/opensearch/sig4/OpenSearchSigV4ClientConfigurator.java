@@ -30,7 +30,6 @@ import org.apache.kafka.common.config.ConfigException;
 import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 import io.aiven.kafka.connect.opensearch.spi.OpenSearchClientConfigurator;
 
-import joptsimple.internal.Strings;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -95,7 +94,7 @@ public class OpenSearchSigV4ClientConfigurator implements OpenSearchClientConfig
         } catch (final Exception e) {
             throw new ConfigException(AWS_REGION_CONFIG, region(config));
         }
-        if (Strings.isNullOrEmpty(serviceSigningName(config))) {
+        if (serviceSigningName(config) == null || "".equals(serviceSigningName(config))) {
             throw new ConfigException(AWS_SERVICE_SIGNING_NAME_CONFIG, region(config));
         }
     }
@@ -127,7 +126,7 @@ public class OpenSearchSigV4ClientConfigurator implements OpenSearchClientConfig
             throw new ConfigException("Found both AWS access and STS role credentials. Only one can be selected.");
         validateSig4SignatureSettings(config);
 
-        builder.addRequestInterceptorLast(new Sig4HttpRequestInterceptor(credentialsProvider(config), region(config),
+        builder.addExecInterceptorLast("Sig4", new Sig4HttpRequestInterceptor(credentialsProvider(config), region(config),
                 serviceSigningName(config)));
         return true;
     }

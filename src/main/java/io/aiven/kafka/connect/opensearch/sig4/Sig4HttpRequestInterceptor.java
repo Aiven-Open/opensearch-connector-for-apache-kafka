@@ -15,21 +15,17 @@
  */
 package io.aiven.kafka.connect.opensearch.sig4;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
-import org.opensearch.client.nio.HttpEntityAsyncEntityProducer;
-
+import org.apache.hc.client5.http.async.AsyncExecCallback;
+import org.apache.hc.client5.http.async.AsyncExecChain;
+import org.apache.hc.client5.http.async.AsyncExecChainHandler;
 import org.apache.hc.core5.http.EntityDetails;
+import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpException;
 import org.apache.hc.core5.http.HttpRequest;
 import org.apache.hc.core5.http.HttpRequestInterceptor;
+import org.apache.hc.core5.http.io.entity.HttpEntityWrapper;
 import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.hc.core5.http.nio.AsyncEntityProducer;
 import org.apache.hc.core5.http.protocol.HttpContext;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.http.ContentStreamProvider;
@@ -37,7 +33,17 @@ import software.amazon.awssdk.http.SdkHttpMethod;
 import software.amazon.awssdk.http.SdkHttpRequest;
 import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
 
-public class Sig4HttpRequestInterceptor implements HttpRequestInterceptor {
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+public class Sig4HttpRequestInterceptor implements AsyncExecChainHandler {
 
     private final AwsCredentialsProvider credentialsProvider;
 
@@ -52,15 +58,16 @@ public class Sig4HttpRequestInterceptor implements HttpRequestInterceptor {
         this.serviceSigningName = serviceSigningName;
     }
 
-    @Override
+//    @Override
     public void process(HttpRequest request, EntityDetails entity, HttpContext context)
             throws HttpException, IOException {
         final var requestUri = uri(request);
+        final var content = content(entity);
         AwsV4HttpSigner.create()
                 .sign(r -> r.identity(credentialsProvider.resolveCredentials())
                         .putProperty(AwsV4HttpSigner.SERVICE_SIGNING_NAME, region)
                         .putProperty(AwsV4HttpSigner.REGION_NAME, serviceSigningName)
-                        .payload(ContentStreamProvider.fromByteArray(content(entity)))
+                        .payload(ContentStreamProvider.fromInputStream(content))
                         .request(SdkHttpRequest.builder()
                                 .uri(requestUri)
                                 .method(SdkHttpMethod.fromValue(request.getMethod()))
@@ -74,15 +81,15 @@ public class Sig4HttpRequestInterceptor implements HttpRequestInterceptor {
                 .forEach(request::setHeader);
     }
 
-    private byte[] content(final EntityDetails entityDetails) {
+    private InputStream content(final EntityDetails entityDetails) throws IOException {
         if (entityDetails == null)
-            return new byte[0];
+            return new ByteArrayInputStream(new byte[0]);
 
-        if (entityDetails instanceof HttpEntityAsyncEntityProducer) {
-            System.err.println("mmmmm");
+        if (entityDetails instanceof HttpEntity) {
+            final var wrapper = new HttpEntityWrapper((HttpEntity) entityDetails);
+            return wrapper.getContent();
         }
-
-        return new byte[0];
+        return new ByteArrayInputStream(new byte[0]);
     }
 
     private Map<String, List<String>> headers(final HttpRequest request) {
@@ -101,4 +108,9 @@ public class Sig4HttpRequestInterceptor implements HttpRequestInterceptor {
         }
     }
 
+    @Override
+    public void execute(HttpRequest request, AsyncEntityProducer entityProducer, AsyncExecChain.Scope scope, AsyncExecChain chain, AsyncExecCallback asyncExecCallback) throws HttpException, IOException {
+        System.err.println(request);
+        chain.proceed(request, entityProducer, scope, asyncExecCallback);
+    }
 }

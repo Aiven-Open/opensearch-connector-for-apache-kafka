@@ -19,6 +19,10 @@ import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.CO
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.basicauth.OpenSearchBasicAuthConfigDefContributor.CONNECTION_PASSWORD_CONFIG;
 import static io.aiven.kafka.connect.opensearch.basicauth.OpenSearchBasicAuthConfigDefContributor.CONNECTION_USERNAME_CONFIG;
+import static io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG;
+import static io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefContributor.AWS_REGION_CONFIG;
+import static io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG;
+import static io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefContributor.AWS_SERVICE_SIGNING_NAME_CONFIG;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -38,6 +42,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import software.amazon.awssdk.regions.Region;
 
 @Testcontainers
 public abstract class AbstractIT {
@@ -79,9 +84,15 @@ public abstract class AbstractIT {
     }
 
     static Map<String, String> getDefaultProperties() {
-        return Map.of(CONNECTION_URL_CONFIG, openSearchContainer.getHttpHostAddress(), CONNECTION_USERNAME_CONFIG,
-                "admin", CONNECTION_PASSWORD_CONFIG, openSearchContainer.getPassword(), READ_TIMEOUT_MS_CONFIG,
-                "10000");
+        return Map.of(
+                CONNECTION_URL_CONFIG, openSearchContainer.getHttpHostAddress(),
+//                CONNECTION_USERNAME_CONFIG, "admin",
+//                CONNECTION_PASSWORD_CONFIG, openSearchContainer.getPassword(),
+                AWS_ACCESS_KEY_ID_CONFIG, "aws_access_key_id",
+                AWS_SECRET_ACCESS_KEY_CONFIG, "aws_secret_access_key",
+                AWS_REGION_CONFIG, Region.EU_CENTRAL_1.toString(),
+                AWS_SERVICE_SIGNING_NAME_CONFIG, "aws_service_signing_name",
+                READ_TIMEOUT_MS_CONFIG, "10000");
     }
 
     protected void waitForRecords(final String indexName, final int expectedRecords) throws InterruptedException {
