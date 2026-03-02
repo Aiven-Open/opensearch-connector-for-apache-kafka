@@ -114,8 +114,16 @@ public class AbstractKafkaConnectIT extends AbstractIT {
 
     void writeRecords(final int numRecords, String topicNameToWrite) {
         for (int i = 0; i < numRecords; i++) {
-            connect.kafka().produce(topicNameToWrite, String.valueOf(i), String.format("{\"doc_num\":%d}", i));
+            writeRecord(topicNameToWrite, String.valueOf(i), i);
         }
+    }
+
+    void writeRecord(final String topicNameToWrite, final String key, final int recordValue) {
+        writeRecord(topicNameToWrite, key, String.format("{\"doc_num\":%d}", recordValue));
+    }
+
+    void writeRecord(String topicNameToWrite, final String key, String value) {
+        connect.kafka().produce(topicNameToWrite, key, value);
     }
 
 }

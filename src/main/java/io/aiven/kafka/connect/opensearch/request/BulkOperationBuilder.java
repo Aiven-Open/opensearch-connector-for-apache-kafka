@@ -17,6 +17,8 @@ package io.aiven.kafka.connect.opensearch.request;
 
 import static java.util.Objects.isNull;
 
+import java.io.IOException;
+
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -33,7 +35,9 @@ import io.aiven.kafka.connect.opensearch.DocumentIDStrategy;
 import io.aiven.kafka.connect.opensearch.IndexWriteMethod;
 import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 import io.aiven.kafka.connect.opensearch.OpenSearchTaskHandler;
+import io.aiven.kafka.connect.opensearch.Utils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +46,8 @@ public final class BulkOperationBuilder {
     private final OpenSearchSinkConnectorConfig config;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenSearchTaskHandler.class);
+
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public BulkOperationBuilder(final OpenSearchSinkConnectorConfig config) {
         this.config = config;
@@ -83,28 +89,34 @@ public final class BulkOperationBuilder {
         final var documentId = documentIDStrategy.documentId(record);
         final BulkOperation bulkOperation;
         if (isNull(record.value())) {
-            final var deleteOperationBuilder = new DeleteOperation.Builder().id(documentId).index(indexName);
+            final var routing = routingValue(record, null);
+            final var deleteOperationBuilder = new DeleteOperation.Builder().id(documentId)
+                    .routing(routing)
+                    .index(indexName);
             if (!config.dataStreamEnabled()) {
                 addVersionIfAny(deleteOperationBuilder, documentIDStrategy, record);
             }
             bulkOperation = BulkOperation.of(b -> b.delete(deleteOperationBuilder.build()));
         } else {
             final var payload = DocumentPayload.buildPayload(config, record);
+            final var routing = routingValue(record, payload);
             final var binaryData = BinaryData.of(payload, ContentType.APPLICATION_JSON);
             if (config.indexWriteMethod() == IndexWriteMethod.UPSERT) {
                 bulkOperation = BulkOperation.of(b -> b.update(u -> u.id(documentId)
+                        .index(indexName)
+                        .routing(routing)
                         .document(binaryData)
                         .upsert(binaryData)
                         .docAsUpsert(true)
-                        .index(indexName)
                         .retryOnConflict(Math.min(config.maxInFlightRequests(), 3))));
             } else {
                 if (config.dataStreamEnabled()) {
-                    bulkOperation = BulkOperation
-                            .of(b -> b.create(c -> c.id(documentId).index(indexName).document(binaryData)));
+                    bulkOperation = BulkOperation.of(b -> b
+                            .create(c -> c.id(documentId).index(indexName).routing(routing).document(binaryData)));
                 } else {
                     final var indexOperationBuilder = new IndexOperation.Builder<>().id(documentId)
                             .index(indexName)
+                            .routing(routing)
                             .document(binaryData);
                     addVersionIfAny(indexOperationBuilder, documentIDStrategy, record);
                     bulkOperation = BulkOperation.of(b -> b.index(indexOperationBuilder.build()));
@@ -121,6 +133,35 @@ public final class BulkOperationBuilder {
             operationBuilder.versionType(VersionType.External);
         } else {
             operationBuilder.versionType(VersionType.Internal);
+        }
+    }
+
+    private String routingValue(final SinkRecord record, final byte[] payload) {
+        switch (config.routingType()) {
+            case KEY -> {
+                return Utils.convertKey(record);
+            }
+            case VALUE -> {
+                try {
+                    final var p = config.routingRecordValuePath();
+                    final var node = mapper.readTree(payload).at(p);
+                    if (node.isTextual() || node.isNumber()) {
+                        final var text = node.asText();
+                        if (isNull(text) || text.isEmpty()) {
+                            throw new DataException(String.format("Couldn't determine value for path: %s", p));
+                        }
+                        return text;
+                    }
+                    throw new DataException(String.format(
+                            "%s node type is not supported. Supported are: JSON string or JSON numeric values",
+                            node.getNodeType()));
+                } catch (IOException e) {
+                    throw new DataException(e);
+                }
+            }
+            default -> {
+                return null;
+            }
         }
     }
 
