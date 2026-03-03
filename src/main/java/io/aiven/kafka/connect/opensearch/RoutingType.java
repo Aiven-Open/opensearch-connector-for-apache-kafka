@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Aiven Oy
+ * Copyright 2026 Aiven Oy
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,60 +17,29 @@ package io.aiven.kafka.connect.opensearch;
 
 import java.util.Arrays;
 import java.util.Locale;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.sink.SinkRecord;
 
-public enum DocumentIDStrategy {
+public enum RoutingType {
 
-    NONE("none", "No Doc ID is added", record -> null),
+    NONE("none", "No routing is added"),
 
-    RECORD_KEY("record.key", "Generated from the record's key", Utils::convertKey),
+    KEY("key", "The routing value is determined by the record’s key"),
 
-    TOPIC_PARTITION_OFFSET("topic.partition.offset", "Generated as record's ``topic+partition+offset``",
-            record -> String.format("%s+%s+%s", record.topic(), record.kafkaPartition(), record.kafkaOffset()));
+    VALUE("value", "The routing value is determined by the record's value");
 
     private final String name;
 
     private final String description;
 
-    private final Function<SinkRecord, String> docIdGenerator;
-
-    private DocumentIDStrategy(final String name, final String description,
-            final Function<SinkRecord, String> docIdGenerator) {
+    private RoutingType(final String name, final String description) {
         this.name = name.toLowerCase(Locale.ROOT);
         this.description = description;
-        this.docIdGenerator = docIdGenerator;
-    }
-
-    public String documentId(final SinkRecord record) {
-        return docIdGenerator.apply(record);
-    }
-
-    @Override
-    public String toString() {
-        return name;
-    }
-
-    public static DocumentIDStrategy fromString(final String name) {
-        for (final DocumentIDStrategy strategy : DocumentIDStrategy.values()) {
-            if (strategy.name.equalsIgnoreCase(name)) {
-                return strategy;
-            }
-        }
-        throw new IllegalArgumentException("Unknown Document ID Strategy " + name);
-    }
-
-    public static String describe() {
-        return Arrays.stream(values())
-                .map(v -> v.toString() + " : " + v.description)
-                .collect(Collectors.joining(", ", "{", "}"));
     }
 
     public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {
-        private final String[] names = Arrays.stream(values()).map(v -> v.toString()).toArray(String[]::new);
+        private final String[] names = Arrays.stream(values()).map(Enum::toString).toArray(String[]::new);
         private final ConfigDef.ValidString validator = ConfigDef.ValidString.in(names);
 
         @Override
@@ -89,4 +58,25 @@ public enum DocumentIDStrategy {
             return validator.toString();
         }
     };
+
+    @Override
+    public String toString() {
+        return name;
+    }
+
+    public static String describe() {
+        return Arrays.stream(values())
+                .map(v -> v.toString() + " : " + v.description)
+                .collect(Collectors.joining(", ", "{", "}"));
+    }
+
+    public static RoutingType fromString(final String name) {
+        for (final RoutingType routingType : RoutingType.values()) {
+            if (routingType.name.equalsIgnoreCase(name)) {
+                return routingType;
+            }
+        }
+        throw new IllegalArgumentException("Unknown routing type " + name);
+    }
+
 }
