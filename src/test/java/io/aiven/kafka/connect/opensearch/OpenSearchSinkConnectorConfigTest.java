@@ -31,6 +31,7 @@ import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_TYPE_CONF
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -50,6 +51,7 @@ import org.apache.kafka.common.config.SslConfigs;
 
 import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
+import com.fasterxml.jackson.core.JsonPointer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -301,6 +303,67 @@ public class OpenSearchSinkConnectorConfigTest {
                 Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
                         OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"));
         assertEquals("bbbbb", noDsPrefixConfig.topicToIndexNameConverter().apply("bbbbb"));
+    }
+
+    @Test
+    void testDefaultRoutingSettings() {
+        final var config = new OpenSearchSinkConnectorConfig(
+                Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200"));
+
+        assertEquals(RoutingType.NONE, config.routingType());
+        assertNull(config.routingRecordValuePath());
+    }
+
+    @Test
+    void testSetKeyRoutingSettings() {
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://l:9200", OpenSearchSinkConnectorConfig.ROUTING_TYPE, RoutingType.KEY.toString()));
+
+        assertEquals(RoutingType.KEY, config.routingType());
+        assertNull(config.routingRecordValuePath());
+    }
+
+    @Test
+    void testSetValueRoutingSettings() {
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "http://l:9200", OpenSearchSinkConnectorConfig.ROUTING_TYPE, RoutingType.VALUE.toString(),
+                OpenSearchSinkConnectorConfig.ROUTING_RECORD_VALUE_PATH, "/a/b/c"));
+
+        assertEquals(RoutingType.VALUE, config.routingType());
+        assertNotNull(config.routingRecordValuePath());
+        assertEquals(JsonPointer.compile("/a/b/c"), config.routingRecordValuePath());
+    }
+
+    @Test
+    void testThrowExceptionForWrongValueRoutingSettings() {
+        final var e = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.ROUTING_TYPE, RoutingType.VALUE.toString())));
+        assertEquals(
+                "The 'routing.type.record.value.path' setting must be configured when using the 'value' routing type",
+                e.getMessage());
+    }
+
+    @Test
+    void testThrowExceptionForWrongRoutingJSONPointerValueSettings() {
+        final var e = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.ROUTING_TYPE, RoutingType.VALUE.toString(),
+                        OpenSearchSinkConnectorConfig.ROUTING_RECORD_VALUE_PATH, "f\\g")));
+        assertEquals("Invalid input: JSON Pointer expression must start with '/': \"f\\g\"", e.getMessage());
+    }
+
+    @Test
+    void testThrowExceptionForWrongRoutingJSONPointerValueSettingsAndBehaviorOnNullValuesDelete() {
+        final var e = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.ROUTING_TYPE, RoutingType.VALUE.toString(),
+                        OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG,
+                        BehaviorOnNullValues.DELETE.toString(), OpenSearchSinkConnectorConfig.ROUTING_RECORD_VALUE_PATH,
+                        "/f/g")));
+        assertEquals(
+                "The 'routing.type.record.value.path' can't be used together with 'behavior.on.null.values' set to 'delete'",
+                e.getMessage());
     }
 
 }

@@ -275,6 +275,22 @@ Data Conversion
   * Valid Values: [ignore, warn, fail, report]
   * Importance: low
 
+``routing.type``
+  Specifies the routing type which connector uses when sending documents to OpenSearch. Available types: {none : No routing is added, key : The routing value is determined by the record’s key, value : The routing value is determined by the record's value}. If not specified, the default is ``none``.
+
+  * Type: string
+  * Default: none
+  * Valid Values: [none, key, value]
+  * Importance: low
+
+``routing.type.record.value.path``
+  Specifies the routing value which is determined by the record's value as JSON Pointer
+
+  * Type: string
+  * Default: null
+  * Valid Values: A valid JSON Pointer value (https://datatracker.ietf.org/doc/html/rfc6901)
+  * Importance: low
+
 Data Stream
 ^^^^^^^^^^^
 
