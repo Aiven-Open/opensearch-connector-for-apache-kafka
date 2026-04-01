@@ -150,7 +150,7 @@ ext {
     apacheCommonsLangVersion = "3.20.0"
     slf4jVersion = "2.0.17"
 
-    openSearchJavaClientVersion = "3.6.0"
+    openSearchJavaClientVersion = "3.8.0"
 
     mockitoVersion = "5.22.0"
 
