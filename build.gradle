@@ -152,7 +152,7 @@ ext {
 
     openSearchJavaClientVersion = "3.8.0"
 
-    mockitoVersion = "5.22.0"
+    mockitoVersion = "5.23.0"
 
     junitVersion = "6.0.3"
 
