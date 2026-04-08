@@ -156,7 +156,7 @@ ext {
 
     junitVersion = "6.0.3"
 
-    testcontainersVersion = "2.0.3"
+    testcontainersVersion = "2.0.4"
     openSearchTestcontainersVersion = "4.1.0"
 }
 
