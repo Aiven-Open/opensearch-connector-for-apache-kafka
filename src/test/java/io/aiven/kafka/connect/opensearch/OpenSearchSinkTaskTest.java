@@ -15,12 +15,10 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
-import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BATCH_SIZE_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BULK_MAX_OPERATIONS_SIZE;
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BULK_MAX_SIZE;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.LINGER_MS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MAX_RETRIES_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,10 +41,9 @@ public class OpenSearchSinkTaskTest {
     @Test
     void failToStartWhenReportIsConfiguredAndErrantRecordReporterIsMissing(final @Mock SinkTaskContext context) {
 
-        final var props = Map.of(CONNECTION_URL_CONFIG, "http://localhost", MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2", LINGER_MS_CONFIG, "1000",
-                MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1", BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
-                BehaviorOnMalformedDoc.REPORT.toString());
+        final var props = Map.of(CONNECTION_URL_CONFIG, "http://localhost", BULK_MAX_SIZE, "100",
+                BULK_MAX_OPERATIONS_SIZE, "5", MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1",
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.REPORT.toString());
         when(context.errantRecordReporter()).thenReturn(null);
         final var task = new OpenSearchSinkTask();
         task.initialize(context);
@@ -57,9 +54,7 @@ public class OpenSearchSinkTaskTest {
     @Test
     void failToStartWhenReportIsConfiguredAndErrantRecordReporterIsNotSupported(final @Mock SinkTaskContext context) {
 
-        final var props = Map.of(CONNECTION_URL_CONFIG, "http://localhost", MAX_BUFFERED_RECORDS_CONFIG, "100",
-                MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2", LINGER_MS_CONFIG, "1000",
-                MAX_RETRIES_CONFIG, "3", READ_TIMEOUT_MS_CONFIG, "1", BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
+        final var props = Map.of(CONNECTION_URL_CONFIG, "http://localhost", BEHAVIOR_ON_VERSION_CONFLICT_CONFIG,
                 BehaviorOnMalformedDoc.REPORT.toString());
         when(context.errantRecordReporter()).thenThrow(new NoSuchMethodError());
         final var task = new OpenSearchSinkTask();
