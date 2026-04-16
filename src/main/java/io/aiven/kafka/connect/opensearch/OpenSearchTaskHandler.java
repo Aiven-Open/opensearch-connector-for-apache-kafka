@@ -18,7 +18,9 @@ package io.aiven.kafka.connect.opensearch;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -49,11 +51,18 @@ import org.slf4j.LoggerFactory;
 
 public class OpenSearchTaskHandler {
 
+    private final static int MAX_CACHE_SIZE = 100;
+
     public static final String DATA_STREAM_TEMPLATE_NAME_PATTERN = "%s-connector-data-stream-template";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenSearchTaskHandler.class);
 
-    private final Set<String> indexCache = new HashSet<>();
+    private final Set<String> indexCache = Collections.newSetFromMap(new LinkedHashMap<>(MAX_CACHE_SIZE, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
+            return size() > MAX_CACHE_SIZE;
+        }
+    });
 
     private final OpenSearchTransport transport;
 
