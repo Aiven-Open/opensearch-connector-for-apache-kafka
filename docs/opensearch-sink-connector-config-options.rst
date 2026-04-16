@@ -12,43 +12,6 @@ Connector
   * Valid Values: http://eshost1:9200, http://eshost2:9200
   * Importance: high
 
-``batch.size``
-  The number of records to process as a batch when writing to OpenSearch.
-
-  * Type: int
-  * Default: 2000
-  * Importance: medium
-
-``max.in.flight.requests``
-  The maximum number of indexing requests that can be in-flight to OpenSearch before blocking further requests.
-
-  * Type: int
-  * Default: 5
-  * Importance: medium
-
-``max.buffered.records``
-  The maximum number of records each task will buffer before blocking acceptance of more records. This config can be used to limit the memory usage for each task.
-
-  * Type: int
-  * Default: 20000
-  * Importance: low
-
-``linger.ms``
-  Linger time in milliseconds for batching.
-
-  Records that arrive in between request transmissions are batched into a single bulk indexing request, based on the ``batch.size`` configuration. Normally this only occurs under load when records arrive faster than they can be sent out. However it may be desirable to reduce the number of requests even under light load and benefit from bulk indexing. This setting helps accomplish that - when a pending batch is not full, rather than immediately sending it out the task will wait up to the given delay to allow other records to be added so that they can be batched into a single request.
-
-  * Type: long
-  * Default: 1
-  * Importance: low
-
-``flush.timeout.ms``
-  The timeout in milliseconds to use for periodic flushing, and when waiting for buffer space to be made available by completed requests as records are added. If this timeout is exceeded the task will fail.
-
-  * Type: long
-  * Default: 10000 (10 seconds)
-  * Importance: low
-
 ``max.retries``
   The maximum number of retries that are allowed for failed indexing requests. If the retry attempts are exhausted the task will fail.
 
@@ -75,6 +38,30 @@ Connector
 
   * Type: int
   * Default: 3000 (3 seconds)
+  * Importance: low
+
+Bulk settings
+^^^^^^^^^^^^^
+
+``bulk.max.size``
+  Sets when to flush a new bulk request based on the size in bytes of actions currently added. A request is sent once that size has been exceeded. Defaults to 5 megabytes. Can be set to -1 to disable it.
+
+  * Type: int
+  * Default: 5
+  * Importance: medium
+
+``bulk.max.operations.size``
+  Sets when to flush a new bulk request based on the number of operations currently added. Defaults to 1000. Can be set to -1 to disable it.
+
+  * Type: int
+  * Default: 1000
+  * Importance: medium
+
+``bulk.max.concurrent.requests``
+  Sets the number of concurrent requests allowed to be executed. A value of 1 means 1 request is allowed to be executed while accumulating new bulk requests. Defaults to 1.
+
+  * Type: int
+  * Default: 1
   * Importance: low
 
 TLS Configuration for HTTPS

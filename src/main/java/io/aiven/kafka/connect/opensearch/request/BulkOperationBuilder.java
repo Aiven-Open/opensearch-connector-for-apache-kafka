@@ -108,7 +108,7 @@ public final class BulkOperationBuilder {
                         .document(binaryData)
                         .upsert(binaryData)
                         .docAsUpsert(true)
-                        .retryOnConflict(Math.min(config.maxInFlightRequests(), 3))));
+                        .retryOnConflict(config.maxRetry())));
             } else {
                 if (config.dataStreamEnabled()) {
                     bulkOperation = BulkOperation.of(b -> b

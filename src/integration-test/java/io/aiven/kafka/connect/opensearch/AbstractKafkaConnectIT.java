@@ -15,8 +15,8 @@
  */
 package io.aiven.kafka.connect.opensearch;
 
+import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.BULK_MAX_OPERATIONS_SIZE;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG;
-import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.SCHEMA_IGNORE_CONFIG;
 import static org.apache.kafka.connect.json.JsonConverterConfig.SCHEMAS_ENABLE_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.CONNECTOR_CLASS_CONFIG;
@@ -107,7 +107,7 @@ public class AbstractKafkaConnectIT extends AbstractIT {
         props.put("value.converter." + SCHEMAS_ENABLE_CONFIG, "false");
         props.put(KEY_IGNORE_CONFIG, "true");
         props.put(SCHEMA_IGNORE_CONFIG, "true");
-        props.put(MAX_BUFFERED_RECORDS_CONFIG, "1");
+        props.put(BULK_MAX_OPERATIONS_SIZE, "1");
         props.put("offset.flush.timeout.ms", "1000");
         return props;
     }

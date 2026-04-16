@@ -148,7 +148,7 @@ public class BulkOperationBuilderTest {
         assertTrue(upsertOperation.isUpdate());
         final var update = upsertOperation.update();
         assertEquals(KEY, update.id());
-        assertEquals(3, update.retryOnConflict());
+        assertEquals(config.maxRetry(), update.retryOnConflict());
 
         final var data = ReflectionUtils.tryToReadFieldValue(update.getClass().getDeclaredField("data"), update).get();
         assertTrue((Boolean) ReflectionUtils.tryToReadFieldValue(data.getClass().getDeclaredField("docAsUpsert"), data)
