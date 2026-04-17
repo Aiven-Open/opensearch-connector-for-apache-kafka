@@ -51,18 +51,11 @@ import org.slf4j.LoggerFactory;
 
 public class OpenSearchTaskHandler {
 
-    private final static int MAX_CACHE_SIZE = 100;
-
     public static final String DATA_STREAM_TEMPLATE_NAME_PATTERN = "%s-connector-data-stream-template";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenSearchTaskHandler.class);
 
-    private final Set<String> indexCache = Collections.newSetFromMap(new LinkedHashMap<>(MAX_CACHE_SIZE, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
-            return size() > MAX_CACHE_SIZE;
-        }
-    });
+    private final Set<String> indexCache = Collections.newSetFromMap(new BoundedHashMap());
 
     private final OpenSearchTransport transport;
 
@@ -73,6 +66,23 @@ public class OpenSearchTaskHandler {
     private final BulkOperationBuilder bulkOperationBuilder;
 
     private final BulkIngester<SinkRecord> bulkIngester;
+
+    private final static class BoundedHashMap extends LinkedHashMap<String, Boolean> {
+
+        @java.io.Serial
+        private static final long serialVersionUID = 0L;
+
+        private final static int MAX_CACHE_SIZE = 100;
+
+        public BoundedHashMap() {
+            super(MAX_CACHE_SIZE, 0.75f, true);
+        }
+
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
+            return size() > MAX_CACHE_SIZE;
+        }
+    }
 
     public OpenSearchTaskHandler(final OpenSearchSinkConnectorConfig config,
             final ErrantRecordReporter errantRecordReporter) {

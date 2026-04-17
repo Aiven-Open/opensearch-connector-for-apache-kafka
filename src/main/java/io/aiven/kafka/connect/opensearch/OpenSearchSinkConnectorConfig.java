@@ -28,8 +28,8 @@ import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_PASSWORD_
 import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG;
 
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
@@ -259,7 +259,7 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                     final var urls = (List<String>) value;
                     for (final var url : urls) {
                         try {
-                            new URL(url);
+                            URI.create(url).toURL();
                         } catch (final MalformedURLException e) {
                             throw new ConfigException(CONNECTION_URL_CONFIG, url);
                         }
