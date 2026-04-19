@@ -20,9 +20,9 @@ import java.util.Locale;
 import org.apache.kafka.common.config.ConfigDef;
 
 public enum BehaviorOnMalformedDoc {
-    IGNORE, WARN, FAIL, REPORT;
+    IGNORE, WARN, ERROR, REPORT;
 
-    public static final BehaviorOnMalformedDoc DEFAULT = FAIL;
+    public static final BehaviorOnMalformedDoc DEFAULT = ERROR;
 
     // Want values for "behavior.on.malformed.doc" property to be case-insensitive
     public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {

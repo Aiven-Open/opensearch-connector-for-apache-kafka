@@ -20,9 +20,9 @@ import java.util.Locale;
 import org.apache.kafka.common.config.ConfigDef;
 
 public enum BehaviorOnVersionConflict {
-    IGNORE, WARN, FAIL, REPORT;
+    IGNORE, WARN, ERROR, REPORT;
 
-    public static final BehaviorOnVersionConflict DEFAULT = FAIL;
+    public static final BehaviorOnVersionConflict DEFAULT = ERROR;
 
     // Want values for "behavior.on.version.conflict" property to be case-insensitive
     public static final ConfigDef.Validator VALIDATOR = new ConfigDef.Validator() {

@@ -17,7 +17,11 @@ package io.aiven.kafka.connect.opensearch.request;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -39,11 +43,19 @@ public final class ConnectorBulkListener implements BulkListener<SinkRecord> {
     private final static Set<String> MALFORMED_DOC_ERRORS = Set.of("strict_dynamic_mapping_exception",
             "mapper_parsing_exception", "illegal_argument_exception", "action_request_validation_exception");
 
+    private final static Set<String> VERSION_CONFLICT_ERRORS = Set.of("version_conflict_engine_exception");
+
     private final BehaviorOnMalformedDoc behaviorOnMalformedDoc;
 
     private final BehaviorOnVersionConflict behaviorOnVersionConflict;
 
     private final ErrantRecordReporter errantRecordReporter;
+
+    private final ReentrantLock bulkFinishedLock = new ReentrantLock();
+
+    private final Condition bulkFinishedCondition = bulkFinishedLock.newCondition();
+
+    private volatile boolean bulkFinished = false;
 
     public ConnectorBulkListener(final OpenSearchSinkConnectorConfig config,
             final ErrantRecordReporter errantRecordReporter) {
@@ -54,23 +66,32 @@ public final class ConnectorBulkListener implements BulkListener<SinkRecord> {
 
     @Override
     public void beforeBulk(long executionId, BulkRequest request, List<SinkRecord> records) {
+        bulkFinished = false;
     }
 
     @Override
     public void afterBulk(long executionId, BulkRequest request, List<SinkRecord> records, BulkResponse response) {
-        if (response.errors()) {
-            for (var i = 0; i < response.items().size(); i++) {
-                final var itm = response.items().get(i);
-                if (itm.error() != null) {
+        finishBulk(() -> {
+            if (response.errors()) {
+                final var items = response.items();
+                for (var i = 0; i < items.size(); i++) {
+                    final var itm = items.get(i);
+                    if (itm.error() == null)
+                        continue;
                     if (MALFORMED_DOC_ERRORS.contains(itm.error().type())) {
                         handleMalformedDoc(executionId, response.items().size(), itm.error().reason(), records.get(i));
-                    } else if (responseContainsVersionConflict(itm.error().type())) {
+                    } else if (VERSION_CONFLICT_ERRORS.contains(itm.error().type())) {
                         handleVersionConflict(executionId, response.items().size(), itm.error().reason(),
                                 records.get(i));
+                    } else {
+                        LOGGER.error("Bulk {} has errors. Item #{}. Reason: {}", executionId, i,
+                                itm.error().toJsonString());
                     }
                 }
+                return Boolean.FALSE;
             }
-        }
+            return Boolean.TRUE;
+        });
     }
 
     private void handleMalformedDoc(final long executionId, final int itemsSize, final String reason,
@@ -85,10 +106,10 @@ public final class ConnectorBulkListener implements BulkListener<SinkRecord> {
                         executionId, itemsSize, reason);
                 break;
             case REPORT :
-                final String errorMessage = String.format("Encountered a version conflict when executing batch %s of %s"
+                LOGGER.warn("Encountered a version conflict when executing batch {} of {}"
                         + " records. Reporting this error to the errant record reporter" + " and will not index record."
-                        + " Error message: %s", executionId, reason);
-                sendToErrantRecordReporter(sinkRecord, reason);
+                        + " Error message: {}", executionId, itemsSize, reason);
+                errantRecordReporter.report(sinkRecord, new Exception(reason));
                 break;
             case WARN :
                 LOGGER.warn(
@@ -96,13 +117,14 @@ public final class ConnectorBulkListener implements BulkListener<SinkRecord> {
                                 + " records. Ignoring and will not index record. Error was {}",
                         executionId, itemsSize, reason);
                 break;
+            case ERROR :
             default :
                 LOGGER.error(
                         "Encountered an illegal document error when executing batch {} of {}"
                                 + " records. Error was {} (to ignore future records like this"
                                 + " change the configuration property '{}' from '{}' to '{}').",
                         executionId, itemsSize, reason, OpenSearchSinkConnectorConfig.BEHAVIOR_ON_MALFORMED_DOCS_CONFIG,
-                        BehaviorOnMalformedDoc.FAIL, BehaviorOnMalformedDoc.IGNORE);
+                        BehaviorOnMalformedDoc.ERROR, BehaviorOnMalformedDoc.IGNORE);
         }
     }
 
@@ -121,7 +143,7 @@ public final class ConnectorBulkListener implements BulkListener<SinkRecord> {
                 final String errorMessage = String.format("Encountered a version conflict when executing batch %s of %s"
                         + " records. Reporting this error to the errant record reporter and will"
                         + " keep an existing record." + " Error message: %s", executionId, itemsSize, reason);
-                sendToErrantRecordReporter(sinkRecord, reason);
+                errantRecordReporter.report(sinkRecord, new Exception(errorMessage));
                 break;
             case WARN :
                 LOGGER.warn(
@@ -129,29 +151,49 @@ public final class ConnectorBulkListener implements BulkListener<SinkRecord> {
                                 + " records. Ignoring and will keep an existing record. Error was {}",
                         executionId, itemsSize, reason);
                 break;
-            case FAIL :
+            case ERROR :
             default :
                 LOGGER.error(
                         "Encountered a version conflict when executing batch {} of {}"
                                 + " records. Error was {} (to ignore version conflicts you may consider"
                                 + " changing the configuration property '{}' from '{}' to '{}').",
                         executionId, itemsSize, reason,
-                        OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.FAIL,
+                        OpenSearchSinkConnectorConfig.BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnMalformedDoc.ERROR,
                         BehaviorOnMalformedDoc.IGNORE);
-                break;
         }
-    }
-
-    private boolean responseContainsVersionConflict(final String reason) {
-        return "version_conflict_engine_exception".equals(reason);
-    }
-
-    private void sendToErrantRecordReporter(final SinkRecord record, final String errorMessage) {
-        errantRecordReporter.report(record, new Exception(errorMessage));
     }
 
     @Override
     public void afterBulk(long executionId, BulkRequest request, List<SinkRecord> voids, Throwable failure) {
         LOGGER.error("Bulk {} has failed. Error is", executionId, failure);
+        finishBulk(() -> Boolean.FALSE);
     }
+
+    private void finishBulk(final Supplier<Boolean> handler) {
+        bulkFinishedLock.lock();
+        try {
+            bulkFinished = handler.get();
+        } finally {
+            bulkFinishedCondition.signalAll();
+            bulkFinishedLock.unlock();
+        }
+    }
+
+    public boolean success() {
+        bulkFinishedLock.lock();
+        try {
+            while (!bulkFinished) {
+                try {
+                    bulkFinishedCondition.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new ConnectException(e);
+                }
+            }
+            return bulkFinished;
+        } finally {
+            bulkFinishedLock.unlock();
+        }
+    }
+
 }

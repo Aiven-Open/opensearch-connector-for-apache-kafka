@@ -79,9 +79,12 @@ public class OpenSearchSinkTask extends SinkTask {
     }
 
     @Override
-    public void flush(final Map<TopicPartition, OffsetAndMetadata> offsets) {
-        LOGGER.trace("Flushing data to OpenSearch with the following offsets: {}", offsets);
+    public Map<TopicPartition, OffsetAndMetadata> preCommit(
+            final Map<TopicPartition, OffsetAndMetadata> currentOffsets) {
         openSearchTaskHandler.flush();
+        if (!openSearchTaskHandler.waitForResult())
+            return Map.of();
+        return currentOffsets;
     }
 
     @Override

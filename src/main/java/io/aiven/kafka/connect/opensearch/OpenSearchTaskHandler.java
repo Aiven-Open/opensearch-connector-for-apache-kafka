@@ -67,6 +67,8 @@ public class OpenSearchTaskHandler {
 
     private final BulkIngester<SinkRecord> bulkIngester;
 
+    private final ConnectorBulkListener connectorBulkListener;
+
     private final static class BoundedHashMap extends LinkedHashMap<String, Boolean> {
 
         @java.io.Serial
@@ -91,9 +93,10 @@ public class OpenSearchTaskHandler {
                 .setHttpClientConfigCallback(new HttpClientConfigCallback(this.config))
                 .build();
         this.client = new OpenSearchClient(transport);
+        this.connectorBulkListener = new ConnectorBulkListener(config, errantRecordReporter);
         this.bulkIngester = BulkIngester.of(b -> {
             final var c = b.client(client)
-                    .listener(new ConnectorBulkListener(config, errantRecordReporter))
+                    .listener(connectorBulkListener)
                     .backoffPolicy(BackoffPolicy.exponentialBackoff(config.retryBackoffMs(), config.maxRetry()));
             if (config.maxSize() != null) {
                 c.maxSize(config.maxSize());
@@ -232,6 +235,10 @@ public class OpenSearchTaskHandler {
 
     public void flush() {
         bulkIngester.flush();
+    }
+
+    public boolean waitForResult() {
+        return connectorBulkListener.success();
     }
 
     public void close() throws IOException {

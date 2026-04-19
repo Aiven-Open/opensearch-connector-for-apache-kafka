@@ -229,17 +229,17 @@ Data Conversion
 
   Valid options are:
 
-  - ``ignore`` - do not index the record
+  - ``ignore`` - ignore and do not index the record
 
   - ``warn`` - log a warning message and do not index the record
 
   - ``report`` - report to errant record reporter and do not index the record
 
-  - ``fail`` - fail the task.
+  - ``error`` - log a error message
 
   * Type: string
-  * Default: fail
-  * Valid Values: [ignore, warn, fail, report]
+  * Default: error
+  * Valid Values: [ignore, warn, error, report]
   * Importance: low
 
 ``behavior.on.version.conflict``
@@ -249,17 +249,17 @@ Data Conversion
 
   Valid options are:
 
-  - ``ignore`` - ignore and keep the existing record
+  - ``ignore`` - ignore and do not index the record
 
-  - ``warn`` - log a warning message and keep the existing record
+  - ``warn`` - log a warning message and do not index the record
 
-  - ``report`` - report to errant record reporter and keep the existing record
+  - ``report`` - report to errant record reporter and do not index the record
 
-  - ``fail`` - fail the task.
+  - ``error`` - log a error message and do not index the record
 
   * Type: string
-  * Default: fail
-  * Valid Values: [ignore, warn, fail, report]
+  * Default: error
+  * Valid Values: [ignore, warn, error, report]
   * Importance: low
 
 ``routing.type``
