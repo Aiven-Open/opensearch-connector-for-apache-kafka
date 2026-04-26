@@ -68,7 +68,7 @@ public record HttpClientConfigCallback(
     }
 
     private PoolingAsyncClientConnectionManager createConnectionManager() {
-        final var maxPerRoute = Math.max(10, config.maxOperations() * 2);
+        final var maxPerRoute = Math.max(10, config.maxInFlightRequests() * 2);
         return PoolingAsyncClientConnectionManagerBuilder.create()
                 .setTlsStrategy(ClientTlsStrategyBuilder.create()
                         .setSslContext(sslContext(config))
