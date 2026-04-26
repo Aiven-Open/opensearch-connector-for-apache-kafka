@@ -69,28 +69,27 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     public static final String CONNECTION_URL_CONFIG = "connection.url";
     private static final String CONNECTION_URL_DOC = "List of OpenSearch HTTP connection URLs e.g. ``http://eshost1:9200,"
             + "http://eshost2:9200``.";
-
-    public static final String BULK_GROUP_NAME = "Bulk settings";
-
-    public static final String BULK_MAX_SIZE = "bulk.max.size";
-
-    public static final String BULK_MAX_SIZE_DOCS = "Sets when to flush a new bulk request based on the size "
-            + "in bytes of actions currently added. " + "A request is sent once that size has been exceeded. "
-            + "Defaults to 5 megabytes. Can be set to -1 to disable it.";
-
-    public static final String BULK_MAX_OPERATIONS_SIZE = "bulk.max.operations.size";
-
-    public static final String BULK_MAX_OPERATIONS_SIZE_DOCS = "Sets when to flush a new bulk request "
-            + "based on the number of operations currently added. "
-            + "Defaults to 1000. Can be set to -1 to disable it.";
-
-    public static final String BULK_MAX_CONCURRENT_REQUESTS_NUMBER = "bulk.max.concurrent.requests";
-
-    public static final String BULK_MAX_CONCURRENT_REQUESTS_NUMBER_DOCS = "Sets the number of concurrent requests allowed"
-            + " to be executed. "
-            + "A value of 1 means 1 request is allowed to be executed while accumulating new bulk requests. "
-            + "Defaults to 1.";
-
+    public static final String BATCH_SIZE_CONFIG = "batch.size";
+    private static final String BATCH_SIZE_DOC = "The number of records to process as a batch when writing to OpenSearch.";
+    public static final String MAX_IN_FLIGHT_REQUESTS_CONFIG = "max.in.flight.requests";
+    private static final String MAX_IN_FLIGHT_REQUESTS_DOC = "The maximum number of indexing requests that can be in-flight to OpenSearch before "
+            + "blocking further requests.";
+    public static final String MAX_BUFFERED_RECORDS_CONFIG = "max.buffered.records";
+    private static final String MAX_BUFFERED_RECORDS_DOC = "The maximum number of records each task will buffer before blocking acceptance of more "
+            + "records. This config can be used to limit the memory usage for each task.";
+    public static final String LINGER_MS_CONFIG = "linger.ms";
+    private static final String LINGER_MS_DOC = "Linger time in milliseconds for batching.\n"
+            + "Records that arrive in between request transmissions are batched into a single bulk "
+            + "indexing request, based on the ``" + BATCH_SIZE_CONFIG + "`` configuration. Normally "
+            + "this only occurs under load when records arrive faster than they can be sent out. "
+            + "However it may be desirable to reduce the number of requests even under light load and "
+            + "benefit from bulk indexing. This setting helps accomplish that - when a pending batch is"
+            + " not full, rather than immediately sending it out the task will wait up to the given "
+            + "delay to allow other records to be added so that they can be batched into a single " + "request.";
+    public static final String FLUSH_TIMEOUT_MS_CONFIG = "flush.timeout.ms";
+    private static final String FLUSH_TIMEOUT_MS_DOC = "The timeout in milliseconds to use for periodic flushing, and when waiting for buffer "
+            + "space to be made available by completed requests as records are added. If this timeout "
+            + "is exceeded the task will fail.";
     public static final String MAX_RETRIES_CONFIG = "max.retries";
     private static final String MAX_RETRIES_DOC = "The maximum number of retries that are allowed for failed indexing requests. If the retry "
             + "attempts are exhausted the task will fail.";
@@ -223,7 +222,6 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
-        addBulkConfig(configDef);
         addSslConfig(configDef);
         addConversionConfigs(configDef);
         addDataStreamConfig(configDef);
@@ -272,6 +270,16 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                 return String.join(", ", "http://eshost1:9200", "http://eshost2:9200");
             }
         }, Importance.HIGH, CONNECTION_URL_DOC, CONNECTOR_GROUP_NAME, ++order, Width.LONG, "Connection URLs")
+                .define(BATCH_SIZE_CONFIG, Type.INT, 2000, Importance.MEDIUM, BATCH_SIZE_DOC, CONNECTOR_GROUP_NAME,
+                        ++order, Width.SHORT, "Batch Size")
+                .define(MAX_IN_FLIGHT_REQUESTS_CONFIG, Type.INT, 5, Importance.MEDIUM, MAX_IN_FLIGHT_REQUESTS_DOC,
+                        CONNECTOR_GROUP_NAME, ++order, Width.SHORT, "Max In-flight Requests")
+                .define(MAX_BUFFERED_RECORDS_CONFIG, Type.INT, 20000, Importance.LOW, MAX_BUFFERED_RECORDS_DOC,
+                        CONNECTOR_GROUP_NAME, ++order, Width.SHORT, "Max Buffered Records")
+                .define(LINGER_MS_CONFIG, Type.LONG, 1L, Importance.LOW, LINGER_MS_DOC, CONNECTOR_GROUP_NAME, ++order,
+                        Width.SHORT, "Linger (ms)")
+                .define(FLUSH_TIMEOUT_MS_CONFIG, Type.LONG, 10000L, Importance.LOW, FLUSH_TIMEOUT_MS_DOC,
+                        CONNECTOR_GROUP_NAME, ++order, Width.SHORT, "Flush Timeout (ms)")
                 .define(MAX_RETRIES_CONFIG, Type.INT, 5, Importance.LOW, MAX_RETRIES_DOC, CONNECTOR_GROUP_NAME, ++order,
                         Width.SHORT, "Max Retries")
                 .define(RETRY_BACKOFF_MS_CONFIG, Type.LONG, 100L, Importance.LOW, RETRY_BACKOFF_MS_DOC,
@@ -280,18 +288,6 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                         CONNECTOR_GROUP_NAME, ++order, Width.SHORT, "Connection Timeout")
                 .define(READ_TIMEOUT_MS_CONFIG, Type.INT, 3000, Importance.LOW, READ_TIMEOUT_MS_CONFIG_DOC,
                         CONNECTOR_GROUP_NAME, ++order, Width.SHORT, "Read Timeout");
-    }
-
-    private static void addBulkConfig(final ConfigDef configDef) {
-        int order = 0;
-        configDef
-                .define(BULK_MAX_SIZE, Type.INT, 5, Importance.MEDIUM, BULK_MAX_SIZE_DOCS, BULK_GROUP_NAME, ++order,
-                        Width.SHORT, "Max Size")
-                .define(BULK_MAX_OPERATIONS_SIZE, Type.INT, 1000, Importance.MEDIUM, BULK_MAX_OPERATIONS_SIZE_DOCS,
-                        BULK_GROUP_NAME, ++order, Width.SHORT, "Max operations size")
-                .define(BULK_MAX_CONCURRENT_REQUESTS_NUMBER, Type.INT, 1, Importance.LOW,
-                        BULK_MAX_CONCURRENT_REQUESTS_NUMBER_DOCS, BULK_GROUP_NAME, ++order, Width.SHORT,
-                        "Number of concurrent requests");
     }
 
     private static void addSslConfig(final ConfigDef configDef) {
@@ -504,16 +500,25 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     public Set<String> topicIgnoreSchema() {
         return Set.copyOf(getList(OpenSearchSinkConnectorConfig.TOPIC_SCHEMA_IGNORE_CONFIG));
     }
-    public Integer maxSize() {
-        return getInt(BULK_MAX_SIZE);
+
+    public long flushTimeoutMs() {
+        return getLong(OpenSearchSinkConnectorConfig.FLUSH_TIMEOUT_MS_CONFIG);
     }
 
-    public Integer maxOperations() {
-        return getInt(BULK_MAX_OPERATIONS_SIZE);
+    public int maxBufferedRecords() {
+        return getInt(OpenSearchSinkConnectorConfig.MAX_BUFFERED_RECORDS_CONFIG);
     }
 
-    public Integer maxConcurrentRequests() {
-        return getInt(BULK_MAX_CONCURRENT_REQUESTS_NUMBER);
+    public int batchSize() {
+        return getInt(OpenSearchSinkConnectorConfig.BATCH_SIZE_CONFIG);
+    }
+
+    public long lingerMs() {
+        return getLong(OpenSearchSinkConnectorConfig.LINGER_MS_CONFIG);
+    }
+
+    public int maxInFlightRequests() {
+        return getInt(OpenSearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG);
     }
 
     public long retryBackoffMs() {

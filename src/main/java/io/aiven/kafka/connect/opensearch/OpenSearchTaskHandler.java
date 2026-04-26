@@ -91,22 +91,10 @@ public class OpenSearchTaskHandler {
                 .setHttpClientConfigCallback(new HttpClientConfigCallback(this.config))
                 .build();
         this.client = new OpenSearchClient(transport);
-        this.bulkIngester = BulkIngester.of(b -> {
-            final var c = b.client(client)
-                    .listener(new ConnectorBulkListener(config, errantRecordReporter))
-                    .backoffPolicy(BackoffPolicy.exponentialBackoff(config.retryBackoffMs(), config.maxRetry()));
-            if (config.maxSize() != null) {
-                c.maxSize(config.maxSize());
-            }
-            if (config.maxOperations() != null) {
-                c.maxOperations(config.maxOperations());
-            }
-            if (config.maxConcurrentRequests() != null) {
-                c.maxConcurrentRequests(config.maxConcurrentRequests());
-            }
-            return c;
-
-        });
+        this.bulkIngester = BulkIngester.of(b -> b.client(client)
+                .backoffPolicy(BackoffPolicy.exponentialBackoff(config.retryBackoffMs(), config.maxRetry()))
+                .maxOperations(this.config.maxBufferedRecords())
+                .listener(new ConnectorBulkListener(config, errantRecordReporter)));
         this.bulkOperationBuilder = new BulkOperationBuilder(config);
     }
 
