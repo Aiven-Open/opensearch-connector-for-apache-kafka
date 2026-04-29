@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.errors.RetriableException;
@@ -31,7 +32,6 @@ import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.opensearch._helpers.bulk.BulkIngester;
 import org.opensearch.client.opensearch._types.OpenSearchException;
 import org.opensearch.client.opensearch._types.WaitForActiveShards;
 import org.opensearch.client.opensearch._types.mapping.DynamicMapping;
@@ -39,12 +39,11 @@ import org.opensearch.client.opensearch.indices.CreateDataStreamRequest;
 import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.opensearch.indices.ExistsIndexTemplateRequest;
 import org.opensearch.client.opensearch.indices.PutIndexTemplateRequest;
-import org.opensearch.client.transport.BackoffPolicy;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
 
+import io.aiven.kafka.connect.opensearch.bulk.BulkProcessor;
 import io.aiven.kafka.connect.opensearch.request.BulkOperationBuilder;
-import io.aiven.kafka.connect.opensearch.request.ConnectorBulkListener;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +64,7 @@ public class OpenSearchTaskHandler {
 
     private final BulkOperationBuilder bulkOperationBuilder;
 
-    private final BulkIngester<SinkRecord> bulkIngester;
+    private final BulkProcessor bulkProcessor;
 
     private final static class BoundedHashMap extends LinkedHashMap<String, Boolean> {
 
@@ -91,10 +90,8 @@ public class OpenSearchTaskHandler {
                 .setHttpClientConfigCallback(new HttpClientConfigCallback(this.config))
                 .build();
         this.client = new OpenSearchClient(transport);
-        this.bulkIngester = BulkIngester.of(b -> b.client(client)
-                .backoffPolicy(BackoffPolicy.exponentialBackoff(config.retryBackoffMs(), config.maxRetry()))
-                .maxOperations(this.config.maxBufferedRecords())
-                .listener(new ConnectorBulkListener(config, errantRecordReporter)));
+        this.bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, errantRecordReporter);
+        this.bulkProcessor.start();
         this.bulkOperationBuilder = new BulkOperationBuilder(config);
     }
 
@@ -105,7 +102,7 @@ public class OpenSearchTaskHandler {
                 ensureIndexOrDataStreamExists(config.topicToIndexNameConverter().apply(record.topic()), record);
                 final var op = bulkOperationBuilder.buildFor(record);
                 if (op != null) {
-                    bulkIngester.add(op, record);
+                    bulkProcessor.add(op, record, config.flushTimeoutMs());
                 }
             } catch (final DataException e) {
                 if (config.dropInvalidMessage()) {
@@ -219,17 +216,17 @@ public class OpenSearchTaskHandler {
     }
 
     public void flush() {
-        bulkIngester.flush();
+        bulkProcessor.flush(config.flushTimeoutMs());
     }
 
     public void close() throws IOException {
-        if (bulkIngester != null) {
-            try {
-                bulkIngester.close();
-            } catch (Exception e) {
-                LOGGER.warn("Couldn't close bulk ingester", e);
-            }
+        try {
+            bulkProcessor.flush(config.flushTimeoutMs());
+        } catch (final Exception e) {
+            LOGGER.warn("Failed to flush during stop", e);
         }
+        bulkProcessor.stop();
+        bulkProcessor.awaitStop(config.flushTimeoutMs());
         if (transport != null) {
             transport.close();
         }
