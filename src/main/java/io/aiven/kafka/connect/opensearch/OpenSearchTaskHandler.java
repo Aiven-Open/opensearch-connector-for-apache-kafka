@@ -40,10 +40,10 @@ import org.opensearch.client.opensearch.indices.CreateIndexRequest;
 import org.opensearch.client.opensearch.indices.ExistsIndexTemplateRequest;
 import org.opensearch.client.opensearch.indices.PutIndexTemplateRequest;
 import org.opensearch.client.transport.OpenSearchTransport;
-import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
 
 import io.aiven.kafka.connect.opensearch.bulk.BulkProcessor;
 import io.aiven.kafka.connect.opensearch.request.BulkOperationBuilder;
+import io.aiven.kafka.connect.opensearch.transport.TransportProvider;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,9 +86,7 @@ public class OpenSearchTaskHandler {
     public OpenSearchTaskHandler(final OpenSearchSinkConnectorConfig config,
             final ErrantRecordReporter errantRecordReporter) {
         this.config = config;
-        this.transport = ApacheHttpClient5TransportBuilder.builder(this.config.httpHosts())
-                .setHttpClientConfigCallback(new HttpClientConfigCallback(this.config))
-                .build();
+        this.transport = TransportProvider.createTransport(config);
         this.client = new OpenSearchClient(transport);
         this.bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, errantRecordReporter);
         this.bulkProcessor.start();

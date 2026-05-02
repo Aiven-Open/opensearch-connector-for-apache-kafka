@@ -17,6 +17,7 @@ package io.aiven.kafka.connect.opensearch.basicauth;
 
 import org.apache.kafka.common.config.ConfigDef;
 
+import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
 
 public class OpenSearchBasicAuthConfigDefContributor implements ConfigDefContributor {
@@ -33,8 +34,15 @@ public class OpenSearchBasicAuthConfigDefContributor implements ConfigDefContrib
     @Override
     public void addConfig(ConfigDef config) {
         config.define(CONNECTION_USERNAME_CONFIG, ConfigDef.Type.STRING, null, ConfigDef.Importance.MEDIUM,
-                CONNECTION_USERNAME_DOC, "Authentication", 0, ConfigDef.Width.SHORT, "Connection Username")
+                CONNECTION_USERNAME_DOC, "Basic Authentication", 0, ConfigDef.Width.SHORT, "Connection Username")
                 .define(CONNECTION_PASSWORD_CONFIG, ConfigDef.Type.PASSWORD, null, ConfigDef.Importance.MEDIUM,
-                        CONNECTION_PASSWORD_DOC, "Authentication", 1, ConfigDef.Width.SHORT, "Connection Password");
+                        CONNECTION_PASSWORD_DOC, "Basic Authentication", 1, ConfigDef.Width.SHORT,
+                        "Connection Password");
     }
+
+    public static boolean configured(final OpenSearchSinkConnectorConfig config) {
+        return config.getString(CONNECTION_USERNAME_CONFIG) != null
+                && config.getPassword(CONNECTION_PASSWORD_CONFIG) != null;
+    }
+
 }

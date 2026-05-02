@@ -42,14 +42,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.ConfigDef.Importance;
-import org.apache.kafka.common.config.ConfigDef.Type;
-import org.apache.kafka.common.config.ConfigDef.Width;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.SslConfigs;
 
-import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
+import io.aiven.kafka.connect.opensearch.basicauth.OpenSearchBasicAuthConfigDefContributor;
+import io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefContributor;
 
 import com.fasterxml.jackson.core.JsonPointer;
 import org.junit.jupiter.api.BeforeEach;
@@ -116,16 +113,6 @@ public class OpenSearchSinkConnectorConfigTest {
     }
 
     @Test
-    public void testAddConfigDefs() {
-        props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
-        props.put("custom.property.1", "10");
-        props.put("custom.property.2", "http://localhost:9000");
-        final OpenSearchSinkConnectorConfig config = new OpenSearchSinkConnectorConfig(props);
-        assertEquals(config.getInt("custom.property.1"), 10);
-        assertEquals(config.getString("custom.property.2"), "http://localhost:9000");
-    }
-
-    @Test
     void testWrongKeyIgnoreIdStrategyConfigSettingsForIndexWriteMethodUspert() {
         props.put(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
         props.put(OpenSearchSinkConnectorConfig.INDEX_WRITE_METHOD,
@@ -133,17 +120,6 @@ public class OpenSearchSinkConnectorConfigTest {
         props.put(OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.name());
 
         assertThrows(ConfigException.class, () -> new OpenSearchSinkConnectorConfig(props));
-    }
-
-    public static class CustomConfigDefContributor implements ConfigDefContributor {
-        @Override
-        public void addConfig(final ConfigDef config) {
-            config.define("custom.property.1", Type.INT, null, Importance.MEDIUM,
-                    "Custom string property 1 description", "custom", 0, Width.SHORT, "Custom string property 1")
-                    .define("custom.property.2", Type.STRING, null, Importance.MEDIUM,
-                            "Custom string property 2 description", "custom", 1, Width.SHORT,
-                            "Custom string property 2");
-        }
     }
 
     @Test
@@ -366,4 +342,97 @@ public class OpenSearchSinkConnectorConfigTest {
                 e.getMessage());
     }
 
+    @Test
+    void testBothBasicAuthSettingsAndAwsCredsSet() {
+        final var withBasicAuthAndAwsBasicAuth = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchBasicAuthConfigDefContributor.CONNECTION_USERNAME_CONFIG, "a",
+                        OpenSearchBasicAuthConfigDefContributor.CONNECTION_PASSWORD_CONFIG, "b",
+                        OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG, "c",
+                        OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG, "d")));
+        assertEquals("More than one authenticated configurator is applied for the client. Only one is allowed",
+                withBasicAuthAndAwsBasicAuth.getMessage());
+
+        final var withBasicAuthAndAwsStsAuth = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchBasicAuthConfigDefContributor.CONNECTION_USERNAME_CONFIG, "a",
+                        OpenSearchBasicAuthConfigDefContributor.CONNECTION_PASSWORD_CONFIG, "b",
+                        OpenSearchSigV4ConfigDefContributor.AWS_STS_ROLE_ARN_CONFIG, "e",
+                        OpenSearchSigV4ConfigDefContributor.AWS_STS_ROLE_SESSION_NAME_CONFIG, "f")));
+        assertEquals("More than one authenticated configurator is applied for the client. Only one is allowed",
+                withBasicAuthAndAwsStsAuth.getMessage());
+    }
+
+    @Test
+    void testWrongSig4AuthSettings() {
+        final var allCredsException = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG, "aaaa",
+                        OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG, "bbbb",
+                        OpenSearchSigV4ConfigDefContributor.AWS_STS_ROLE_ARN_CONFIG, "cccc",
+                        OpenSearchSigV4ConfigDefContributor.AWS_STS_ROLE_SESSION_NAME_CONFIG, "dddd")));
+        assertEquals("Found both AWS access and STS role credentials. Only one can be selected",
+                allCredsException.getMessage());
+
+        final var noRegionException = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG, "aaaa",
+                        OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG, "bbbb",
+                        OpenSearchSigV4ConfigDefContributor.AWS_SERVICE_SIGNING_NAME_CONFIG, "dddd")));
+        assertEquals("Invalid value null for configuration aws.region", noRegionException.getMessage());
+
+        final var noServiceException = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG, "aaaa",
+                        OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG, "bbbb",
+                        OpenSearchSigV4ConfigDefContributor.AWS_REGION_CONFIG, "dddd")));
+        assertEquals("Invalid value null for configuration aws.service.signing.name", noServiceException.getMessage());
+
+    }
+
+    @Test
+    void testWrongSig4AuthSettingsAndToManyHost() {
+        final var hostsCredsException = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200,http://l:9200,http://l:9200",
+                        OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG, "a",
+                        OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG, "b",
+                        OpenSearchSigV4ConfigDefContributor.AWS_SERVICE_SIGNING_NAME_CONFIG, "c",
+                        OpenSearchSigV4ConfigDefContributor.AWS_REGION_CONFIG, "d")));
+        assertEquals(
+                "Invalid value http://l:9200,http://l:9200,http://l:9200 "
+                        + "for configuration aws.service.signing.name: "
+                        + "Only one OpenSearch endpoint, without scheme should be provided",
+                hostsCredsException.getMessage());
+    }
+
+    @Test
+    void testWrongSig4AuthSettingsAndHost() {
+        final var hostsCredsException = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG, "a",
+                        OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG, "b",
+                        OpenSearchSigV4ConfigDefContributor.AWS_SERVICE_SIGNING_NAME_CONFIG, "c",
+                        OpenSearchSigV4ConfigDefContributor.AWS_REGION_CONFIG, "d")));
+        assertEquals(
+                "Invalid value http://l:9200 " + "for configuration aws.service.signing.name: "
+                        + "Only one OpenSearch endpoint, without scheme should be provided",
+                hostsCredsException.getMessage());
+    }
+
+    @Test
+    void testValidSig4AuthSettings() {
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                "a.b.region.com", OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG, "a",
+                OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG, "b",
+                OpenSearchSigV4ConfigDefContributor.AWS_SERVICE_SIGNING_NAME_CONFIG, "some_service",
+                OpenSearchSigV4ConfigDefContributor.AWS_REGION_CONFIG, "region"));
+
+        assertEquals("a.b.region.com", config.connectionUrls().getFirst());
+        assertEquals("a", config.getString(OpenSearchSigV4ConfigDefContributor.AWS_ACCESS_KEY_ID_CONFIG));
+        assertEquals("b", config.getPassword(OpenSearchSigV4ConfigDefContributor.AWS_SECRET_ACCESS_KEY_CONFIG).value());
+        assertEquals("region", config.getString(OpenSearchSigV4ConfigDefContributor.AWS_REGION_CONFIG));
+        assertEquals("some_service",
+                config.getString(OpenSearchSigV4ConfigDefContributor.AWS_SERVICE_SIGNING_NAME_CONFIG));
+    }
 }

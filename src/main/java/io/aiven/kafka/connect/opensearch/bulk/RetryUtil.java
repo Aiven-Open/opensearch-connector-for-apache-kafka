@@ -23,6 +23,8 @@ import org.apache.kafka.connect.errors.ConnectException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+@Deprecated
 public class RetryUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(RetryUtil.class);
 
