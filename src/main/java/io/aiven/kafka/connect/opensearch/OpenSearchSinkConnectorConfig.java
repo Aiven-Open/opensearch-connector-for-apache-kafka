@@ -31,12 +31,10 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -49,12 +47,15 @@ import org.apache.kafka.common.config.ConfigDef.Width;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.SslConfigs;
 
-import io.aiven.kafka.connect.opensearch.spi.ConfigDefContributor;
+import io.aiven.kafka.connect.opensearch.basicauth.OpenSearchBasicAuthConfigDefContributor;
+import io.aiven.kafka.connect.opensearch.sig4.OpenSearchSigV4ConfigDefContributor;
 
 import com.fasterxml.jackson.core.JsonPointer;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.core5.http.HttpHost;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 public class OpenSearchSinkConnectorConfig extends AbstractConfig {
 
@@ -68,7 +69,7 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
 
     public static final String CONNECTION_URL_CONFIG = "connection.url";
     private static final String CONNECTION_URL_DOC = "List of OpenSearch HTTP connection URLs e.g. ``http://eshost1:9200,"
-            + "http://eshost2:9200``.";
+            + "http://eshost2:9200`` or AWS OpenSearch endpoint";
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     private static final String BATCH_SIZE_DOC = "The number of records to process as a batch when writing to OpenSearch.";
     public static final String MAX_IN_FLIGHT_REQUESTS_CONFIG = "max.in.flight.requests";
@@ -219,57 +220,43 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
 
     private JsonPointer routingRecordValueJsonPointer;
 
+    static final class ConnectionUrlValidator implements ConfigDef.Validator {
+        @Override
+        public void ensureValid(final String name, final Object value) {
+            // If value is null default validator for required value is triggered.
+            if (value != null) {
+                @SuppressWarnings("unchecked")
+                final var urls = (List<String>) value;
+                for (final var url : urls) {
+                    try {
+                        URI.create(url).toURL();
+                    } catch (final MalformedURLException e) {
+                        throw new ConfigException(CONNECTION_URL_CONFIG, url);
+                    }
+                }
+            }
+        }
+
+        @Override
+        public String toString() {
+            return String.join(", ", "http://eshost1:9200", "endpount.com");
+        }
+    }
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
         addSslConfig(configDef);
+        addAuthenticationConfigs(configDef);
         addConversionConfigs(configDef);
         addDataStreamConfig(configDef);
-        addSpiConfigs(configDef);
         return configDef;
-    }
-
-    /**
-     * Load configuration definitions from the extension points (if available) using {@link ServiceLoader} mechanism to
-     * discover them.
-     *
-     * @param configDef
-     *            configuration definitions to contribute to
-     */
-    private static void addSpiConfigs(final ConfigDef configDef) {
-        final ServiceLoader<ConfigDefContributor> loaders = ServiceLoader.load(ConfigDefContributor.class,
-                OpenSearchSinkConnectorConfig.class.getClassLoader());
-
-        final Iterator<ConfigDefContributor> iterator = loaders.iterator();
-        while (iterator.hasNext()) {
-            iterator.next().addConfig(configDef);
-        }
     }
 
     private static void addConnectorConfigs(final ConfigDef configDef) {
         int order = 0;
-        configDef.define(CONNECTION_URL_CONFIG, Type.LIST, ConfigDef.NO_DEFAULT_VALUE, new ConfigDef.Validator() {
-            @Override
-            public void ensureValid(final String name, final Object value) {
-                // If value is null default validator for required value is triggered.
-                if (value != null) {
-                    @SuppressWarnings("unchecked")
-                    final var urls = (List<String>) value;
-                    for (final var url : urls) {
-                        try {
-                            URI.create(url).toURL();
-                        } catch (final MalformedURLException e) {
-                            throw new ConfigException(CONNECTION_URL_CONFIG, url);
-                        }
-                    }
-                }
-            }
-
-            @Override
-            public String toString() {
-                return String.join(", ", "http://eshost1:9200", "http://eshost2:9200");
-            }
-        }, Importance.HIGH, CONNECTION_URL_DOC, CONNECTOR_GROUP_NAME, ++order, Width.LONG, "Connection URLs")
+        configDef
+                .define(CONNECTION_URL_CONFIG, Type.LIST, ConfigDef.NO_DEFAULT_VALUE, Importance.HIGH,
+                        CONNECTION_URL_DOC, CONNECTOR_GROUP_NAME, ++order, Width.LONG, "Connection URLs")
                 .define(BATCH_SIZE_CONFIG, Type.INT, 2000, Importance.MEDIUM, BATCH_SIZE_DOC, CONNECTOR_GROUP_NAME,
                         ++order, Width.SHORT, "Batch Size")
                 .define(MAX_IN_FLIGHT_REQUESTS_CONFIG, Type.INT, 5, Importance.MEDIUM, MAX_IN_FLIGHT_REQUESTS_DOC,
@@ -322,6 +309,11 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                         SSL_CONFIG_TRUST_ALL_CERTIFICATES_DOC);
 
         configDef.embed(SSL_CONFIG_PREFIX, SSL_SETTINGS_GROUP_NAME, configDef.configKeys().size() + 1, sslConfigDef);
+    }
+
+    public static void addAuthenticationConfigs(final ConfigDef configDef) {
+        new OpenSearchBasicAuthConfigDefContributor().addConfig(configDef);
+        new OpenSearchSigV4ConfigDefContributor().addConfig(configDef);
     }
 
     private static void addConversionConfigs(final ConfigDef configDef) {
@@ -430,6 +422,15 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                         BehaviorOnNullValues.DELETE.toString()));
             }
         }
+        if (OpenSearchBasicAuthConfigDefContributor.configured(this)
+                && OpenSearchSigV4ConfigDefContributor.configured(this)) {
+            throw new ConfigException(
+                    "More than one authenticated configurator is applied for the client. Only one is allowed");
+        } else if (OpenSearchSigV4ConfigDefContributor.configured(this)) {
+            OpenSearchSigV4ConfigDefContributor.validateSettings(this);
+        } else {
+            new ConnectionUrlValidator().ensureValid(CONNECTION_URL_CONFIG, connectionUrls());
+        }
     }
 
     public HttpHost[] httpHosts() {
@@ -447,7 +448,7 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
         }
     }
 
-    private List<String> connectionUrls() {
+    public List<String> connectionUrls() {
         return getList(CONNECTION_URL_CONFIG).stream()
                 .map(u -> u.endsWith("/") ? u.substring(0, u.length() - 1) : u)
                 .collect(Collectors.toList());
@@ -539,6 +540,23 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
 
     public DocumentIDStrategy documentIdStrategy(final String topic) {
         return (ignoreKey() || topicIgnoreKey().contains(topic)) ? documentIdStrategy() : DocumentIDStrategy.RECORD_KEY;
+    }
+
+    public Optional<UsernamePasswordCredentials> usernamePasswordCredentials() {
+        if (OpenSearchBasicAuthConfigDefContributor.configured(this)) {
+            return Optional.of(new UsernamePasswordCredentials(
+                    getString(OpenSearchBasicAuthConfigDefContributor.CONNECTION_USERNAME_CONFIG),
+                    getPassword(OpenSearchBasicAuthConfigDefContributor.CONNECTION_PASSWORD_CONFIG).value()
+                            .toCharArray()));
+        }
+        return Optional.empty();
+    }
+
+    public Optional<AwsCredentialsProvider> awsCredentialsProvider() {
+        if (OpenSearchSigV4ConfigDefContributor.configured(this)) {
+            return Optional.of(OpenSearchSigV4ConfigDefContributor.createAwsCredentialsProvider(this));
+        }
+        return Optional.empty();
     }
 
     public Function<String, String> topicToIndexNameConverter() {
@@ -676,5 +694,13 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
         System.out.println("=========================================");
         System.out.println();
         System.out.println(CONFIG.toEnrichedRst());
+    }
+
+    public int maxConnPerRoute() {
+        return Math.max(10, maxInFlightRequests() * 2);
+    }
+
+    public int maxConnTotal() {
+        return maxConnPerRoute() * httpHosts().length;
     }
 }
