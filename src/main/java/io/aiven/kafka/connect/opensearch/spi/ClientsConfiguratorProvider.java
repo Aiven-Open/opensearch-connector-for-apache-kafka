@@ -21,6 +21,7 @@ import java.util.ServiceLoader;
 
 import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 
+@Deprecated
 public final class ClientsConfiguratorProvider {
     private ClientsConfiguratorProvider() {
     }

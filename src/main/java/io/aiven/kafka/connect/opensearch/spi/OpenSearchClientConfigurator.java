@@ -22,6 +22,7 @@ import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 /**
  * The extension points to allow OpensearchClient customization based on the the provided configuration.
  */
+@Deprecated
 public interface OpenSearchClientConfigurator {
     /**
      * Apply the configurator to the {@link HttpAsyncClientBuilder} instance according to the provided configuration.

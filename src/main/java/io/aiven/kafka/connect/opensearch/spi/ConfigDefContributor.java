@@ -23,6 +23,7 @@ import org.apache.kafka.common.config.ConfigDef;
  * Allow to enrich the connector's configuration with custom configuration definitions using {@link ServiceLoader}
  * mechanism to discover them.
  */
+@Deprecated
 public interface ConfigDefContributor {
     /**
      * Contribute custom configuration definitions to the connector's configuration.

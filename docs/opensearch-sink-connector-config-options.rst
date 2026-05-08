@@ -6,10 +6,9 @@ Connector
 ^^^^^^^^^
 
 ``connection.url``
-  List of OpenSearch HTTP connection URLs e.g. ``http://eshost1:9200,http://eshost2:9200``.
+  List of OpenSearch HTTP connection URLs e.g. ``http://eshost1:9200,http://eshost2:9200`` or AWS OpenSearch endpoint
 
   * Type: list
-  * Valid Values: http://eshost1:9200, http://eshost2:9200
   * Importance: high
 
 ``batch.size``
@@ -163,6 +162,92 @@ TLS Configuration for HTTPS
   * Type: boolean
   * Default: false
   * Importance: low
+
+Basic Authentication
+^^^^^^^^^^^^^^^^^^^^
+
+``connection.username``
+  The username used to authenticate with OpenSearch. The default is the null, and authentication will only be performed if  both the username and password are non-null.
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``connection.password``
+  The password used to authenticate with OpenSearch. The default is the null, and authentication will only be performed if  both the username and password are non-null.
+
+  * Type: password
+  * Default: null
+  * Importance: medium
+
+AWS Access
+^^^^^^^^^^
+
+``aws.access_key_id``
+  AWS Access key id
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``aws.secret_access_key``
+  AWS secret access key
+
+  * Type: password
+  * Default: null
+  * Importance: medium
+
+AWS STS Access
+^^^^^^^^^^^^^^
+
+``aws.sts.role.arn``
+  AWS STS Role
+
+  * Type: string
+  * Default: null
+  * Valid Values: non-empty string
+  * Importance: medium
+
+``aws.sts.role.session.name``
+  AWS STS Session name
+
+  * Type: string
+  * Default: null
+  * Valid Values: non-empty string
+  * Importance: medium
+
+``aws.sts.role.session.duration``
+  AWS STS Session duration
+
+  * Type: int
+  * Default: 3600
+  * Valid Values: [900,...,43200]
+  * Importance: medium
+
+``aws.sts.role.external.id``
+  AWS STS External Id
+
+  * Type: string
+  * Default: null
+  * Valid Values: non-empty string
+  * Importance: medium
+
+AWS Sig4 Authentication
+^^^^^^^^^^^^^^^^^^^^^^^
+
+``aws.region``
+  AWS Region, e.g. us-east-1. This field is required to enable AWS SigV4 request signing
+
+  * Type: string
+  * Default: null
+  * Importance: medium
+
+``aws.service.signing.name``
+  AWS Service Signing Name, eg es. This field is required to enable AWS SigV4 request signing
+
+  * Type: string
+  * Default: null
+  * Importance: medium
 
 Data Conversion
 ^^^^^^^^^^^^^^^
@@ -321,47 +406,6 @@ Data Stream
   If data.streams.existing.index.template.name is provided, and if that index template does not exist, a template will be created with that name, else no template is created.
 
   * Type: string
-  * Default: null
-  * Importance: medium
-
-Authentication
-^^^^^^^^^^^^^^
-
-``connection.username``
-  The username used to authenticate with OpenSearch. The default is the null, and authentication will only be performed if  both the username and password are non-null.
-
-  * Type: string
-  * Default: null
-  * Importance: medium
-
-``connection.password``
-  The password used to authenticate with OpenSearch. The default is the null, and authentication will only be performed if  both the username and password are non-null.
-
-  * Type: password
-  * Default: null
-  * Importance: medium
-
-AWS Authentication SigV4
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-``aws.access_key_id``
-  AWS Access key id, this field is required to enable AWS SigV4 request signing
-
-  * Type: string
-  * Default: null
-  * Importance: medium
-
-``aws.region``
-  AWS Region, eg us-east-1. This field is required to enable AWS SigV4 request signing
-
-  * Type: string
-  * Default: null
-  * Importance: medium
-
-``aws.secret_access_key``
-  AWS secret access key, this field is required to enable AWS SigV4 request signing
-
-  * Type: password
   * Default: null
   * Importance: medium
 

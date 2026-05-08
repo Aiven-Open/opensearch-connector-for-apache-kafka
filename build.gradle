@@ -158,6 +158,8 @@ ext {
 
     testcontainersVersion = "2.0.5"
     openSearchTestcontainersVersion = "4.1.0"
+
+    awsVersion = "2.43.2"
 }
 
 sourceSets {
@@ -194,6 +196,10 @@ dependencies {
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
     implementation "org.opensearch.client:opensearch-java:$openSearchJavaClientVersion"
     implementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
+
+    implementation "software.amazon.awssdk:http-auth-aws:$awsVersion"
+    implementation "software.amazon.awssdk:sts:$awsVersion"
+    implementation "software.amazon.awssdk:apache-client:$awsVersion"
 
     testImplementation platform("org.junit:junit-bom:${junitVersion}")
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"

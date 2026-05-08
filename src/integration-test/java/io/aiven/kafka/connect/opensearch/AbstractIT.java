@@ -31,8 +31,9 @@ import org.apache.kafka.test.TestUtils;
 
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.HealthStatus;
-import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
 import org.opensearch.testcontainers.OpenSearchContainer;
+
+import io.aiven.kafka.connect.opensearch.transport.TransportProvider;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -65,9 +66,7 @@ public abstract class AbstractIT {
         if (openSearchContainer.isSecurityEnabled())
             props.put("connection.trust.all.certificates", "true");
         final var config = new OpenSearchSinkConnectorConfig(props);
-        opensearchClient = new OpenSearchClient(ApacheHttpClient5TransportBuilder.builder(config.httpHosts())
-                .setHttpClientConfigCallback(new HttpClientConfigCallback(config))
-                .build());
+        opensearchClient = new OpenSearchClient(TransportProvider.createTransport(config));
         TestUtils.waitForCondition(() -> {
             try {
                 return Set.of(HealthStatus.Green, HealthStatus.Yellow)

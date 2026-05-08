@@ -52,6 +52,7 @@ import org.apache.hc.core5.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Deprecated
 public class BulkProcessor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BulkProcessor.class);
