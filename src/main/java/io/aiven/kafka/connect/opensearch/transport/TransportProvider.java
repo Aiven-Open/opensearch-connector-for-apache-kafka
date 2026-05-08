@@ -31,11 +31,15 @@ import java.time.temporal.ChronoUnit;
 
 import org.apache.kafka.connect.errors.ConnectException;
 
+import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.aws.AwsSdk2Transport;
 import org.opensearch.client.transport.aws.AwsSdk2TransportOptions;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 
 import org.apache.hc.client5.http.ssl.TrustAllStrategy;
@@ -67,6 +71,17 @@ public final class TransportProvider {
             final AwsCredentialsProvider credentials, final OpenSearchSinkConnectorConfig config) {
         final var region = config.getString(AWS_REGION_CONFIG);
         final var serviceSigningName = config.getString(AWS_SERVICE_SIGNING_NAME_CONFIG);
+        // Build the JSON mapper explicitly with the modules opensearch-java actually
+        // needs. The default JacksonJsonpMapper constructor calls
+        // ObjectMapper#findAndRegisterModules(), which uses ServiceLoader to scan every
+        // META-INF/services/com.fasterxml.jackson.databind.Module entry visible on the
+        // classloader hierarchy. Inside Kafka Connect that scan crosses the plugin
+        // classloader boundary and resolves SPI registrations to classes from a
+        // different Jackson version, throwing
+        // ServiceConfigurationError: Jdk8Module not a subtype.
+        final var mapper = new ObjectMapper();
+        mapper.registerModule(new Jdk8Module());
+        mapper.registerModule(new JavaTimeModule());
         return new AwsSdk2Transport(
                 ApacheHttpClient.builder()
                         .connectionTimeout(Duration.of(config.connectionTimeoutMs(), ChronoUnit.MILLIS))
@@ -78,7 +93,10 @@ public final class TransportProvider {
                                         : SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
                         .build(),
                 config.connectionUrls().getFirst(), serviceSigningName, Region.of(region),
-                AwsSdk2TransportOptions.builder().setCredentials(credentials).build());
+                AwsSdk2TransportOptions.builder()
+                        .setCredentials(credentials)
+                        .setMapper(new JacksonJsonpMapper(mapper))
+                        .build());
     }
 
     private static OpenSearchTransport buildApacheHttpClientTransport(final SSLContext sslContext,
