@@ -201,13 +201,6 @@ dependencies {
     implementation "software.amazon.awssdk:sts:$awsVersion"
     implementation "software.amazon.awssdk:apache-client:$awsVersion"
 
-    // Jackson datatype modules registered explicitly in TransportProvider's AWS
-    // path to avoid ObjectMapper#findAndRegisterModules ServiceLoader conflicts
-    // inside Kafka Connect's classloader hierarchy. Versions match the
-    // jackson-databind 2.20.1 that opensearch-java 3.8.0 pulls in transitively.
-    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.20.1"
-    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.20.1"
-
     testImplementation platform("org.junit:junit-bom:${junitVersion}")
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
 
