@@ -31,11 +31,14 @@ import java.time.temporal.ChronoUnit;
 
 import org.apache.kafka.connect.errors.ConnectException;
 
+import org.opensearch.client.json.JsonpMapper;
+import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.aws.AwsSdk2Transport;
 import org.opensearch.client.transport.aws.AwsSdk2TransportOptions;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 
 import org.apache.hc.client5.http.ssl.TrustAllStrategy;
@@ -54,6 +57,10 @@ public final class TransportProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(TransportProvider.class);
 
     private TransportProvider() {
+    }
+
+    private static JsonpMapper createJsonpMapper() {
+        return new JacksonJsonpMapper(new ObjectMapper());
     }
 
     public static OpenSearchTransport createTransport(final OpenSearchSinkConnectorConfig config) {
@@ -78,13 +85,17 @@ public final class TransportProvider {
                                         : SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
                         .build(),
                 config.connectionUrls().getFirst(), serviceSigningName, Region.of(region),
-                AwsSdk2TransportOptions.builder().setCredentials(credentials).build());
+                AwsSdk2TransportOptions.builder()
+                        .setCredentials(credentials)
+                        .setMapper(createJsonpMapper())
+                        .build());
     }
 
     private static OpenSearchTransport buildApacheHttpClientTransport(final SSLContext sslContext,
             final OpenSearchSinkConnectorConfig config) {
         return ApacheHttpClient5TransportBuilder.builder(config.httpHosts())
                 .setHttpClientConfigCallback(new HttpClientConfigCallback(sslContext, config))
+                .setMapper(createJsonpMapper())
                 .build();
     }
 
