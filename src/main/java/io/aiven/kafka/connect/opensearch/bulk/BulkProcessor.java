@@ -398,15 +398,13 @@ public class BulkProcessor {
                     for (var i = 0; i < response.items().size(); i++) {
                         final var item = response.items().get(i);
                         if (item.error() != null) {
-                            if (item.status() == HttpStatus.SC_TOO_MANY_REQUESTS) {
-                                if (responseContainsMalformedDocError(item)) {
-                                    handleMalformedDoc(item, i);
-                                } else if (responseContainsVersionConflict(item)) {
-                                    handleVersionConflict(item, i);
-                                } else {
-                                    throw new RetriableError("One of the item in the bulk response failed. Reason: "
-                                            + item.error().reason());
-                                }
+                            if (responseContainsVersionConflict(item)) {
+                                handleVersionConflict(item, i);
+                            } else if (responseContainsMalformedDocError(item)) {
+                                handleMalformedDoc(item, i);
+                            } else if (item.status() == HttpStatus.SC_TOO_MANY_REQUESTS) {
+                                throw new RetriableError("One of the item in the bulk response failed. Reason: "
+                                        + item.error().reason());
                             } else {
                                 throw new ConnectException("One of the item in the bulk response aborted. Reason: "
                                         + item.error().reason());
