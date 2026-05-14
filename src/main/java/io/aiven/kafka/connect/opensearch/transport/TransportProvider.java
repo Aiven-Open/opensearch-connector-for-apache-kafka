@@ -38,9 +38,9 @@ import org.opensearch.client.transport.aws.AwsSdk2Transport;
 import org.opensearch.client.transport.aws.AwsSdk2TransportOptions;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hc.client5.http.ssl.TrustAllStrategy;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
@@ -85,10 +85,7 @@ public final class TransportProvider {
                                         : SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
                         .build(),
                 config.connectionUrls().getFirst(), serviceSigningName, Region.of(region),
-                AwsSdk2TransportOptions.builder()
-                        .setCredentials(credentials)
-                        .setMapper(createJsonpMapper())
-                        .build());
+                AwsSdk2TransportOptions.builder().setCredentials(credentials).setMapper(createJsonpMapper()).build());
     }
 
     private static OpenSearchTransport buildApacheHttpClientTransport(final SSLContext sslContext,
