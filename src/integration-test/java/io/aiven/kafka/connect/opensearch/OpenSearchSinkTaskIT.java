@@ -65,10 +65,10 @@ public class OpenSearchSinkTaskIT extends AbstractIT {
 
     @AfterEach
     void tearDown() throws Exception {
-        if (opensearchClient.indices().exists(ExistsRequest.builder().index(TOPIC_NAME).build()).value()) {
-            opensearchClient.indices().delete(DeleteIndexRequest.builder().index(TOPIC_NAME).build());
+        if (openSearchClient.indices().exists(ExistsRequest.builder().index(TOPIC_NAME).build()).value()) {
+            openSearchClient.indices().delete(DeleteIndexRequest.builder().index(TOPIC_NAME).build());
             TestUtils.waitForCondition(
-                    () -> !opensearchClient.indices().exists(ExistsRequest.builder().index(TOPIC_NAME).build()).value(),
+                    () -> !openSearchClient.indices().exists(ExistsRequest.builder().index(TOPIC_NAME).build()).value(),
                     TimeUnit.MINUTES.toMillis(1), "Index has not been deleted yet.");
         }
     }
@@ -89,7 +89,7 @@ public class OpenSearchSinkTaskIT extends AbstractIT {
         assertIndexAndMapping();
         waitForRecords(TOPIC_NAME, 1);
 
-        final var searchResults = opensearchClient.search(DEFAULT_SEARCH_REQUEST, Map.class).hits();
+        final var searchResults = openSearchClient.search(DEFAULT_SEARCH_REQUEST, Map.class).hits();
         for (final var hit : searchResults.hits()) {
             assertEquals(Base64.getEncoder().encodeToString(new byte[] { 42 }), hit.source().get("bytes"));
         }
@@ -110,7 +110,7 @@ public class OpenSearchSinkTaskIT extends AbstractIT {
         struct.put("decimal", decimal);
         runTask(getDefaultTaskProperties(false, BehaviorOnNullValues.DEFAULT),
                 List.of(new SinkRecord(TOPIC_NAME, PARTITION_1, Schema.STRING_SCHEMA, "key", structSchema, struct, 0)));
-        final var searchResults = opensearchClient.search(DEFAULT_SEARCH_REQUEST, Map.class).hits();
+        final var searchResults = openSearchClient.search(DEFAULT_SEARCH_REQUEST, Map.class).hits();
         for (final var hit : searchResults.hits()) {
             assertEquals(0.02d, hit.source().get("decimal"));
         }
@@ -132,7 +132,7 @@ public class OpenSearchSinkTaskIT extends AbstractIT {
             opensearchSinkTask.put(
                     List.of(new SinkRecord(TOPIC_NAME, PARTITION_1, Schema.STRING_SCHEMA, "key", schema, record, 0),
                             new SinkRecord(TOPIC_NAME, PARTITION_1, Schema.STRING_SCHEMA, "key", schema, record, 1)));
-            assertTrue(opensearchClient.indices().exists(ExistsRequest.builder().index(TOPIC_NAME).build()).value());
+            assertTrue(openSearchClient.indices().exists(ExistsRequest.builder().index(TOPIC_NAME).build()).value());
             opensearchSinkTask.flush(null);
             waitForRecords(TOPIC_NAME, 2);
             opensearchSinkTask.put(List.of(
@@ -314,12 +314,11 @@ public class OpenSearchSinkTaskIT extends AbstractIT {
     }
 
     void assertIndexAndMapping() throws IOException {
-        assertTrue(opensearchClient.indices().exists(ExistsRequest.builder().index(TOPIC_NAME).build()).value());
-        assertTrue(isNull(opensearchClient.indices()
+        assertTrue(openSearchClient.indices().exists(ExistsRequest.builder().index(TOPIC_NAME).build()).value());
+        assertTrue(isNull(openSearchClient.indices()
                 .getMapping(b -> b.index(List.of(TOPIC_NAME)))
                 .get(TOPIC_NAME)
                 .mappings()
                 .dynamic()));
     }
-
 }

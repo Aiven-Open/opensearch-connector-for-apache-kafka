@@ -56,6 +56,8 @@ public class OpenSearchTaskHandler {
 
     private final Set<String> indexCache = Collections.newSetFromMap(new BoundedHashMap());
 
+    private final Set<String> indexMappingCache = Collections.newSetFromMap(new BoundedHashMap());
+
     private final OpenSearchTransport transport;
 
     private final OpenSearchClient client;
@@ -65,6 +67,8 @@ public class OpenSearchTaskHandler {
     private final BulkOperationBuilder bulkOperationBuilder;
 
     private final BulkProcessor bulkProcessor;
+
+    private final Map<String, String> topicToExistingResourceMappings;
 
     private final static class BoundedHashMap extends LinkedHashMap<String, Boolean> {
 
@@ -91,14 +95,27 @@ public class OpenSearchTaskHandler {
         this.bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, errantRecordReporter);
         this.bulkProcessor.start();
         this.bulkOperationBuilder = new BulkOperationBuilder(config);
+        this.topicToExistingResourceMappings = config.topicToExistingResourceMappings();
     }
 
     public void put(final Collection<SinkRecord> records) {
         LOGGER.trace("Putting {} to OpenSearch", records);
         for (final var record : records) {
             try {
-                ensureIndexOrDataStreamExists(config.topicToIndexNameConverter().apply(record.topic()), record);
-                final var op = bulkOperationBuilder.buildFor(record);
+                final String indexName;
+                if (config.existingResourceEnabled()) {
+                    indexName = topicToExistingResourceMappings.get(record.topic());
+                    if (indexName == null) {
+                        throw new ConnectException("Topic `" + record.topic() + "` is not mapped to resource");
+                    }
+                    if (!indexMappingCache.contains(indexName)) {
+                        indexMapping(record).ifPresent(im -> createMappingFor(indexName, im));
+                    }
+                } else {
+                    indexName = config.topicToIndexNameConverter().apply(record.topic());
+                    ensureIndexOrDataStreamExists(config.topicToIndexNameConverter().apply(record.topic()), record);
+                }
+                final var op = bulkOperationBuilder.buildFor(indexName, record);
                 if (op != null) {
                     bulkProcessor.add(op, record, config.flushTimeoutMs());
                 }
@@ -121,6 +138,14 @@ public class OpenSearchTaskHandler {
                 createDataStreamIndex(indexName, record);
             }
             indexCache.add(indexName);
+        }
+    }
+
+    private void ensureMappingExists(final String indexName, final SinkRecord record) {
+        if (!indexMappingCache.contains(indexName)) {
+            indexMapping(record).ifPresent(m -> {
+                indexMappingCache.add(indexName);
+            });
         }
     }
 
@@ -174,16 +199,17 @@ public class OpenSearchTaskHandler {
         } catch (IOException e) {
             throw new RetriableException("Couldn't create data stream", e);
         }
-        indexMapping(record).ifPresent(im -> {
-            try {
-                client.indices().putMapping(b -> b.index(indexName).source(s -> s.withJson(im)));
-            } catch (final OpenSearchException oe) {
-                throw new ConnectException("Couldn't create mapping for " + indexName, oe);
-            } catch (final IOException e) {
-                throw new RetriableException("Couldn't create mapping for " + indexName, e);
-            }
-        });
+        indexMapping(record).ifPresent(im -> createMappingFor(indexName, im));
+    }
 
+    private void createMappingFor(final String indexName, final ByteArrayInputStream im) {
+        try {
+            client.indices().putMapping(b -> b.index(indexName).source(s -> s.withJson(im)));
+        } catch (final OpenSearchException oe) {
+            throw new ConnectException("Couldn't create mapping for " + indexName, oe);
+        } catch (final IOException e) {
+            throw new RetriableException("Couldn't create mapping for " + indexName, e);
+        }
     }
 
     private void createDataStreamIndexTemplate(final String templateName, final String indexName) {

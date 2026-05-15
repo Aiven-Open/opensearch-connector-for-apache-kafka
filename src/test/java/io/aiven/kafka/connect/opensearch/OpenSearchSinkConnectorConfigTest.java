@@ -41,6 +41,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.SslConfigs;
@@ -435,4 +437,112 @@ public class OpenSearchSinkConnectorConfigTest {
         assertEquals("some_service",
                 config.getString(OpenSearchSigV4ConfigDefContributor.AWS_SERVICE_SIGNING_NAME_CONFIG));
     }
+
+    @Test
+    void testFailsIfBothDataStreamSettingsPresents() {
+        final var e = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                        OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE,
+                        ExistingResourceType.DATA_STREAM.name())));
+        assertEquals("Existing datastream mappings and datastream configurations are mutually exclusive."
+                + " Please configure only one of these options", e.getMessage());
+
+    }
+
+    @Test
+    void testFailsWithoutMappingSettingsPresents() {
+        final var e = assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                        OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name())));
+        assertEquals("Invalid value null for configuration topic.to.existing.resource.mapping", e.getMessage());
+
+    }
+
+    @Test
+    void testFailsForWrongMappingFormat() {
+        final var expectedMessageTemplate = "Invalid value %s for configuration topic.to.existing.resource.mapping: "
+                + "Wrong topic-to-resource mapping format, expected format is: topic_name:resource_name";
+
+        assertEquals(String.format(expectedMessageTemplate, "ddddd"), assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                        OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name(),
+                        OpenSearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "ddddd")))
+                .getMessage());
+        assertEquals(String.format(expectedMessageTemplate, "ccccc:"), assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                        OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name(),
+                        OpenSearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "ccccc:")))
+                .getMessage());
+        assertEquals(String.format(expectedMessageTemplate, ":eeeee"), assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                        OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name(),
+                        OpenSearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, ":eeeee")))
+                .getMessage());
+        assertEquals(String.format(expectedMessageTemplate, ":"), assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                        OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name(),
+                        OpenSearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, ":")))
+                .getMessage());
+        assertEquals(String.format(expectedMessageTemplate, "a;b"), assertThrows(ConfigException.class,
+                () -> new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
+                        "http://l:9200", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                        OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name(),
+                        OpenSearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "a;b")))
+                .getMessage());
+    }
+
+    @Test
+    void testFailsIfMappingToBig() {
+        final var wrongMapping = IntStream.range(0, 11)
+                .mapToObj(i -> "topic_" + i + ":index_" + i)
+                .collect(Collectors.joining(","));
+        assertEquals(
+                "Invalid value [topic_0:index_0, topic_1:index_1, topic_2:index_2, "
+                        + "topic_3:index_3, topic_4:index_4, topic_5:index_5, topic_6:index_6, topic_7:index_7, "
+                        + "topic_8:index_8, topic_9:index_9, topic_10:index_10] "
+                        + "for configuration topic.to.existing.resource.mapping: Too many topic-to-resource mappings, "
+                        + "the maximum allowed is 10",
+                assertThrows(ConfigException.class,
+                        () -> new OpenSearchSinkConnectorConfig(Map.of(
+                                OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                                OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                                OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name(),
+                                OpenSearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, wrongMapping)))
+                        .getMessage());
+    }
+
+    @Test
+    void testFailsForDuplicateTopicsMappings() {
+        assertEquals("Invalid value c:e for configuration topic.to.existing.resource.mapping: "
+                + "Topic `c` is mapped to multiple resources. " + "Each topic should be mapped to exactly one resource",
+                assertThrows(ConfigException.class,
+                        () -> new OpenSearchSinkConnectorConfig(Map.of(
+                                OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                                OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                                OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name(),
+                                OpenSearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "a:b,c:d,c:e")))
+                        .getMessage());
+    }
+
+    @Test
+    void testFailsForDuplicateResourcesMappings() {
+        assertEquals(
+                "Invalid value e:b for configuration topic.to.existing.resource.mapping: "
+                        + "Resource `b` is mapped from multiple topics. "
+                        + "Each resource should be mapped to exactly one topic",
+                assertThrows(ConfigException.class,
+                        () -> new OpenSearchSinkConnectorConfig(Map.of(
+                                OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                                OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                                OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name(),
+                                OpenSearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "a:b,c:d,e:b")))
+                        .getMessage());
+    }
+
 }

@@ -45,7 +45,7 @@ public abstract class AbstractIT {
 
     static OpenSearchContainer<?> openSearchContainer;
 
-    OpenSearchClient opensearchClient;
+    OpenSearchClient openSearchClient;
 
     @BeforeAll
     static void beforeAll() {
@@ -66,11 +66,11 @@ public abstract class AbstractIT {
         if (openSearchContainer.isSecurityEnabled())
             props.put("connection.trust.all.certificates", "true");
         final var config = new OpenSearchSinkConnectorConfig(props);
-        opensearchClient = new OpenSearchClient(TransportProvider.createTransport(config));
+        openSearchClient = new OpenSearchClient(TransportProvider.createTransport(config));
         TestUtils.waitForCondition(() -> {
             try {
                 return Set.of(HealthStatus.Green, HealthStatus.Yellow)
-                        .contains(opensearchClient.cluster().health().status());
+                        .contains(openSearchClient.cluster().health().status());
             } catch (final Exception e) {
                 return false;
             }
@@ -86,8 +86,8 @@ public abstract class AbstractIT {
     protected void waitForRecords(final String indexName, final int expectedRecords) throws InterruptedException {
         TestUtils.waitForCondition(() -> {
             try {
-                opensearchClient.indices().refresh(r -> r.index(indexName));
-                return expectedRecords == opensearchClient.count(c -> c.index(indexName)).count();
+                openSearchClient.indices().refresh(r -> r.index(indexName));
+                return expectedRecords == openSearchClient.count(c -> c.index(indexName)).count();
             } catch (final IOException e) {
                 throw new UncheckedIOException(e);
             }

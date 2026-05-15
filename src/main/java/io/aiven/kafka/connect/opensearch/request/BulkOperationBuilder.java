@@ -53,8 +53,7 @@ public final class BulkOperationBuilder {
         this.config = config;
     }
 
-    public BulkOperation buildFor(final SinkRecord record) {
-        final var indexName = config.topicToIndexNameConverter().apply(record.topic());
+    public BulkOperation buildFor(final String indexName, final SinkRecord record) {
         if (record.value() == null) {
             switch (config.behaviorOnNullValues()) {
                 case IGNORE :

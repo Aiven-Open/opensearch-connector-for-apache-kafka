@@ -66,7 +66,7 @@ public class BulkOperationBuilderTest {
         final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
                 "http://localhost", OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true",
                 OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString()));
-        assertNull(new BulkOperationBuilder(config).buildFor(createSinkRecord(null)));
+        assertNull(new BulkOperationBuilder(config).buildFor("index", createSinkRecord(null)));
     }
 
     @Test
@@ -75,7 +75,7 @@ public class BulkOperationBuilderTest {
                 "http://localhost", OpenSearchSinkConnectorConfig.KEY_IGNORE_CONFIG, "true",
                 OpenSearchSinkConnectorConfig.KEY_IGNORE_ID_STRATEGY_CONFIG, DocumentIDStrategy.NONE.toString()));
         final var bulkOperationBuilder = new BulkOperationBuilder(config);
-        final var indexBulkOperation = bulkOperationBuilder.buildFor(createSinkRecord(VALUE));
+        final var indexBulkOperation = bulkOperationBuilder.buildFor("index", createSinkRecord(VALUE));
         assertNotNull(indexBulkOperation);
         assertTrue(indexBulkOperation.isIndex());
         assertNull(indexBulkOperation.index().id(), indexBulkOperation.index().id());
@@ -94,14 +94,14 @@ public class BulkOperationBuilderTest {
 
         final var bulkOperationBuilder = new BulkOperationBuilder(config);
 
-        final var deleteOperation = bulkOperationBuilder.buildFor(createSinkRecord(null));
+        final var deleteOperation = bulkOperationBuilder.buildFor("index", createSinkRecord(null));
         assertNotNull(deleteOperation);
         assertTrue(deleteOperation.isDelete());
         assertEquals(String.format("%s+%s+%s", TOPIC, PARTITION, OFFSET), deleteOperation.delete().id(),
                 deleteOperation.delete().id());
         assertEquals(VersionType.Internal, deleteOperation.delete().versionType());
 
-        final var indexOperation = bulkOperationBuilder.buildFor(createSinkRecord(VALUE));
+        final var indexOperation = bulkOperationBuilder.buildFor("index", createSinkRecord(VALUE));
         assertNotNull(indexOperation);
         assertTrue(indexOperation.isIndex());
         assertEquals(String.format("%s+%s+%s", TOPIC, PARTITION, OFFSET), indexOperation.index().id(),
@@ -120,14 +120,14 @@ public class BulkOperationBuilderTest {
 
         final var bulkOperationBuilder = new BulkOperationBuilder(config);
 
-        final var deleteOperation = bulkOperationBuilder.buildFor(createSinkRecord(null));
+        final var deleteOperation = bulkOperationBuilder.buildFor("index", createSinkRecord(null));
         assertNotNull(deleteOperation);
         assertTrue(deleteOperation.isDelete());
         assertEquals(KEY, deleteOperation.delete().id());
         assertEquals(VersionType.External, deleteOperation.delete().versionType());
         assertEquals(OFFSET, deleteOperation.delete().version());
 
-        final var indexOperation = bulkOperationBuilder.buildFor(createSinkRecord(VALUE));
+        final var indexOperation = bulkOperationBuilder.buildFor("index", createSinkRecord(VALUE));
         assertNotNull(indexOperation);
         assertTrue(indexOperation.isIndex());
         assertEquals(KEY, indexOperation.index().id());
@@ -142,7 +142,7 @@ public class BulkOperationBuilderTest {
         final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
                 "http://localhost", OpenSearchSinkConnectorConfig.INDEX_WRITE_METHOD, IndexWriteMethod.UPSERT.name()));
 
-        final var upsertOperation = new BulkOperationBuilder(config).buildFor(createSinkRecord("aaa"));
+        final var upsertOperation = new BulkOperationBuilder(config).buildFor("index", createSinkRecord("aaa"));
 
         assertNotNull(upsertOperation);
         assertTrue(upsertOperation.isUpdate());
@@ -175,12 +175,12 @@ public class BulkOperationBuilderTest {
 
         final var bulkOperationBuilder = new BulkOperationBuilder(config);
 
-        final var deleteOperation = bulkOperationBuilder.buildFor(createSinkRecord(null));
+        final var deleteOperation = bulkOperationBuilder.buildFor("index", createSinkRecord(null));
 
         assertNotNull(deleteOperation);
         assertTrue(deleteOperation.isDelete());
 
-        final var bulkOperation = bulkOperationBuilder.buildFor(recordWithCustomTime(
+        final var bulkOperation = bulkOperationBuilder.buildFor("index", recordWithCustomTime(
                 Pair.of(OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD_DEFAULT, "12345")));
         assertNotNull(bulkOperation);
         assertTrue(bulkOperation.isCreate());
@@ -198,8 +198,8 @@ public class BulkOperationBuilderTest {
                 "http://localhost", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
                 OpenSearchSinkConnectorConfig.DATA_STREAM_TIMESTAMP_FIELD, "t"));
 
-        final var dataStreamRequest = new BulkOperationBuilder(config)
-                .buildFor(recordWithCustomTime(Pair.of("t", "12345")));
+        final var dataStreamRequest = new BulkOperationBuilder(config).buildFor("index",
+                recordWithCustomTime(Pair.of("t", "12345")));
         assertNotNull(dataStreamRequest);
         assertTrue(dataStreamRequest.isCreate());
         final var requestPayload = objectMapper.readValue(
@@ -215,7 +215,7 @@ public class BulkOperationBuilderTest {
         final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
                 "http://localhost", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true"));
 
-        final var dataStreamRequest = new BulkOperationBuilder(config).buildFor(createSinkRecord(VALUE));
+        final var dataStreamRequest = new BulkOperationBuilder(config).buildFor("index", createSinkRecord(VALUE));
         assertNotNull(dataStreamRequest);
         assertTrue(dataStreamRequest.isCreate());
         final var requestPayload = objectMapper.readValue(
@@ -230,7 +230,7 @@ public class BulkOperationBuilderTest {
         final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
                 "http://localhost", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
                 OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, BehaviorOnNullValues.IGNORE.name()));
-        assertNull(new BulkOperationBuilder(config).buildFor(createSinkRecord(null)));
+        assertNull(new BulkOperationBuilder(config).buildFor("index", createSinkRecord(null)));
     }
 
     @Test
@@ -238,7 +238,8 @@ public class BulkOperationBuilderTest {
         final var config = new OpenSearchSinkConnectorConfig(Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG,
                 "http://localhost", OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
                 OpenSearchSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG, BehaviorOnNullValues.FAIL.name()));
-        assertThrows(DataException.class, () -> new BulkOperationBuilder(config).buildFor(createSinkRecord(null)));
+        assertThrows(DataException.class,
+                () -> new BulkOperationBuilder(config).buildFor("index", createSinkRecord(null)));
     }
 
     SinkRecord createSinkRecord(final String value) {
