@@ -438,6 +438,84 @@ public class BulkProcessorTest {
     }
 
     @Test
+    public void reportToDlqWhenErrorTypeIndicatesMalformedDocButReasonDoesNot(final @Mock OpenSearchClient client)
+            throws IOException {
+        // Regression test: with the OpenSearch Java Client, ErrorCause.type and ErrorCause.reason are
+        // separate JSON fields. The reason text often does not contain the exception class name, e.g.
+        // a flat_object parse failure surfaces as type="mapper_parsing_exception" with reason
+        // "failed to parse field [foo] of type [flat_object]...". The malformed-doc detection must
+        // inspect error.type, not just error.reason — otherwise the task aborts instead of routing
+        // the record through behavior.on.malformed.documents.
+        final var clientAnswer = new ClientAnswer();
+        when(client.bulk(any(BulkRequest.class))).thenAnswer(clientAnswer);
+
+        final var dlqReporter = mock(ErrantRecordReporter.class);
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()));
+        final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
+        clientAnswer.expect(List.of(newIndexRequest(111)),
+                failedResponseWithType("mapper_parsing_exception",
+                        "failed to parse field [cmd.props.value] of type [flat_object] in document with id 'abc'",
+                        false));
+
+        bulkProcessor.start();
+        bulkProcessor.add(newIndexRequest(111), newSinkRecord(), 1);
+
+        bulkProcessor.flush(1000);
+
+        assertTrue(clientAnswer.expectationsMet());
+        verify(dlqReporter, times(1)).report(any(SinkRecord.class), any(Throwable.class));
+    }
+
+    @Test
+    public void reportToDlqWhenErrorTypeIsDocumentParsingException(final @Mock OpenSearchClient client)
+            throws IOException {
+        final var clientAnswer = new ClientAnswer();
+        when(client.bulk(any(BulkRequest.class))).thenAnswer(clientAnswer);
+
+        final var dlqReporter = mock(ErrantRecordReporter.class);
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                BEHAVIOR_ON_MALFORMED_DOCS_CONFIG, BehaviorOnMalformedDoc.REPORT.toString()));
+        final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
+        clientAnswer.expect(List.of(newIndexRequest(111)),
+                failedResponseWithType("document_parsing_exception", "failed to parse", false));
+
+        bulkProcessor.start();
+        bulkProcessor.add(newIndexRequest(111), newSinkRecord(), 1);
+
+        bulkProcessor.flush(1000);
+
+        assertTrue(clientAnswer.expectationsMet());
+        verify(dlqReporter, times(1)).report(any(SinkRecord.class), any(Throwable.class));
+    }
+
+    @Test
+    public void reportToDlqWhenVersionConflictTypeButReasonDoesNotMention(final @Mock OpenSearchClient client)
+            throws IOException {
+        final var clientAnswer = new ClientAnswer();
+        when(client.bulk(any(BulkRequest.class))).thenAnswer(clientAnswer);
+
+        final var dlqReporter = mock(ErrantRecordReporter.class);
+        final var config = new OpenSearchSinkConnectorConfig(Map.of(CONNECTION_URL_CONFIG, "http://localhost",
+                MAX_BUFFERED_RECORDS_CONFIG, "100", MAX_IN_FLIGHT_REQUESTS_CONFIG, "5", BATCH_SIZE_CONFIG, "2",
+                BEHAVIOR_ON_VERSION_CONFLICT_CONFIG, BehaviorOnVersionConflict.REPORT.toString()));
+        final var bulkProcessor = new BulkProcessor(Time.SYSTEM, client, config, dlqReporter);
+        // status != CONFLICT, reason text without the exception name — only type carries the signal
+        clientAnswer.expect(List.of(newIndexRequest(111)), failedResponseWithType("version_conflict_engine_exception",
+                "[1]: version conflict, current version [3] is higher", false));
+
+        bulkProcessor.start();
+        bulkProcessor.add(newIndexRequest(111), newSinkRecord(), 1);
+
+        bulkProcessor.flush(1000);
+
+        assertTrue(clientAnswer.expectationsMet());
+        verify(dlqReporter, times(1)).report(any(SinkRecord.class), any(Throwable.class));
+    }
+
+    @Test
     public void doNotReportToDlqWhenReportIsNotConfigured(final @Mock OpenSearchClient client) throws IOException {
         final var clientAnswer = new ClientAnswer();
         when(client.bulk(any(BulkRequest.class))).thenAnswer(clientAnswer);
@@ -495,8 +573,13 @@ public class BulkProcessorTest {
     }
 
     private BulkResponse failedResponse(final String failureMessage, final boolean abortable) {
+        return failedResponseWithType("some_type", failureMessage, abortable);
+    }
+
+    private BulkResponse failedResponseWithType(final String errorType, final String failureMessage,
+            final boolean abortable) {
         final var filedResponse = BulkResponseItem
-                .of(b -> b.error(ErrorCause.builder().type("some_type").reason(failureMessage).build())
+                .of(b -> b.error(ErrorCause.builder().type(errorType).reason(failureMessage).build())
                         .operationType(OperationType.Index)
                         .index("some_index")
                         .status(abortable ? HttpStatus.SC_BAD_REQUEST : HttpStatus.SC_TOO_MANY_REQUESTS));
