@@ -58,7 +58,7 @@ public class OpenSearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
         waitForRecords(TOPIC_NAME, 3);
 
         final var messages = new ArrayList<Pair<String, Map<?, ?>>>(3);
-        var searchResults = opensearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME)), Map.class).hits();
+        var searchResults = openSearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME)), Map.class).hits();
         for (final var hit : searchResults.hits()) {
             final var id = String.valueOf(hit.source().get("doc_num"));
             messages.add(Pair.of(id, hit.source()));
@@ -77,7 +77,7 @@ public class OpenSearchSinkUpsertConnectorIT extends AbstractKafkaConnectIT {
 
         final var foundDocs = new HashMap<Integer, Map<?, ?>>();
 
-        searchResults = opensearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME)), Map.class).hits();
+        searchResults = openSearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME)), Map.class).hits();
         for (final var hit : searchResults.hits()) {
             final var id = Integer.valueOf(hit.id());
             foundDocs.put(id, hit.source());

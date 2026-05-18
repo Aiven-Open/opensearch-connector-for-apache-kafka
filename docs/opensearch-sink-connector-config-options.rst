@@ -409,4 +409,22 @@ Data Stream
   * Default: null
   * Importance: medium
 
+Topic to Existing Resource Mappings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``existing.resource.type``
+  Specifies the type of existing OpenSearch resource to write to
+
+  * Type: string
+  * Default: none
+  * Valid Values: [index, data_stream, index_alias, data_stream_alias, none]
+  * Importance: low
+
+``topic.to.existing.resource.mapping``
+  Specifies comma-separated topic_name:resource_name mappings (e.g. topic_1:index_1,topic_2:index_2)
+
+  * Type: list
+  * Default: null
+  * Importance: low
+
 

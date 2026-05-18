@@ -42,7 +42,7 @@ public class OpenSearchSinkRoutingConnectorIT extends AbstractKafkaConnectIT {
 
     @BeforeEach
     void createTemplate() throws Exception {
-        opensearchClient.indices()
+        openSearchClient.indices()
                 .putIndexTemplate(PutIndexTemplateRequest.builder()
                         .name(INDEX_TEMPLATE_NAME)
                         .indexPatterns(List.of(TOPIC_NAME))
@@ -52,7 +52,7 @@ public class OpenSearchSinkRoutingConnectorIT extends AbstractKafkaConnectIT {
 
     @AfterEach
     void deleteTemplate() throws Exception {
-        opensearchClient.indices().deleteIndexTemplate(b -> b.name(INDEX_TEMPLATE_NAME));
+        openSearchClient.indices().deleteIndexTemplate(b -> b.name(INDEX_TEMPLATE_NAME));
     }
 
     @Test
@@ -95,7 +95,7 @@ public class OpenSearchSinkRoutingConnectorIT extends AbstractKafkaConnectIT {
     }
 
     void assertRoutingRecords() throws Exception {
-        var searchResults = opensearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME).routing("0")), Map.class)
+        var searchResults = openSearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME).routing("0")), Map.class)
                 .hits();
         var counter = 0;
         for (final var hit : searchResults.hits()) {
@@ -103,7 +103,7 @@ public class OpenSearchSinkRoutingConnectorIT extends AbstractKafkaConnectIT {
             assertEquals(String.valueOf(counter++), hit.source().get("doc_num").toString());
         }
 
-        searchResults = opensearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME).routing("1")), Map.class)
+        searchResults = openSearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME).routing("1")), Map.class)
                 .hits();
         for (final var hit : searchResults.hits()) {
             assertEquals("1", hit.routing());

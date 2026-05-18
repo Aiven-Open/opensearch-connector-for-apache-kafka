@@ -23,13 +23,17 @@ import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MA
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MAX_IN_FLIGHT_REQUESTS_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.MAX_RETRIES_CONFIG;
 import static io.aiven.kafka.connect.opensearch.OpenSearchSinkConnectorConfig.READ_TIMEOUT_MS_CONFIG;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Map;
 
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
 import org.junit.jupiter.api.Test;
@@ -67,4 +71,19 @@ public class OpenSearchSinkTaskTest {
         final Exception exception = assertThrows(ConnectException.class, () -> task.start(props));
         assertTrue(exception.getCause().getMessage().contains("Errant record reporter must be configured"));
     }
+
+    @Test
+    void failIfNoSuchIndexMappedToTopic(final @Mock SinkTaskContext context) {
+        final var props = Map.of(OpenSearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://l:9200",
+                OpenSearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true",
+                OpenSearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX.name(),
+                OpenSearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "a:b");
+        final var task = new OpenSearchSinkTask();
+        task.initialize(context);
+        task.start(props);
+        final var wringRecord = new SinkRecord("c", 1, Schema.INT32_SCHEMA, 1, Schema.INT32_SCHEMA, 2, 100L);
+        assertEquals("Topic `c` is not mapped to resource",
+                assertThrows(ConnectException.class, () -> task.put(List.of(wringRecord))).getMessage());
+    }
+
 }

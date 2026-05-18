@@ -31,6 +31,8 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -66,6 +68,8 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     public static final String DATA_STREAM_GROUP_NAME = "Data Stream";
 
     public static final String DATA_CONVERSION_GROUP_NAME = "Data Conversion";
+
+    public static final String TOPIC_TO_EXISTING_RESOURCES_SETTINGS_GROUP_NAME = "Topic to Existing Resource Mappings";
 
     public static final String CONNECTION_URL_CONFIG = "connection.url";
     private static final String CONNECTION_URL_DOC = "List of OpenSearch HTTP connection URLs e.g. ``http://eshost1:9200,"
@@ -218,6 +222,14 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     public final static String ROUTING_RECORD_VALUE_PATH = "routing.type.record.value.path";
     public final static String ROUTING_RECORD_VALUE_PATH_DOC = "Specifies the routing value which is determined by the record's value as JSON Pointer";
 
+    public final static String EXISTING_RESOURCE_TYPE = "existing.resource.type";
+
+    public final static String EXISTING_RESOURCE_TYPE_DOC = "Specifies the type of existing OpenSearch resource to write to";
+
+    public final static String TOPIC_TO_EXISTING_RESOURCE_MAPPING = "topic.to.existing.resource.mapping";
+
+    public final static String TOPIC_TO_EXISTING_RESOURCE_MAPPING_DOC = "Specifies comma-separated topic_name:resource_name mappings (e.g. topic_1:index_1,topic_2:index_2)";
+
     private JsonPointer routingRecordValueJsonPointer;
 
     static final class ConnectionUrlValidator implements ConfigDef.Validator {
@@ -242,6 +254,7 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
             return String.join(", ", "http://eshost1:9200", "endpount.com");
         }
     }
+
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
@@ -249,6 +262,7 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
         addAuthenticationConfigs(configDef);
         addConversionConfigs(configDef);
         addDataStreamConfig(configDef);
+        addExistingResourcesConfigs(configDef);
         return configDef;
     }
 
@@ -314,6 +328,19 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     public static void addAuthenticationConfigs(final ConfigDef configDef) {
         new OpenSearchBasicAuthConfigDefContributor().addConfig(configDef);
         new OpenSearchSigV4ConfigDefContributor().addConfig(configDef);
+    }
+
+    public static void addExistingResourcesConfigs(final ConfigDef configDef) {
+        int order = 0;
+        // existing.resource.type
+        configDef
+                .define(EXISTING_RESOURCE_TYPE, Type.STRING,
+                        ExistingResourceType.DEFAULT.toString().toLowerCase(Locale.ROOT),
+                        ExistingResourceType.VALIDATOR, Importance.LOW, EXISTING_RESOURCE_TYPE_DOC,
+                        TOPIC_TO_EXISTING_RESOURCES_SETTINGS_GROUP_NAME, ++order, Width.SHORT, "Existing Resource Type")
+                .define(TOPIC_TO_EXISTING_RESOURCE_MAPPING, Type.LIST, null, Importance.LOW,
+                        TOPIC_TO_EXISTING_RESOURCE_MAPPING_DOC, TOPIC_TO_EXISTING_RESOURCES_SETTINGS_GROUP_NAME,
+                        ++order, Width.LONG, "Topic to resource mappings");
     }
 
     private static void addConversionConfigs(final ConfigDef configDef) {
@@ -397,29 +424,42 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
                 || behaviorOnVersionConflict() == BehaviorOnVersionConflict.REPORT;
     }
 
-    private void validate() {
+    public void validate() {
+        if (existingResourceEnabled()) {
+            if (getBoolean(DATA_STREAM_ENABLED) && existingResourceType() == ExistingResourceType.DATA_STREAM) {
+                throw new ConfigException(
+                        "Existing datastream mappings and datastream configurations are mutually exclusive. "
+                                + "Please configure only one of these options");
+            }
+            if (getList(TOPIC_TO_EXISTING_RESOURCE_MAPPING) == null
+                    || getList(TOPIC_TO_EXISTING_RESOURCE_MAPPING).isEmpty()) {
+                throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, null);
+            }
+            validateTopicToExistingResourceMappings();
+        }
+
         if (dataStreamEnabled() && indexWriteMethod() == IndexWriteMethod.UPSERT) {
             throw new ConfigException("Data streams do not support upsert index write method");
         }
+
         if (!dataStreamEnabled() && dataStreamPrefix().isPresent()) {
             LOGGER.warn("The property data.stream.prefix was set but data streams are not enabled");
         }
         if (indexWriteMethod() == IndexWriteMethod.UPSERT && ignoreKey()
                 && documentIdStrategy() != DocumentIDStrategy.RECORD_KEY) {
             throw new ConfigException(KEY_IGNORE_ID_STRATEGY_CONFIG, documentIdStrategy().toString(),
-                    String.format("%s is not supported for index upsert. Supported is: %s",
-                            documentIdStrategy().toString(), DocumentIDStrategy.RECORD_KEY));
+                    String.format("%s is not supported for index upsert. Supported is: %s", documentIdStrategy(),
+                            DocumentIDStrategy.RECORD_KEY));
         }
         if (routingType() == RoutingType.VALUE) {
             if (routingRecordValuePath() == null) {
                 throw new ConfigException(
                         String.format("The '%s' setting must be configured when using the '%s' routing type",
-                                ROUTING_RECORD_VALUE_PATH, RoutingType.VALUE.toString()));
+                                ROUTING_RECORD_VALUE_PATH, RoutingType.VALUE));
             }
             if (routingRecordValuePath() != null && behaviorOnNullValues() == BehaviorOnNullValues.DELETE) {
                 throw new ConfigException(String.format("The '%s' can't be used together with '%s' set to '%s'",
-                        ROUTING_RECORD_VALUE_PATH, BEHAVIOR_ON_NULL_VALUES_CONFIG,
-                        BehaviorOnNullValues.DELETE.toString()));
+                        ROUTING_RECORD_VALUE_PATH, BEHAVIOR_ON_NULL_VALUES_CONFIG, BehaviorOnNullValues.DELETE));
             }
         }
         if (OpenSearchBasicAuthConfigDefContributor.configured(this)
@@ -430,6 +470,39 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
             OpenSearchSigV4ConfigDefContributor.validateSettings(this);
         } else {
             new ConnectionUrlValidator().ensureValid(CONNECTION_URL_CONFIG, connectionUrls());
+        }
+    }
+
+    private void validateTopicToExistingResourceMappings() {
+        final var topics = new HashSet<>();
+        final var mappings = getList(TOPIC_TO_EXISTING_RESOURCE_MAPPING);
+        final var resources = new HashSet<>();
+        if (mappings.size() > 10) {
+            throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mappings.toString(),
+                    "Too many topic-to-resource mappings, the maximum allowed is 10");
+        }
+        for (final var mapping : mappings) {
+            String[] parts = mapping.split(":");
+            if (parts.length != 2) {
+                throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mapping,
+                        "Wrong topic-to-resource mapping format, expected format is: topic_name:resource_name");
+            }
+            final var topic = parts[0].trim();
+            final var resource = parts[1].trim();
+            if (topic.isEmpty() || resource.isEmpty()) {
+                throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mapping,
+                        "Wrong topic-to-resource mapping format, expected format is: topic_name:resource_name");
+            }
+            if (topics.contains(topic)) {
+                throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mapping, "Topic `" + topic
+                        + "` is mapped to multiple resources. Each topic should be mapped to exactly one resource");
+            }
+            if (resources.contains(resource)) {
+                throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mapping, "Resource `" + resource
+                        + "` is mapped from multiple topics. Each resource should be mapped to exactly one topic");
+            }
+            topics.add(topic);
+            resources.add(resource);
         }
     }
 
@@ -479,6 +552,9 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
     }
 
     public boolean dataStreamEnabled() {
+        if (existingResourceEnabled()) {
+            return existingResourceType() == ExistingResourceType.DATA_STREAM;
+        }
         return getBoolean(DATA_STREAM_ENABLED);
     }
 
@@ -563,6 +639,28 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
         return dataStreamEnabled()
                 ? this::convertTopicToDataStreamName
                 : OpenSearchSinkConnectorConfig::convertTopicToIndexName;
+    }
+
+    public boolean existingResourceEnabled() {
+        return existingResourceType() != ExistingResourceType.NONE;
+    }
+
+    public ExistingResourceType existingResourceType() {
+        return ExistingResourceType.forValue(getString(EXISTING_RESOURCE_TYPE));
+    }
+
+    public Map<String, String> topicToExistingResourceMappings() {
+        if (!existingResourceEnabled())
+            return Map.of();
+        final var mappings = new HashMap<String, String>();
+        final var topicToResourceMappings = getList(TOPIC_TO_EXISTING_RESOURCE_MAPPING);
+        for (final var mapping : topicToResourceMappings) {
+            String[] parts = mapping.split(":");
+            final var topic = parts[0].trim();
+            final var resource = parts[1].trim();
+            mappings.put(topic, resource);
+        }
+        return Map.copyOf(mappings);
     }
 
     private static String convertTopicToIndexName(final String topic) {
@@ -688,6 +786,14 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
         return routingRecordValueJsonPointer;
     }
 
+    public int maxConnPerRoute() {
+        return Math.max(10, maxInFlightRequests() * 2);
+    }
+
+    public int maxConnTotal() {
+        return maxConnPerRoute() * httpHosts().length;
+    }
+
     public static void main(final String[] args) {
         System.out.println("=========================================");
         System.out.println("OpenSearch Sink Connector Configuration Options");
@@ -696,11 +802,4 @@ public class OpenSearchSinkConnectorConfig extends AbstractConfig {
         System.out.println(CONFIG.toEnrichedRst());
     }
 
-    public int maxConnPerRoute() {
-        return Math.max(10, maxInFlightRequests() * 2);
-    }
-
-    public int maxConnTotal() {
-        return maxConnPerRoute() * httpHosts().length;
-    }
 }

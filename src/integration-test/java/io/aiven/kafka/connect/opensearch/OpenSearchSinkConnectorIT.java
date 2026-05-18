@@ -50,7 +50,7 @@ public class OpenSearchSinkConnectorIT extends AbstractKafkaConnectIT {
 
         waitForRecords(TOPIC_NAME, 10);
 
-        final var searchResults = opensearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME)), Map.class).hits();
+        final var searchResults = openSearchClient.search(SearchRequest.of(b -> b.index(TOPIC_NAME)), Map.class).hits();
         for (final var hit : searchResults.hits()) {
             final var id = (Integer) hit.source().get("doc_num");
             assertNotNull(id);
@@ -58,7 +58,7 @@ public class OpenSearchSinkConnectorIT extends AbstractKafkaConnectIT {
             assertEquals(TOPIC_NAME, hit.index());
         }
         assertEquals(DynamicMapping.True,
-                opensearchClient.indices()
+                openSearchClient.indices()
                         .getMapping(b -> b.index(List.of(TOPIC_NAME)))
                         .get(TOPIC_NAME)
                         .mappings()

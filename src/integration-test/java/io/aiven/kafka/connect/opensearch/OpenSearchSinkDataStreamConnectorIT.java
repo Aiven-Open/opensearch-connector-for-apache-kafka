@@ -122,13 +122,13 @@ public class OpenSearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         waitForRecords(TOPIC_NAME1, 10);
 
         // Search for datastreams with topic name, and it should exist
-        final var dsStats = opensearchClient.indices()
+        final var dsStats = openSearchClient.indices()
                 .dataStreamsStats(DataStreamsStatsRequest.builder().name(TOPIC_NAME1).build());
         assertEquals(1, dsStats.dataStreamCount());
         deleteTopic(TOPIC_NAME1);
 
         // Delete datastream
-        opensearchClient.indices().deleteDataStream(b -> b.name(List.of(userProvidedTemplateName)));
+        openSearchClient.indices().deleteDataStream(b -> b.name(List.of(userProvidedTemplateName)));
     }
 
     // A new template will not be created, as the one provided by user already exists
@@ -150,14 +150,14 @@ public class OpenSearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
         waitForRecords(TOPIC_NAME1, 10);
 
         // Search for datastreams with default index - topic name, and it should not exist
-        final var dsStats = opensearchClient.indices()
+        final var dsStats = openSearchClient.indices()
                 .dataStreamsStats(DataStreamsStatsRequest.builder().name(List.of(TOPIC_NAME1)).build());
         assertEquals(1, dsStats.dataStreamCount());
         deleteTopic(TOPIC_NAME1);
     }
 
     void assertDataStream(final String dataStreamName) throws Exception {
-        final var dsStats = opensearchClient.indices()
+        final var dsStats = openSearchClient.indices()
                 .dataStreamsStats(DataStreamsStatsRequest.builder().name(List.of(dataStreamName)).build());
 
         assertEquals(1, dsStats.dataStreamCount());
@@ -166,7 +166,7 @@ public class OpenSearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
     }
 
     void assertDocs(final String dataStreamIndexName, final String timestampFieldName) throws Exception {
-        final var searchResults = opensearchClient
+        final var searchResults = openSearchClient
                 .search(SearchRequest.of(b -> b.index(dataStreamIndexName)), Map.class)
                 .hits();
         for (final var hit : searchResults.hits()) {
@@ -179,7 +179,7 @@ public class OpenSearchSinkDataStreamConnectorIT extends AbstractKafkaConnectIT 
     }
 
     void createDataStreamAndTemplate(String dataStream, String dataStreamTemplate) throws IOException {
-        opensearchClient.indices()
+        openSearchClient.indices()
                 .putIndexTemplate(PutIndexTemplateRequest.builder()
                         .name(dataStreamTemplate)
                         .indexPatterns(List.of(dataStream, "index-logs-*"))
