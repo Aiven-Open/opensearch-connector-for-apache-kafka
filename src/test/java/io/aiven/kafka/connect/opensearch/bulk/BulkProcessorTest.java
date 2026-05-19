@@ -496,7 +496,7 @@ public class BulkProcessorTest {
 
     private BulkResponse failedResponse(final String failureMessage, final boolean abortable) {
         final var filedResponse = BulkResponseItem
-                .of(b -> b.error(ErrorCause.builder().type("some_type").reason(failureMessage).build())
+                .of(b -> b.error(ErrorCause.builder().type(failureMessage).reason("some_reason").build())
                         .operationType(OperationType.Index)
                         .index("some_index")
                         .status(abortable ? HttpStatus.SC_BAD_REQUEST : HttpStatus.SC_TOO_MANY_REQUESTS));
