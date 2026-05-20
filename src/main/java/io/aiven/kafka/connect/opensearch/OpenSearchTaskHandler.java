@@ -160,7 +160,7 @@ public class OpenSearchTaskHandler {
                             .waitForActiveShards(WaitForActiveShards.builder().count(1).build())
                             .build());
         } catch (final OpenSearchException oe) {
-            if ("resource_already_exists_exception".equals(oe.error().type())) {
+            if (indexAlreadyExists(oe)) {
                 LOGGER.info("Index {} already exists", indexName);
             } else {
                 throw new ConnectException("Couldn't create index " + indexName, oe);
@@ -168,6 +168,16 @@ public class OpenSearchTaskHandler {
         } catch (final IOException e) {
             throw new RetriableException("Couldn't create index " + indexName, e);
         }
+    }
+
+    private boolean indexAlreadyExists(OpenSearchException e) {
+        var error = e.error();
+        if ("resource_already_exists_exception".equals(error.type())) {
+            return true;
+        }
+
+        return "invalid_index_name_exception".equals(error.type()) && error.reason() instanceof String reason
+                && reason.contains("already exists as alias");
     }
 
     private void createDataStreamIndex(final String indexName, final SinkRecord record) {
