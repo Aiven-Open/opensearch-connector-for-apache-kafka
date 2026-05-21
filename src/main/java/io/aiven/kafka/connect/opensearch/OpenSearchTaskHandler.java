@@ -113,7 +113,7 @@ public class OpenSearchTaskHandler {
                     }
                 } else {
                     indexName = config.topicToIndexNameConverter().apply(record.topic());
-                    ensureIndexOrDataStreamExists(config.topicToIndexNameConverter().apply(record.topic()), record);
+                    ensureIndexOrDataStreamExists(indexName, record);
                 }
                 final var op = bulkOperationBuilder.buildFor(indexName, record);
                 if (op != null) {
