@@ -195,7 +195,6 @@ dependencies {
 
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
     implementation "org.opensearch.client:opensearch-java:$openSearchJavaClientVersion"
-    implementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
 
     implementation "software.amazon.awssdk:http-auth-aws:$awsVersion"
     implementation "software.amazon.awssdk:sts:$awsVersion"
@@ -203,6 +202,7 @@ dependencies {
 
     testImplementation platform("org.junit:junit-bom:${junitVersion}")
     testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+    testImplementation "org.apache.commons:commons-lang3:$apacheCommonsLangVersion"
 
     testImplementation "org.mockito:mockito-core:${mockitoVersion}"
     testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
