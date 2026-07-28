@@ -19,6 +19,8 @@ package io.aiven.kafka.connect.opensearch;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -51,6 +53,8 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public static final String DATA_STREAM_GROUP_NAME = "Data Stream";
 
     public static final String DATA_CONVERSION_GROUP_NAME = "Data Conversion";
+
+    public static final String TOPIC_TO_EXISTING_RESOURCES_SETTINGS_GROUP_NAME = "Topic to Existing Resource Mappings";
 
     public static final String CONNECTION_URL_CONFIG = "connection.url";
     private static final String CONNECTION_URL_DOC =
@@ -204,11 +208,23 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     public static final String DATA_STREAM_TIMESTAMP_FIELD_DOC = "The Kafka record field to use as "
             + "the timestamp for the @timestamp field in documents sent to a data stream. The default is @timestamp.";
 
+    public static final String EXISTING_RESOURCE_TYPE = "existing.resource.type";
+
+    public static final String EXISTING_RESOURCE_TYPE_DOC =
+            "Specifies the type of existing OpenSearch resource to write to";
+
+    public static final String TOPIC_TO_EXISTING_RESOURCE_MAPPING = "topic.to.existing.resource.mapping";
+
+    public static final String TOPIC_TO_EXISTING_RESOURCE_MAPPING_DOC =
+            "Specifies comma-separated topic_name:resource_name mappings "
+                    + "(e.g. topic_1:index_1,topic_2:index_2)";
+
     protected static ConfigDef baseConfigDef() {
         final ConfigDef configDef = new ConfigDef();
         addConnectorConfigs(configDef);
         addConversionConfigs(configDef);
         addDataStreamConfig(configDef);
+        addExistingResourcesConfigs(configDef);
         addSpiConfigs(configDef);
         return configDef;
     }
@@ -473,6 +489,32 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                 "Behavior on document's version conflict (optimistic locking)");
     }
 
+    private static void addExistingResourcesConfigs(final ConfigDef configDef) {
+        int order = 0;
+        configDef.define(
+                EXISTING_RESOURCE_TYPE,
+                Type.STRING,
+                ExistingResourceType.DEFAULT.toString().toLowerCase(Locale.ROOT),
+                ExistingResourceType.VALIDATOR,
+                Importance.LOW,
+                EXISTING_RESOURCE_TYPE_DOC,
+                TOPIC_TO_EXISTING_RESOURCES_SETTINGS_GROUP_NAME,
+                ++order,
+                Width.SHORT,
+                "Existing Resource Type"
+        ).define(
+                TOPIC_TO_EXISTING_RESOURCE_MAPPING,
+                Type.LIST,
+                null,
+                Importance.LOW,
+                TOPIC_TO_EXISTING_RESOURCE_MAPPING_DOC,
+                TOPIC_TO_EXISTING_RESOURCES_SETTINGS_GROUP_NAME,
+                ++order,
+                Width.LONG,
+                "Topic to resource mappings"
+        );
+    }
+
     private static void addDataStreamConfig(final ConfigDef configDef) {
         int order = 0;
         configDef.define(
@@ -523,6 +565,7 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     }
 
     private void validate() {
+        validateExistingResourceConfig();
         if (dataStreamEnabled() && indexWriteMethod() == IndexWriteMethod.UPSERT) {
             throw new ConfigException("Data streams do not support upsert index write method");
         }
@@ -540,6 +583,58 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
                             DocumentIDStrategy.RECORD_KEY
                     )
             );
+        }
+    }
+
+    private void validateExistingResourceConfig() {
+        if (!existingResourceEnabled()) {
+            return;
+        }
+        if (getBoolean(DATA_STREAM_ENABLED)
+                && existingResourceType() == ExistingResourceType.DATA_STREAM) {
+            throw new ConfigException(
+                    "Existing datastream mappings and datastream configurations are mutually exclusive. "
+                            + "Please configure only one of these options");
+        }
+        final List<String> mappings = getList(TOPIC_TO_EXISTING_RESOURCE_MAPPING);
+        if (mappings == null || mappings.isEmpty()) {
+            throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, null);
+        }
+        validateTopicToExistingResourceMappings();
+    }
+
+    private void validateTopicToExistingResourceMappings() {
+        final Set<String> topics = new HashSet<>();
+        final List<String> mappings = getList(TOPIC_TO_EXISTING_RESOURCE_MAPPING);
+        final Set<String> resources = new HashSet<>();
+        if (mappings.size() > 10) {
+            throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mappings.toString(),
+                    "Too many topic-to-resource mappings, the maximum allowed is 10");
+        }
+        for (final String mapping : mappings) {
+            final String[] parts = mapping.split(":");
+            if (parts.length != 2) {
+                throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mapping,
+                        "Wrong topic-to-resource mapping format, expected format is: topic_name:resource_name");
+            }
+            final String topic = parts[0].trim();
+            final String resource = parts[1].trim();
+            if (topic.isEmpty() || resource.isEmpty()) {
+                throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mapping,
+                        "Wrong topic-to-resource mapping format, expected format is: topic_name:resource_name");
+            }
+            if (topics.contains(topic)) {
+                throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mapping,
+                        "Topic `" + topic + "` is mapped to multiple resources."
+                                + " Each topic should be mapped to exactly one resource");
+            }
+            if (resources.contains(resource)) {
+                throw new ConfigException(TOPIC_TO_EXISTING_RESOURCE_MAPPING, mapping,
+                        "Resource `" + resource + "` is mapped from multiple topics."
+                                + " Each resource should be mapped to exactly one topic");
+            }
+            topics.add(topic);
+            resources.add(resource);
         }
     }
 
@@ -585,7 +680,33 @@ public class OpensearchSinkConnectorConfig extends AbstractConfig {
     }
 
     public boolean dataStreamEnabled() {
+        if (existingResourceEnabled()) {
+            return existingResourceType() == ExistingResourceType.DATA_STREAM;
+        }
         return getBoolean(DATA_STREAM_ENABLED);
+    }
+
+    public boolean existingResourceEnabled() {
+        return existingResourceType() != ExistingResourceType.NONE;
+    }
+
+    public ExistingResourceType existingResourceType() {
+        return ExistingResourceType.forValue(getString(EXISTING_RESOURCE_TYPE));
+    }
+
+    public Map<String, String> topicToExistingResourceMappings() {
+        if (!existingResourceEnabled()) {
+            return Map.of();
+        }
+        final Map<String, String> mappings = new HashMap<>();
+        final List<String> topicToResourceMappings = getList(TOPIC_TO_EXISTING_RESOURCE_MAPPING);
+        for (final String mapping : topicToResourceMappings) {
+            final String[] parts = mapping.split(":");
+            final String topic = parts[0].trim();
+            final String resource = parts[1].trim();
+            mappings.put(topic, resource);
+        }
+        return Map.copyOf(mappings);
     }
 
     public Optional<String> dataStreamPrefix() {

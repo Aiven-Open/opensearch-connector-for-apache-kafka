@@ -128,9 +128,21 @@ public class OpensearchSinkTask extends SinkTask {
     }
 
     private void tryWriteRecord(final SinkRecord record) {
-        final var indexOrDataStreamName = topicToIndexConverter.apply(record.topic());
-        ensureIndexOrDataStreamExists(indexOrDataStreamName);
-        checkMappingFor(indexOrDataStreamName, record);
+        final String indexOrDataStreamName;
+        if (config.existingResourceEnabled()) {
+            indexOrDataStreamName = config.topicToExistingResourceMappings().get(record.topic());
+            if (indexOrDataStreamName == null) {
+                throw new ConnectException("Topic `" + record.topic() + "` is not mapped to resource");
+            }
+            // The target index/alias/data stream is expected to exist; do not create it.
+            // Still propagate the record's mapping so schema evolution flows through, matching
+            // the non-existing-resource path.
+            checkMappingFor(indexOrDataStreamName, record);
+        } else {
+            indexOrDataStreamName = topicToIndexConverter.apply(record.topic());
+            ensureIndexOrDataStreamExists(indexOrDataStreamName);
+            checkMappingFor(indexOrDataStreamName, record);
+        }
         try {
             final var indexRecord = recordConverter.convert(record, indexOrDataStreamName);
             if (Objects.nonNull(indexRecord)) {
