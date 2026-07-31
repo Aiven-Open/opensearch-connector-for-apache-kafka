@@ -1,9 +1,9 @@
 name: Gradle
 on:
   push:
-    branches: [ main ]
+    branches: [ branch-3.2 ]
   pull_request:
-    branches: [ main ]
+    branches: [ branch-3.2 ]
 jobs:
   check:
     strategy:
