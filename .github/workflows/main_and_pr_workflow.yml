@@ -15,7 +15,7 @@ jobs:
           - { opensearch-version: 2.3.0, java-version: 11 }
           - { opensearch-version: 2.3.0, java-version: 17 }
           - { opensearch-version: 2.3.0, java-version: 19 }
-        runs-on: [ubuntu-latest]
+        runs-on: [ubuntu-22.04]
     name: Check on ${{ matrix.runs-on }} (JDK-${{ matrix.entry.java-version }}, OpenSearch ${{ matrix.entry.opensearch-version }})
     runs-on: ${{ matrix.runs-on }}
     steps:
@@ -27,8 +27,9 @@ jobs:
           java-version: ${{ matrix.entry.java-version }}
           distribution: 'temurin'
           cache: gradle
+      - name: Pre-pull OpenSearch image
+        run: docker pull opensearchproject/opensearch:${{ matrix.entry.opensearch-version }}
       - name: Check and Test with Gradle
-        if: ${{ matrix.runs-on == 'ubuntu-latest' }}
         run: ./gradlew check -Popensearch.testcontainers.image-version=${{ matrix.entry.opensearch-version }}
   build:
     strategy:
