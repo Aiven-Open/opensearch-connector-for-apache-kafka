@@ -33,7 +33,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public class OpensearchSinkConnectorConfigTest {
@@ -254,6 +256,112 @@ public class OpensearchSinkConnectorConfigTest {
                 )
         );
         assertEquals("bbbbb", noDsPrefixConfig.topicToIndexNameConverter().apply("bbbbb"));
+    }
+
+    @Test
+    void existingResourceDisabledByDefault() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        final var config = new OpensearchSinkConnectorConfig(props);
+        assertFalse(config.existingResourceEnabled());
+        assertEquals(ExistingResourceType.NONE, config.existingResourceType());
+        assertTrue(config.topicToExistingResourceMappings().isEmpty());
+    }
+
+    @Test
+    void existingResourceMissingMapping() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX_ALIAS.toString());
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
+    @Test
+    void existingResourceMalformedMapping() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX_ALIAS.toString());
+
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "no_colon");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, ":resource");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "topic:");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
+    @Test
+    void existingResourceDuplicateTopic() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX_ALIAS.toString());
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING,
+                "topic_1:resource_1,topic_1:resource_2");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
+    @Test
+    void existingResourceDuplicateResource() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX_ALIAS.toString());
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING,
+                "topic_1:resource_1,topic_2:resource_1");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
+    @Test
+    void existingResourceTooManyMappings() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX_ALIAS.toString());
+        final StringBuilder mappings = new StringBuilder();
+        for (int i = 0; i < 11; i++) {
+            if (i > 0) {
+                mappings.append(",");
+            }
+            mappings.append("topic_").append(i).append(":resource_").append(i);
+        }
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, mappings.toString());
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
+    @Test
+    void existingResourceMutuallyExclusiveWithDataStream() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.DATA_STREAM.toString());
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "topic_1:ds_1");
+        props.put(OpensearchSinkConnectorConfig.DATA_STREAM_ENABLED, "true");
+        assertThrows(ConfigException.class, () -> new OpensearchSinkConnectorConfig(props));
+    }
+
+    @Test
+    void existingResourceMappingsParsed() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX_ALIAS.toString());
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING,
+                "topic_1:alias_1, topic_2 : alias_2");
+        final var config = new OpensearchSinkConnectorConfig(props);
+        assertTrue(config.existingResourceEnabled());
+        assertEquals(ExistingResourceType.INDEX_ALIAS, config.existingResourceType());
+        final var mappings = config.topicToExistingResourceMappings();
+        assertEquals(2, mappings.size());
+        assertEquals("alias_1", mappings.get("topic_1"));
+        assertEquals("alias_2", mappings.get("topic_2"));
+    }
+
+    @Test
+    void existingResourceDataStreamTypeMakesDataStreamEnabled() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.DATA_STREAM.toString());
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "topic_1:ds_1");
+        final var config = new OpensearchSinkConnectorConfig(props);
+        assertTrue(config.dataStreamEnabled());
+    }
+
+    @Test
+    void existingResourceIndexAliasTypeKeepsDataStreamDisabled() {
+        props.put(OpensearchSinkConnectorConfig.CONNECTION_URL_CONFIG, "http://localhost");
+        props.put(OpensearchSinkConnectorConfig.EXISTING_RESOURCE_TYPE, ExistingResourceType.INDEX_ALIAS.toString());
+        props.put(OpensearchSinkConnectorConfig.TOPIC_TO_EXISTING_RESOURCE_MAPPING, "topic_1:alias_1");
+        final var config = new OpensearchSinkConnectorConfig(props);
+        assertFalse(config.dataStreamEnabled());
     }
 
 }
