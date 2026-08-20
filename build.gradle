@@ -120,9 +120,9 @@ publishing {
 ext {
     kafkaVersion = "2.8.1"
     slf4jVersion = "1.7.36"
-    openSearchVersion = "2.9.0"
+    openSearchVersion = "2.19.6"
 
-    testcontainersVersion = "1.18.3"
+    testcontainersVersion = "1.21.4"
     confluentPlatformVersion = "4.1.4"
 }
 
