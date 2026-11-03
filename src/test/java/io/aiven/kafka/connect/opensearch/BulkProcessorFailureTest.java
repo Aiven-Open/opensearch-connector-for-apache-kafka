@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -83,10 +84,11 @@ class BulkProcessorFailureTest {
         try {
             processor.add(new IndexRequest("test"), null, 1000);
             assertTrue(entered.await(5, TimeUnit.SECONDS));
-            adding.start();
+            // Start flush first because it notifies existing waiters.
             flushing.start();
-            awaitWaiting(adding);
             awaitWaiting(flushing);
+            adding.start();
+            awaitWaiting(adding);
             release.countDown();
             assertSame(failure, add.get(5, TimeUnit.SECONDS).getCause());
             assertSame(failure, flush.get(5, TimeUnit.SECONDS).getCause());
@@ -140,9 +142,12 @@ class BulkProcessorFailureTest {
 
     private static void awaitWaiting(final Thread thread) throws InterruptedException {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (thread.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) {
+        while (System.nanoTime() < deadline) {
+            if (thread.getState() == Thread.State.TIMED_WAITING) {
+                return;
+            }
             Thread.sleep(1);
         }
-        assertSame(Thread.State.TIMED_WAITING, thread.getState());
+        fail("Thread did not enter a timed wait");
     }
 }
