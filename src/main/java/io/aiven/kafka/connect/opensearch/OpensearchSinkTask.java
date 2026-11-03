@@ -108,6 +108,7 @@ public class OpensearchSinkTask extends SinkTask {
 
     @Override
     public void put(final Collection<SinkRecord> records) throws ConnectException {
+        client.throwIfFailed();
         LOGGER.trace("Putting {} to Opensearch", records);
         for (final var record : records) {
             if (ignoreRecord(record)) {

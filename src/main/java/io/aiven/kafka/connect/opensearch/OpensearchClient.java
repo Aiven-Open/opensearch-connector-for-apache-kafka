@@ -253,6 +253,10 @@ public class OpensearchClient implements AutoCloseable {
         bulkProcessor.add(indexRequest, record, config.flushTimeoutMs());
     }
 
+    public void throwIfFailed() {
+        bulkProcessor.throwIfFailed();
+    }
+
     public void flush() {
         bulkProcessor.flush(config.flushTimeoutMs());
     }
@@ -263,10 +267,9 @@ public class OpensearchClient implements AutoCloseable {
         } catch (final Exception e) {
             LOGGER.warn("Failed to flush during stop", e);
         }
-        bulkProcessor.stop();
-        bulkProcessor.awaitStop(config.flushTimeoutMs());
-        if (Objects.nonNull(client)) {
-            client.close();
+        try (client) {
+            bulkProcessor.stop();
+            bulkProcessor.awaitStop(config.flushTimeoutMs());
         }
     }
 

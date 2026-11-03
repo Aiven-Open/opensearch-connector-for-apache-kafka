@@ -31,7 +31,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.common.config.ConfigDef;
@@ -76,7 +75,10 @@ public class BulkProcessor {
     // but may be part of synchronized(this) wait() conditions so need to notifyAll() on changes
     private volatile boolean stopRequested = false;
     private volatile boolean flushRequested = false;
-    private final AtomicReference<ConnectException> error = new AtomicReference<>();
+    private volatile Throwable error;
+
+    // Allocate while healthy: reporting an allocation failure must not require a new wrapper.
+    private final ConnectException terminalFailure = new ConnectException("Background bulk processing failed");
 
     // shared state, synchronized on (this), may be part of wait() conditions so need notifyAll() on
     // changes
@@ -129,8 +131,8 @@ public class BulkProcessor {
         final AtomicInteger threadCounter = new AtomicInteger();
         final Thread.UncaughtExceptionHandler uncaughtExceptionHandler =
                 (t, e) -> {
-                    LOGGER.error("Uncaught exception in BulkProcessor thread {}", t, e);
                     failAndStop(e);
+                    LOGGER.error("Uncaught exception in BulkProcessor thread {}", t, e);
                 };
         return new ThreadFactory() {
             @Override
@@ -153,7 +155,8 @@ public class BulkProcessor {
                     submitBatchWhenReady();
                 }
             } catch (final InterruptedException e) {
-                throw new ConnectException(e);
+                failAndStop(e);
+                Thread.currentThread().interrupt();
             }
             LOGGER.debug("Finished farmer task");
         };
@@ -232,6 +235,7 @@ public class BulkProcessor {
                 throw new ConnectException("Timed-out waiting for executor termination");
             }
         } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new ConnectException(e);
         } finally {
             executor.shutdownNow();
@@ -249,7 +253,7 @@ public class BulkProcessor {
      * @return whether any task failed with an error
      */
     public boolean isFailed() {
-        return error.get() != null;
+        return error != null;
     }
 
     /**
@@ -273,7 +277,7 @@ public class BulkProcessor {
      */
     public void throwIfFailed() {
         if (isFailed()) {
-            throw error.get();
+            throw terminalFailure;
         }
     }
 
@@ -304,6 +308,7 @@ public class BulkProcessor {
                 try {
                     wait(timeoutMs - elapsedMs);
                 } catch (final InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     throw new ConnectException(e);
                 }
             }
@@ -342,6 +347,7 @@ public class BulkProcessor {
                 }
             }
         } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new ConnectException(e);
         } finally {
             flushRequested = false;
@@ -371,7 +377,7 @@ public class BulkProcessor {
                 LOGGER.debug("Successfully executed batch {} of {} records", batchId, batch.size());
                 onBatchCompletion(batch.size());
                 return rsp;
-            } catch (final Exception e) {
+            } catch (final Throwable e) {
                 failAndStop(e);
                 throw e;
             }
@@ -551,8 +557,16 @@ public class BulkProcessor {
     }
 
     private void failAndStop(final Throwable t) {
-        error.compareAndSet(null, toConnectException(t));
-        stop();
+        synchronized (this) {
+            if (error == null) {
+                terminalFailure.initCause(t);
+                error = t;
+            }
+            stopRequested = true;
+            notifyAll();
+        }
+        // Publish poison and wake waiters before shutdown, which may itself fail.
+        executor.shutdown();
     }
 
     /**
@@ -560,14 +574,6 @@ public class BulkProcessor {
      */
     public synchronized int bufferedRecords() {
         return unsentRecords.size() + inFlightRecords;
-    }
-
-    private static ConnectException toConnectException(final Throwable t) {
-        if (t instanceof ConnectException) {
-            return (ConnectException) t;
-        } else {
-            return new ConnectException(t);
-        }
     }
 
     public enum BehaviorOnMalformedDoc {
