@@ -267,13 +267,9 @@ public class OpensearchClient implements AutoCloseable {
         } catch (final Exception e) {
             LOGGER.warn("Failed to flush during stop", e);
         }
-        try {
+        try (client) {
             bulkProcessor.stop();
             bulkProcessor.awaitStop(config.flushTimeoutMs());
-        } finally {
-            if (Objects.nonNull(client)) {
-                client.close();
-            }
         }
     }
 

@@ -17,6 +17,7 @@
 
 package io.aiven.kafka.connect.opensearch;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -30,22 +31,29 @@ import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
 
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class OpensearchClientCloseTest {
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void closesTransportWhenShutdownTimesOutOrIsInterrupted(final boolean interrupted) throws Exception {
+    @CsvSource({"false, false", "true, false", "false, true", "true, true"})
+    void closesTransportAndPreservesShutdownFailure(final boolean interrupted, final boolean closeFails)
+            throws Exception {
         final var transport = mock(RestHighLevelClient.class);
+        final var closeFailure = new IOException("transport close failed");
+        if (closeFails) {
+            doThrow(closeFailure).when(transport).close();
+        }
         final var entered = new CountDownLatch(1);
         final var release = new CountDownLatch(1);
         when(transport.bulk(any(BulkRequest.class), eq(RequestOptions.DEFAULT))).thenAnswer(invocation -> {
@@ -61,8 +69,11 @@ class OpensearchClientCloseTest {
             if (interrupted) {
                 Thread.currentThread().interrupt();
             }
-            assertThrows(ConnectException.class, client::close);
+            final var failure = assertThrows(ConnectException.class, client::close);
             assertEquals(interrupted, Thread.currentThread().isInterrupted());
+            if (closeFails) {
+                assertArrayEquals(new Throwable[]{closeFailure}, failure.getSuppressed());
+            }
             verify(transport).close();
         } finally {
             Thread.interrupted();

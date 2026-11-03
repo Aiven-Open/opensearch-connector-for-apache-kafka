@@ -31,7 +31,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.common.config.ConfigDef;
@@ -76,7 +75,7 @@ public class BulkProcessor {
     // but may be part of synchronized(this) wait() conditions so need to notifyAll() on changes
     private volatile boolean stopRequested = false;
     private volatile boolean flushRequested = false;
-    private final AtomicReference<Throwable> error = new AtomicReference<>();
+    private volatile Throwable error;
 
     // Allocate while healthy: reporting an allocation failure must not require a new wrapper.
     private final ConnectException terminalFailure = new ConnectException("Background bulk processing failed");
@@ -254,7 +253,7 @@ public class BulkProcessor {
      * @return whether any task failed with an error
      */
     public boolean isFailed() {
-        return error.get() != null;
+        return error != null;
     }
 
     /**
@@ -559,9 +558,9 @@ public class BulkProcessor {
 
     private void failAndStop(final Throwable t) {
         synchronized (this) {
-            if (error.get() == null) {
+            if (error == null) {
                 terminalFailure.initCause(t);
-                error.set(t);
+                error = t;
             }
             stopRequested = true;
             notifyAll();
